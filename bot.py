@@ -136,7 +136,6 @@ def get_user(user_id, username=""):
         )
 
         conn.commit()
-
         points = START_POINTS
 
     else:
@@ -158,7 +157,6 @@ def get_user(user_id, username=""):
         conn.commit()
 
     conn.close()
-
     return points
 
 
@@ -431,7 +429,6 @@ async def text_bet(
         return
 
     text = update.message.text.strip()
-
     parts = text.split()
 
     if len(parts) != 2:
@@ -746,7 +743,7 @@ Từ chối:
 
 
 # =========================================================
-# RÚT
+# RÚT (Đã cập nhật hiển thị tài khoản MSB)
 # =========================================================
 
 async def withdraw(
@@ -819,19 +816,26 @@ async def withdraw(
         amount
     )
 
+    # Hiển thị thông tin chuyển khoản MSB + Mã giao dịch
     await update.message.reply_text(
         f"""
 📤 YÊU CẦU RÚT ĐIỂM
 
 🆔 Mã giao dịch:
-{tx_id}
+`{tx_id}`
 
 🪙 Số điểm:
 {amount:,}
 
+🏦 THÔNG TIN NHẬN TIỀN:
+• Ngân hàng: **MSB**
+• Số tài khoản: **6314072009**
+• Nội dung chuyển khoản: **{tx_id}**
+
 ⏳ Trạng thái:
-CHỜ DUYỆT
-"""
+CHỜ DUYỆT (Hệ thống sẽ thanh toán sau khi đối soát đúng mã giao dịch).
+""",
+        parse_mode="Markdown"
     )
 
     if ADMIN_ID:
@@ -841,7 +845,7 @@ CHỜ DUYỆT
             await context.bot.send_message(
                 ADMIN_ID,
                 f"""
-📤 YÊU CẦU RÚT ĐIỂM
+📤 YÊU CẦU RÚT ĐIỂM MỚI
 
 👤 {user.first_name}
 🆔 User ID: {user.id}
@@ -899,7 +903,6 @@ async def history(
     )
 
     rows = cur.fetchall()
-
     conn.close()
 
     if not rows:
@@ -934,9 +937,7 @@ async def history(
             f"🕐 {row[4]}\n\n"
         )
 
-    await update.message.reply_text(
-        text
-    )
+    await update.message.reply_text(text)
 
 
 # =========================================================
@@ -1158,7 +1159,6 @@ async def reject(
     )
 
     changed = cur.rowcount
-
     conn.commit()
     conn.close()
 
@@ -1178,10 +1178,6 @@ async def reject(
             "❌ Không tìm thấy giao dịch đang chờ."
         )
 
-
-# =========================================================
-# ADMIN CỘNG ĐIỂM
-# =========================================================
 
 async def add_points(
     update: Update,
@@ -1248,10 +1244,6 @@ async def add_points(
 """
     )
 
-
-# =========================================================
-# ADMIN TRỪ ĐIỂM
-# =========================================================
 
 async def remove_points(
     update: Update,
