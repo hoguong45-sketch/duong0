@@ -508,10 +508,10 @@ X 10000
 → Xem số dư
 
 /nap 10000
-→ Yêu cầu nạp điểm ảo
+→ Yêu cầu nạp điểm
 
-/rut 5000
-→ Yêu cầu rút điểm ảo
+/rut 100000 VCB 0123456789 Tran Van B
+→ Yêu cầu rút tiền về ngân hàng
 
 /ls
 → Xem lịch sử giao dịch
@@ -553,16 +553,17 @@ BỘ BA
 🏆 Thắng:
 Cược × 1.97
 
-💰 ĐIỂM:
+💰 GIAO DỊCH:
 
 /tk
 → Xem số dư
 
 /nap 10000
-→ Yêu cầu nạp điểm ảo
+→ Nạp điểm (Nhận STK chuyển khoản MSB)
 
-/rut 5000
-→ Yêu cầu rút điểm ảo
+/rut [Số tiền] [Mã NH] [Số TK] [Tên TK]
+→ Rút tiền về Ngân hàng
+VD: /rut 100000 VCB 0123456789 Tran Van B
 
 /ls
 → Lịch sử giao dịch
@@ -641,7 +642,7 @@ async def dice(
 
 
 # =========================================================
-# NẠP
+# NẠP (HIỆN STK MSB VÀ NỘI DUNG LÀ MÃ GIAO DỊCH)
 # =========================================================
 
 async def deposit(
@@ -656,8 +657,10 @@ async def deposit(
         await update.message.reply_text(
             """
 ❌ Cú pháp:
+/nap [số điểm cần nạp]
 
-/nap 10000
+Ví dụ:
+/nap 100000
 """
         )
 
@@ -697,15 +700,19 @@ async def deposit(
         f"""
 📥 YÊU CẦU NẠP ĐIỂM
 
-🆔 Mã giao dịch:
-{tx_id}
+🪙 Số điểm: {amount:,} VNĐ
+🆔 Mã giao dịch: `{tx_id}`
 
-🪙 Số điểm:
-{amount:,}
+🏦 THÔNG TIN CHUYỂN KHOẢN:
+• Ngân hàng: **MSB (Maritime Bank)**
+• Số tài khoản: **6314072009**
+• Chủ tài khoản: (Tên của bạn)
+• Nội dung chuyển khoản (BẮT BUỘC): `{tx_id}`
 
-⏳ Trạng thái:
-CHỜ DUYỆT
-"""
+⏳ Trạng thái: CHỜ THANH TOÁN
+(Hệ thống sẽ tự động cộng điểm sau khi nhận được chuyển khoản đúng nội dung).
+""",
+        parse_mode="Markdown"
     )
 
     if ADMIN_ID:
@@ -715,16 +722,12 @@ CHỜ DUYỆT
             await context.bot.send_message(
                 ADMIN_ID,
                 f"""
-📥 YÊU CẦU NẠP ĐIỂM
+📥 YÊU CẦU NẠP ĐIỂM MỚI
 
 👤 {user.first_name}
 🆔 User ID: {user.id}
-
-🪙 Số điểm:
-{amount:,}
-
-🔖 Mã:
-{tx_id}
+🪙 Số điểm: {amount:,}
+🔖 Mã giao dịch: {tx_id}
 
 Duyệt:
 /approve_deposit {tx_id}
@@ -743,7 +746,7 @@ Từ chối:
 
 
 # =========================================================
-# RÚT (Đã cập nhật hiển thị tài khoản MSB)
+# RÚT (CÚ PHÁP CHI TIẾT NGÂN HÀNG)
 # =========================================================
 
 async def withdraw(
@@ -753,13 +756,24 @@ async def withdraw(
 
     user = update.effective_user
 
-    if len(context.args) != 1:
+    if len(context.args) < 4:
 
         await update.message.reply_text(
             """
-❌ Cú pháp:
+❌ Cú pháp rút tiền ngân hàng:
+/rut [số tiền] [mã ngân hàng] [số TK] [Tên TK không dấu]
 
-/rut 5000
+💡 Ví dụ:
+/rut 100000 VCB 0123456789 Tran Van B
+
+📋 Mã ngân hàng phổ biến:
+• Vietcombank => VCB
+• BIDV => BIDV
+• Vietinbank => VTB
+• Techcombank => TCB
+• MB Bank => MB
+• Maritime Bank => MSB
+• TPBank => TPB
 """
         )
 
@@ -776,10 +790,14 @@ async def withdraw(
     except ValueError:
 
         await update.message.reply_text(
-            "❌ Số điểm không hợp lệ."
+            "❌ Số điểm/số tiền rút không hợp lệ."
         )
 
         return
+
+    bank_code = context.args[1].upper()
+    bank_account = context.args[2]
+    bank_owner = " ".join(context.args[3:])
 
     if amount <= 0:
 
@@ -798,13 +816,10 @@ async def withdraw(
 
         await update.message.reply_text(
             f"""
-❌ Không đủ điểm!
+❌ Không đủ điểm để rút!
 
-💰 Số dư:
-{points:,}
-
-📤 Muốn rút:
-{amount:,}
+💰 Số dư hiện tại: {points:,}
+📤 Số tiền muốn rút: {amount:,}
 """
         )
 
@@ -816,24 +831,20 @@ async def withdraw(
         amount
     )
 
-    # Hiển thị thông tin chuyển khoản MSB + Mã giao dịch
     await update.message.reply_text(
         f"""
-📤 YÊU CẦU RÚT ĐIỂM
+📤 GHI NHẬN YÊU CẦU RÚT TIỀN
 
-🆔 Mã giao dịch:
-`{tx_id}`
+🆔 Mã giao dịch: `{tx_id}`
+🪙 Số điểm rút: {amount:,}
 
-🪙 Số điểm:
-{amount:,}
+🏦 THÔNG TIN NHẬN CỦA BẠN:
+• Ngân hàng: **{bank_code}**
+• Số TK: `{bank_account}`
+• Chủ TK: **{bank_owner}**
 
-🏦 THÔNG TIN NHẬN TIỀN:
-• Ngân hàng: **MSB**
-• Số tài khoản: **6314072009**
-• Nội dung chuyển khoản: **{tx_id}**
-
-⏳ Trạng thái:
-CHỜ DUYỆT (Hệ thống sẽ thanh toán sau khi đối soát đúng mã giao dịch).
+⏳ Trạng thái: CHỜ DUYỆT
+(Admin sẽ chuyển khoản thực tế về tài khoản trên cho bạn).
 """,
         parse_mode="Markdown"
     )
@@ -845,16 +856,12 @@ CHỜ DUYỆT (Hệ thống sẽ thanh toán sau khi đối soát đúng mã gia
             await context.bot.send_message(
                 ADMIN_ID,
                 f"""
-📤 YÊU CẦU RÚT ĐIỂM MỚI
+📤 YÊU CẦU RÚT TIỀN MỚI
 
-👤 {user.first_name}
-🆔 User ID: {user.id}
-
-🪙 Số điểm:
-{amount:,}
-
-🔖 Mã:
-{tx_id}
+👤 {user.first_name} (ID: {user.id})
+🪙 Số điểm: {amount:,}
+🏦 NH: {bank_code} - STK: {bank_account} - Tên: {bank_owner}
+🔖 Mã giao dịch: {tx_id}
 
 Duyệt:
 /approve_withdraw {tx_id}
@@ -1345,10 +1352,6 @@ def main():
         .build()
     )
 
-    # -------------------------
-    # USER
-    # -------------------------
-
     app.add_handler(
         CommandHandler(
             "start",
@@ -1398,10 +1401,6 @@ def main():
         )
     )
 
-    # -------------------------
-    # ADMIN
-    # -------------------------
-
     app.add_handler(
         CommandHandler(
             "approve_deposit",
@@ -1436,10 +1435,6 @@ def main():
             remove_points
         )
     )
-
-    # -------------------------
-    # T / X
-    # -------------------------
 
     app.add_handler(
         MessageHandler(
