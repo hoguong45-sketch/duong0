@@ -1,30 +1,36 @@
 import os
 import sqlite3
-import random
+import asyncio
+
 from telegram import Update
 from telegram.ext import (
     Application,
     CommandHandler,
+    MessageHandler,
     ContextTypes,
+    filters,
 )
 
 TOKEN = os.getenv("BOT_TOKEN")
 
-DB = "bot.db"
+DB_FILE = "bot.db"
+START_POINTS = 100_000
+MULTIPLIER = 1.97
+
 
 # =========================
 # DATABASE
 # =========================
 
 def init_db():
-    conn = sqlite3.connect(DB)
+    conn = sqlite3.connect(DB_FILE)
     cur = conn.cursor()
 
     cur.execute("""
         CREATE TABLE IF NOT EXISTS users (
             user_id INTEGER PRIMARY KEY,
             username TEXT,
-            points INTEGER DEFAULT 1000
+            points INTEGER NOT NULL DEFAULT 100000
         )
     """)
 
@@ -33,7 +39,7 @@ def init_db():
 
 
 def get_user(user_id, username=""):
-    conn = sqlite3.connect(DB)
+    conn = sqlite3.connect(DB_FILE)
     cur = conn.cursor()
 
     cur.execute(
@@ -45,24 +51,43 @@ def get_user(user_id, username=""):
 
     if row is None:
         cur.execute(
-            "INSERT INTO users (user_id, username, points) VALUES (?, ?, ?)",
-            (user_id, username, 1000)
+            """
+            INSERT INTO users
+            (user_id, username, points)
+            VALUES (?, ?, ?)
+            """,
+            (user_id, username, START_POINTS)
         )
         conn.commit()
-        points = 1000
+        points = START_POINTS
     else:
         points = row[0]
+
+        cur.execute(
+            """
+            UPDATE users
+            SET username = ?
+            WHERE user_id = ?
+            """,
+            (username, user_id)
+        )
+
+        conn.commit()
 
     conn.close()
     return points
 
 
 def set_points(user_id, points):
-    conn = sqlite3.connect(DB)
+    conn = sqlite3.connect(DB_FILE)
     cur = conn.cursor()
 
     cur.execute(
-        "UPDATE users SET points = ? WHERE user_id = ?",
+        """
+        UPDATE users
+        SET points = ?
+        WHERE user_id = ?
+        """,
         (points, user_id)
     )
 
@@ -83,20 +108,30 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
     await update.message.reply_text(
-        f"""🎲 CHÀO MỪNG {user.first_name}!
+        f"""
+🎲 BOT XÚC XẮC
 
-🎮 Bot xúc xắc điểm ảo
+Xin chào {user.first_name}!
 
-💰 Điểm hiện tại: {points:,}
+💰 Số dư: {points:,} điểm
 
-Các lệnh:
+🎮 Cách chơi:
 
-/balance - Xem điểm
-/roll - Tung 3 xúc xắc
-/daily - Nhận điểm hằng ngày
-/help - Xem hướng dẫn
+T 10000
+→ Chọn TÀI 10.000 điểm
 
-⚠️ Điểm chỉ dùng trong bot, không có giá trị tiền thật."""
+X 10000
+→ Chọn XỈU 10.000 điểm
+
+💰 /balance
+→ Xem số dư
+
+ℹ️ /help
+→ Xem hướng dẫn
+
+🎲 Bot sử dụng xúc xắc thật của Telegram.
+🪙 Chỉ sử dụng điểm ảo.
+"""
     )
 
 
@@ -113,99 +148,7 @@ async def balance(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
     await update.message.reply_text(
-        f"💰 Số điểm của bạn: {points:,}"
-    )
-
-
-# =========================
-# ROLL DICE
-# =========================
-
-async def roll(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user = update.effective_user
-
-    points = get_user(
-        user.id,
-        user.username or ""
-    )
-
-    if points < 10:
-        await update.message.reply_text(
-            "❌ Bạn cần ít nhất 10 điểm để chơi."
-        )
-        return
-
-    # Trừ 10 điểm để chơi
-    points -= 10
-
-    dice = [
-        random.randint(1, 6),
-        random.randint(1, 6),
-        random.randint(1, 6)
-    ]
-
-    total = sum(dice)
-
-    # Thưởng theo kết quả
-    if dice[0] == dice[1] == dice[2]:
-        reward = 100
-        result = "🎉 TAM HOA!"
-
-    elif total >= 14:
-        reward = 30
-        result = "🔥 KẾT QUẢ CAO!"
-
-    elif total <= 5:
-        reward = 5
-        result = "📉 KẾT QUẢ THẤP"
-
-    else:
-        reward = 15
-        result = "👍 KẾT QUẢ THƯỜNG"
-
-    points += reward
-
-    set_points(user.id, points)
-
-    await update.message.reply_text(
-        f"""🎲 KẾT QUẢ XÚC XẮC
-
-🎲 {dice[0]}   🎲 {dice[1]}   🎲 {dice[2]}
-
-🔢 Tổng: {total}
-
-{result}
-
-➕ Nhận: {reward} điểm
-💰 Số dư: {points:,} điểm"""
-    )
-
-
-# =========================
-# DAILY
-# =========================
-
-async def daily(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user = update.effective_user
-
-    points = get_user(
-        user.id,
-        user.username or ""
-    )
-
-    reward = 500
-    points += reward
-
-    set_points(user.id, points)
-
-    await update.message.reply_text(
-        f"""🎁 THƯỞNG HẰNG NGÀY
-
-Bạn nhận được:
-🪙 +{reward} điểm
-
-💰 Số dư:
-{points:,} điểm"""
+        f"💰 Số dư:\n\n🪙 {points:,} điểm"
     )
 
 
@@ -215,26 +158,212 @@ Bạn nhận được:
 
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
-        """📖 HƯỚNG DẪN
+        """
+📖 HƯỚNG DẪN
 
-/start
-→ Tạo tài khoản
+🎯 Cú pháp:
 
-/balance
-→ Xem số điểm
+T 10000
+→ Chọn TÀI
 
-/roll
-→ Tung 3 xúc xắc
+X 10000
+→ Chọn XỈU
 
-/daily
-→ Nhận 500 điểm
+Ví dụ:
 
-/help
-→ Xem hướng dẫn
+T 5000
+X 20000
+T 100000
 
-🎲 Mỗi lần /roll sử dụng 10 điểm ảo.
+🎲 Kết quả:
 
-⚠️ Đây chỉ là trò chơi điểm ảo, không hỗ trợ tiền thật."""
+4 → 10 = XỈU
+11 → 17 = TÀI
+
+🏆 Nếu dự đoán đúng:
+Cược × 1,97 điểm
+
+Ví dụ:
+10.000 × 1,97 = 19.700 điểm
+
+⚠️ Bộ ba giống nhau được tính là
+kết quả đặc biệt.
+
+🪙 Đây chỉ là điểm ảo,
+không có nạp/rút tiền thật.
+"""
+    )
+
+
+# =========================
+# PLAY
+# =========================
+
+async def play_game(update: Update, choice, bet):
+
+    user = update.effective_user
+
+    points = get_user(
+        user.id,
+        user.username or ""
+    )
+
+    if bet <= 0:
+        await update.message.reply_text(
+            "❌ Số điểm phải lớn hơn 0."
+        )
+        return
+
+    if bet > points:
+        await update.message.reply_text(
+            f"""
+❌ Không đủ điểm!
+
+💰 Số dư: {points:,}
+🎯 Bạn muốn chơi: {bet:,}
+"""
+        )
+        return
+
+    # Trừ cược
+    points -= bet
+    set_points(user.id, points)
+
+    await update.message.reply_text(
+        f"""
+🎯 {user.first_name}
+
+Lựa chọn: {choice}
+🪙 Cược: {bet:,} điểm
+
+🎲 Đang tung xúc xắc...
+"""
+    )
+
+    await asyncio.sleep(0.5)
+
+    # Xúc xắc Telegram thật
+    dice1 = await update.message.reply_dice(emoji="🎲")
+
+    await asyncio.sleep(0.8)
+
+    dice2 = await update.message.reply_dice(emoji="🎲")
+
+    await asyncio.sleep(0.8)
+
+    dice3 = await update.message.reply_dice(emoji="🎲")
+
+    a = dice1.dice.value
+    b = dice2.dice.value
+    c = dice3.dice.value
+
+    total = a + b + c
+
+    # Bộ ba
+    triple = (a == b == c)
+
+    if triple:
+        result = "BỘ BA"
+        win = False
+
+    elif 4 <= total <= 10:
+        result = "XỈU"
+        win = choice == "X"
+
+    else:
+        result = "TÀI"
+        win = choice == "T"
+
+    # =========================
+    # THẮNG
+    # =========================
+
+    if win:
+
+        reward = int(bet * MULTIPLIER)
+
+        points += reward
+
+        set_points(user.id, points)
+
+        await update.message.reply_text(
+            f"""
+🎉 THẮNG!
+
+🎲 {a} + {b} + {c}
+🔢 Tổng: {total}
+
+📌 Kết quả: {result}
+🎯 Bạn chọn: {"TÀI" if choice == "T" else "XỈU"}
+
+🪙 Cược: {bet:,}
+🏆 Nhận: {reward:,} điểm
+
+💰 Số dư:
+{points:,} điểm
+"""
+        )
+
+    # =========================
+    # THUA
+    # =========================
+
+    else:
+
+        await update.message.reply_text(
+            f"""
+❌ KHÔNG TRÚNG
+
+🎲 {a} + {b} + {c}
+🔢 Tổng: {total}
+
+📌 Kết quả: {result}
+🎯 Bạn chọn: {"TÀI" if choice == "T" else "XỈU"}
+
+🪙 Mất: {bet:,} điểm
+
+💰 Số dư:
+{points:,} điểm
+"""
+        )
+
+
+# =========================
+# NHẬN T 10000 / X 10000
+# =========================
+
+async def text_bet(update: Update, context: ContextTypes.DEFAULT_TYPE):
+
+    if not update.message or not update.message.text:
+        return
+
+    text = update.message.text.strip()
+
+    parts = text.split()
+
+    if len(parts) != 2:
+        return
+
+    choice = parts[0].upper()
+
+    if choice not in ("T", "X"):
+        return
+
+    try:
+        bet = int(parts[1].replace(",", "").replace(".", ""))
+    except ValueError:
+        await update.message.reply_text(
+            "❌ Số điểm không hợp lệ.\n\n"
+            "Ví dụ:\n"
+            "T 10000\n"
+            "X 10000"
+        )
+        return
+
+    await play_game(
+        update,
+        choice,
+        bet
     )
 
 
@@ -243,14 +372,20 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # =========================
 
 def main():
+
     if not TOKEN:
         raise RuntimeError(
-            "Chưa đặt biến môi trường BOT_TOKEN"
+            "Chưa thiết lập BOT_TOKEN"
         )
 
     init_db()
 
-    app = Application.builder().token(TOKEN).build()
+    app = (
+        Application
+        .builder()
+        .token(TOKEN)
+        .build()
+    )
 
     app.add_handler(
         CommandHandler("start", start)
@@ -261,18 +396,20 @@ def main():
     )
 
     app.add_handler(
-        CommandHandler("roll", roll)
-    )
-
-    app.add_handler(
-        CommandHandler("daily", daily)
-    )
-
-    app.add_handler(
         CommandHandler("help", help_command)
     )
 
-    print("🤖 Bot đang chạy...")
+    # Nhận:
+    # T 10000
+    # X 10000
+    app.add_handler(
+        MessageHandler(
+            filters.TEXT & ~filters.COMMAND,
+            text_bet
+        )
+    )
+
+    print("🤖 BOT ĐANG CHẠY...")
 
     app.run_polling()
 
