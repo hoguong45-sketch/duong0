@@ -40,6 +40,7 @@ class HealthHandler(BaseHTTPRequestHandler):
             "text/plain; charset=utf-8"
         )
         self.end_headers()
+
         self.wfile.write(
             b"Telegram bot is running!"
         )
@@ -59,7 +60,10 @@ def run_web_server():
         HealthHandler
     )
 
-    print(f"🌐 Render server running on port {port}")
+    print(
+        f"🌐 Render server running on port {port}"
+    )
+
     server.serve_forever()
 
 
@@ -75,10 +79,10 @@ def get_db():
 
 
 def init_db():
+
     conn = get_db()
     cur = conn.cursor()
 
-    # Bảng người dùng
     cur.execute("""
         CREATE TABLE IF NOT EXISTS users (
             user_id INTEGER PRIMARY KEY,
@@ -87,7 +91,6 @@ def init_db():
         )
     """)
 
-    # Bảng giao dịch nạp/rút điểm ảo
     cur.execute("""
         CREATE TABLE IF NOT EXISTS transactions (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -106,6 +109,7 @@ def init_db():
 
 
 def get_user(user_id, username=""):
+
     conn = get_db()
     cur = conn.cursor()
 
@@ -117,33 +121,49 @@ def get_user(user_id, username=""):
     row = cur.fetchone()
 
     if row is None:
+
         cur.execute(
             """
             INSERT INTO users
             (user_id, username, points)
             VALUES (?, ?, ?)
             """,
-            (user_id, username, START_POINTS)
+            (
+                user_id,
+                username,
+                START_POINTS
+            )
         )
+
         conn.commit()
+
         points = START_POINTS
+
     else:
+
         points = row[0]
+
         cur.execute(
             """
             UPDATE users
             SET username = ?
             WHERE user_id = ?
             """,
-            (username, user_id)
+            (
+                username,
+                user_id
+            )
         )
+
         conn.commit()
 
     conn.close()
+
     return points
 
 
 def change_points(user_id, amount):
+
     conn = get_db()
     cur = conn.cursor()
 
@@ -151,42 +171,63 @@ def change_points(user_id, amount):
         "SELECT points FROM users WHERE user_id = ?",
         (user_id,)
     )
+
     row = cur.fetchone()
 
     if row is None:
+
         if amount < 0:
             conn.close()
             return None
+
         new_balance = amount
+
         cur.execute(
             """
             INSERT INTO users
             (user_id, username, points)
             VALUES (?, '', ?)
             """,
-            (user_id, new_balance)
+            (
+                user_id,
+                new_balance
+            )
         )
+
     else:
+
         new_balance = row[0] + amount
+
         if new_balance < 0:
             conn.close()
             return None
+
         cur.execute(
             """
             UPDATE users
             SET points = ?
             WHERE user_id = ?
             """,
-            (new_balance, user_id)
+            (
+                new_balance,
+                user_id
+            )
         )
 
     conn.commit()
     conn.close()
+
     return new_balance
 
 
-def create_transaction(user_id, tx_type, amount):
+def create_transaction(
+    user_id,
+    tx_type,
+    amount
+):
+
     tx_id = uuid.uuid4().hex[:8].upper()
+
     conn = get_db()
     cur = conn.cursor()
 
@@ -211,110 +252,241 @@ def create_transaction(user_id, tx_type, amount):
             amount,
             "PENDING",
             0,
-            datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            datetime.now().strftime(
+                "%Y-%m-%d %H:%M:%S"
+            )
         )
     )
 
     conn.commit()
     conn.close()
+
     return tx_id
 
 
 # =========================================================
-# GAME: TÀI XỈU XÚC XẮC
+# GAME
 # =========================================================
 
-async def play_game(update: Update, choice, bet):
+async def play_game(
+    update: Update,
+    choice,
+    bet
+):
+
     user = update.effective_user
-    points = get_user(user.id, user.username or "")
+
+    points = get_user(
+        user.id,
+        user.username or ""
+    )
 
     if bet <= 0:
-        await update.message.reply_text("❌ Số điểm phải lớn hơn 0.")
+
+        await update.message.reply_text(
+            "❌ Số điểm phải lớn hơn 0."
+        )
+
         return
 
     if bet > points:
+
         await update.message.reply_text(
-            f"❌ Không đủ điểm!\n\n💰 Số dư: {points:,}\n🎯 Bạn muốn cược: {bet:,}"
+            f"""
+❌ Không đủ điểm!
+
+💰 Số dư: {points:,}
+🎯 Bạn muốn chơi: {bet:,}
+"""
         )
+
         return
 
-    # Trừ tiền cược trước khi tung
-    points -= bet
-    change_points(user.id, -bet)
+    change_points(
+        user.id,
+        -bet
+    )
 
     await update.message.reply_text(
-        f"🎯 {user.first_name}\n\nLựa chọn: {'TÀI' if choice == 'T' else 'XỈU'}\n🪙 Cược: {bet:,} điểm\n\n🎲 Đang tung xúc xắc..."
+        f"""
+🎯 {user.first_name}
+
+Lựa chọn:
+{"TÀI" if choice == "T" else "XỈU"}
+
+🪙 Cược: {bet:,} điểm
+
+🎲 Đang tung xúc xắc...
+"""
     )
 
     await asyncio.sleep(0.5)
-    dice1 = await update.message.reply_dice(emoji="🎲")
+
+    dice1 = await update.message.reply_dice(
+        emoji="🎲"
+    )
+
     await asyncio.sleep(0.8)
-    dice2 = await update.message.reply_dice(emoji="🎲")
+
+    dice2 = await update.message.reply_dice(
+        emoji="🎲"
+    )
+
     await asyncio.sleep(0.8)
-    dice3 = await update.message.reply_dice(emoji="🎲")
+
+    dice3 = await update.message.reply_dice(
+        emoji="🎲"
+    )
 
     a = dice1.dice.value
     b = dice2.dice.value
     c = dice3.dice.value
 
     total = a + b + c
-    triple = (a == b == c)
+
+    triple = (
+        a == b == c
+    )
 
     if triple:
+
         result = "BỘ BA"
         win = False
+
     elif 4 <= total <= 10:
+
         result = "XỈU"
-        win = (choice == "X")
+        win = choice == "X"
+
     else:
+
         result = "TÀI"
-        win = (choice == "T")
+        win = choice == "T"
 
-    # Xử lý kết quả thắng/thua
     if win:
-        reward = int(bet * MULTIPLIER)
-        new_balance = change_points(user.id, reward)
+
+        reward = int(
+            bet * MULTIPLIER
+        )
+
+        new_balance = change_points(
+            user.id,
+            reward
+        )
 
         await update.message.reply_text(
-            f"🎉 THẮNG!\n\n🎲 {a} + {b} + {c}\n🔢 Tổng: {total}\n\n📌 Kết quả: {result}\n🎯 Bạn chọn: {'TÀI' if choice == 'T' else 'XỈU'}\n\n🪙 Cược: {bet:,}\n🏆 Nhận: {reward:,} điểm\n\n💰 Số dư:\n{new_balance:,} điểm"
+            f"""
+🎉 THẮNG!
+
+🎲 {a} + {b} + {c}
+🔢 Tổng: {total}
+
+📌 Kết quả: {result}
+🎯 Bạn chọn:
+{"TÀI" if choice == "T" else "XỈU"}
+
+🪙 Cược: {bet:,}
+🏆 Nhận: {reward:,} điểm
+
+💰 Số dư:
+{new_balance:,} điểm
+"""
         )
+
     else:
-        new_balance = get_user(user.id)
+
+        new_balance = get_user(
+            user.id,
+            user.username or ""
+        )
+
         await update.message.reply_text(
-            f"❌ KHÔNG TRÚNG\n\n🎲 {a} + {b} + {c}\n🔢 Tổng: {total}\n\n📌 Kết quả: {result}\n🎯 Bạn chọn: {'TÀI' if choice == 'T' else 'XỈU'}\n\n🪙 Mất: {bet:,} điểm\n\n💰 Số dư:\n{new_balance:,} điểm"
+            f"""
+❌ KHÔNG TRÚNG
+
+🎲 {a} + {b} + {c}
+🔢 Tổng: {total}
+
+📌 Kết quả: {result}
+🎯 Bạn chọn:
+{"TÀI" if choice == "T" else "XỈU"}
+
+🪙 Mất: {bet:,} điểm
+
+💰 Số dư:
+{new_balance:,} điểm
+"""
         )
 
 
-async def text_bet(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not update.message or not update.message.text:
+async def text_bet(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE
+):
+
+    if not update.message:
+        return
+
+    if not update.message.text:
         return
 
     text = update.message.text.strip()
+
     parts = text.split()
 
     if len(parts) != 2:
         return
 
     choice = parts[0].upper()
+
     if choice not in ("T", "X"):
         return
 
     try:
-        bet = int(parts[1].replace(",", "").replace(".", ""))
+
+        bet = int(
+            parts[1]
+            .replace(",", "")
+            .replace(".", "")
+        )
+
     except ValueError:
-        await update.message.reply_text("❌ Số điểm không hợp lệ.\n\nVí dụ:\nT 10000\nX 10000")
+
+        await update.message.reply_text(
+            """
+❌ Số điểm không hợp lệ.
+
+Ví dụ:
+
+T 10000
+X 10000
+"""
+        )
+
         return
 
-    await play_game(update, choice, bet)
+    await play_game(
+        update,
+        choice,
+        bet
+    )
 
 
 # =========================================================
-# COMMANDS: USER
+# USER COMMANDS
 # =========================================================
 
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def start(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE
+):
+
     user = update.effective_user
-    points = get_user(user.id, user.username or "")
+
+    points = get_user(
+        user.id,
+        user.username or ""
+    )
 
     await update.message.reply_text(
         f"""
@@ -322,268 +494,837 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 Xin chào {user.first_name}!
 
-💰 Số dư: {points:,} điểm
+💰 Số dư:
+{points:,} điểm
 
-🎮 Cách chơi Tài Xỉu:
-• Gõ `T 10000` để chọn TÀI 10.000 điểm
-• Gõ `X 10000` để chọn XỈU 10.000 điểm
+🎮 Cách chơi:
 
-📌 Lệnh khác:
-/balance - Xem số dư
-/deposit [số điểm] - Yêu cầu nạp điểm ảo
-/withdraw [số điểm] - Yêu cầu rút điểm ảo
-/history - Xem lịch sử giao dịch
-/dice - Tung xúc xắc giải trí
-/help - Hướng dẫn chi tiết
+T 10000
+→ Chọn TÀI
+
+X 10000
+→ Chọn XỈU
+
+📌 LỆNH:
+
+/tk
+→ Xem số dư
+
+/nap 10000
+→ Yêu cầu nạp điểm ảo
+
+/rut 5000
+→ Yêu cầu rút điểm ảo
+
+/ls
+→ Xem lịch sử giao dịch
+
+/dice
+→ Tung 3 xúc xắc giải trí
+
+/help
+→ Xem hướng dẫn
 """
     )
 
 
-async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def help_command(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE
+):
+
     await update.message.reply_text(
         """
-📖 HƯỚNG DẪN CHI TIẾT
+📖 HƯỚNG DẪN
 
-🎯 Cú pháp chơi:
-T 10000 (Chọn Tài)
-X 10000 (Chọn Xỉu)
+🎯 TÀI XỈU:
 
-🎲 Luật Tài Xỉu:
-• 4 → 10 = XỈU
-• 11 → 17 = TÀI
-• Bộ ba đồng chất = Thua đặc biệt
-• Tỷ lệ thắng: Cược × 1.97
+T 10000
+→ Chọn TÀI
 
-💰 Giao dịch điểm ảo:
-/deposit 10000 - Nạp điểm
-/withdraw 5000 - Rút điểm
-/history - Xem lịch sử
+X 10000
+→ Chọn XỈU
+
+🎲 Kết quả:
+
+4 → 10 = XỈU
+11 → 17 = TÀI
+
+⚠️ Bộ ba giống nhau:
+BỘ BA
+
+🏆 Thắng:
+Cược × 1.97
+
+💰 ĐIỂM:
+
+/tk
+→ Xem số dư
+
+/nap 10000
+→ Yêu cầu nạp điểm ảo
+
+/rut 5000
+→ Yêu cầu rút điểm ảo
+
+/ls
+→ Lịch sử giao dịch
+
+🎲 /dice
+→ Tung xúc xắc giải trí
 """
     )
 
 
-async def balance(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def balance(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE
+):
+
     user = update.effective_user
-    points = get_user(user.id, user.username or "")
-    await update.message.reply_text(f"💰 SỐ DƯ:\n\n🪙 {points:,} điểm")
+
+    points = get_user(
+        user.id,
+        user.username or ""
+    )
+
+    await update.message.reply_text(
+        f"""
+💰 SỐ DƯ
+
+🪙 {points:,} điểm
+"""
+    )
 
 
-async def dice(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("🎲 Đang tung 3 xúc xắc giải trí...")
-    d1 = await update.message.reply_dice(emoji="🎲")
-    d2 = await update.message.reply_dice(emoji="🎲")
-    d3 = await update.message.reply_dice(emoji="🎲")
+async def dice(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE
+):
 
-    total = d1.dice.value + d2.dice.value + d3.dice.value
-    await update.message.reply_text(f"🎲 KẾT QUẢ:\n{d1.dice.value} + {d2.dice.value} + {d3.dice.value}\n🔢 Tổng: {total}")
+    await update.message.reply_text(
+        "🎲 Đang tung 3 xúc xắc..."
+    )
+
+    d1 = await update.message.reply_dice(
+        emoji="🎲"
+    )
+
+    await asyncio.sleep(0.8)
+
+    d2 = await update.message.reply_dice(
+        emoji="🎲"
+    )
+
+    await asyncio.sleep(0.8)
+
+    d3 = await update.message.reply_dice(
+        emoji="🎲"
+    )
+
+    total = (
+        d1.dice.value
+        + d2.dice.value
+        + d3.dice.value
+    )
+
+    await update.message.reply_text(
+        f"""
+🎲 KẾT QUẢ
+
+{d1.dice.value}
++
+{d2.dice.value}
++
+{d3.dice.value}
+
+🔢 Tổng: {total}
+"""
+    )
 
 
-async def deposit(update: Update, context: ContextTypes.DEFAULT_TYPE):
+# =========================================================
+# NẠP
+# =========================================================
+
+async def deposit(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE
+):
+
     user = update.effective_user
+
     if len(context.args) != 1:
-        await update.message.reply_text("❌ Cú pháp:\n\n/deposit 10000")
+
+        await update.message.reply_text(
+            """
+❌ Cú pháp:
+
+/nap 10000
+"""
+        )
+
         return
 
     try:
-        amount = int(context.args[0].replace(",", "").replace(".", ""))
+
+        amount = int(
+            context.args[0]
+            .replace(",", "")
+            .replace(".", "")
+        )
+
     except ValueError:
-        await update.message.reply_text("❌ Số điểm không hợp lệ.")
+
+        await update.message.reply_text(
+            "❌ Số điểm không hợp lệ."
+        )
+
         return
 
     if amount <= 0:
-        await update.message.reply_text("❌ Số điểm phải lớn hơn 0.")
+
+        await update.message.reply_text(
+            "❌ Số điểm phải lớn hơn 0."
+        )
+
         return
 
-    tx_id = create_transaction(user.id, "DEPOSIT", amount)
-    await update.message.reply_text(f"📥 YÊU CẦU NẠP ĐIỂM\n\n🆔 Mã: {tx_id}\n🪙 Số điểm: {amount:,}\n⏳ Trạng thái: CHỜ DUYỆT")
+    tx_id = create_transaction(
+        user.id,
+        "DEPOSIT",
+        amount
+    )
+
+    await update.message.reply_text(
+        f"""
+📥 YÊU CẦU NẠP ĐIỂM
+
+🆔 Mã giao dịch:
+{tx_id}
+
+🪙 Số điểm:
+{amount:,}
+
+⏳ Trạng thái:
+CHỜ DUYỆT
+"""
+    )
 
     if ADMIN_ID:
+
         try:
+
             await context.bot.send_message(
                 ADMIN_ID,
-                f"📥 YÊU CẦU NẠP ĐIỂM\n\n👤 {user.first_name} (ID: {user.id})\n🪙 Số điểm: {amount:,}\n🔖 Mã: {tx_id}\n\nDuyệt: /approve_deposit {tx_id}\nTừ chối: /reject {tx_id}"
+                f"""
+📥 YÊU CẦU NẠP ĐIỂM
+
+👤 {user.first_name}
+🆔 User ID: {user.id}
+
+🪙 Số điểm:
+{amount:,}
+
+🔖 Mã:
+{tx_id}
+
+Duyệt:
+/approve_deposit {tx_id}
+
+Từ chối:
+/reject {tx_id}
+"""
             )
+
         except Exception as e:
-            print("Lỗi gửi tin nhắn admin:", e)
+
+            print(
+                "Lỗi gửi Admin:",
+                e
+            )
 
 
-async def withdraw(update: Update, context: ContextTypes.DEFAULT_TYPE):
+# =========================================================
+# RÚT
+# =========================================================
+
+async def withdraw(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE
+):
+
     user = update.effective_user
+
     if len(context.args) != 1:
-        await update.message.reply_text("❌ Cú pháp:\n\n/withdraw 5000")
+
+        await update.message.reply_text(
+            """
+❌ Cú pháp:
+
+/rut 5000
+"""
+        )
+
         return
 
     try:
-        amount = int(context.args[0].replace(",", "").replace(".", ""))
+
+        amount = int(
+            context.args[0]
+            .replace(",", "")
+            .replace(".", "")
+        )
+
     except ValueError:
-        await update.message.reply_text("❌ Số điểm không hợp lệ.")
+
+        await update.message.reply_text(
+            "❌ Số điểm không hợp lệ."
+        )
+
         return
 
     if amount <= 0:
-        await update.message.reply_text("❌ Số điểm phải lớn hơn 0.")
+
+        await update.message.reply_text(
+            "❌ Số điểm phải lớn hơn 0."
+        )
+
         return
 
-    points = get_user(user.id, user.username or "")
+    points = get_user(
+        user.id,
+        user.username or ""
+    )
+
     if amount > points:
-        await update.message.reply_text(f"❌ Không đủ điểm!\n\n💰 Số dư: {points:,}\n📤 Muốn rút: {amount:,}")
+
+        await update.message.reply_text(
+            f"""
+❌ Không đủ điểm!
+
+💰 Số dư:
+{points:,}
+
+📤 Muốn rút:
+{amount:,}
+"""
+        )
+
         return
 
-    tx_id = create_transaction(user.id, "WITHDRAW", amount)
-    await update.message.reply_text(f"📤 YÊU CẦU RÚT ĐIỂM\n\n🆔 Mã: {tx_id}\n🪙 Số điểm: {amount:,}\n⏳ Trạng thái: CHỜ DUYỆT")
+    tx_id = create_transaction(
+        user.id,
+        "WITHDRAW",
+        amount
+    )
+
+    await update.message.reply_text(
+        f"""
+📤 YÊU CẦU RÚT ĐIỂM
+
+🆔 Mã giao dịch:
+{tx_id}
+
+🪙 Số điểm:
+{amount:,}
+
+⏳ Trạng thái:
+CHỜ DUYỆT
+"""
+    )
 
     if ADMIN_ID:
+
         try:
+
             await context.bot.send_message(
                 ADMIN_ID,
-                f"📤 YÊU CẦU RÚT ĐIỂM\n\n👤 {user.first_name} (ID: {user.id})\n🪙 Số điểm: {amount:,}\n🔖 Mã: {tx_id}\n\nDuyệt: /approve_withdraw {tx_id}\nTừ chối: /reject {tx_id}"
+                f"""
+📤 YÊU CẦU RÚT ĐIỂM
+
+👤 {user.first_name}
+🆔 User ID: {user.id}
+
+🪙 Số điểm:
+{amount:,}
+
+🔖 Mã:
+{tx_id}
+
+Duyệt:
+/approve_withdraw {tx_id}
+
+Từ chối:
+/reject {tx_id}
+"""
             )
+
         except Exception as e:
-            print("Lỗi gửi tin nhắn admin:", e)
+
+            print(
+                "Lỗi gửi Admin:",
+                e
+            )
 
 
-async def history(update: Update, context: ContextTypes.DEFAULT_TYPE):
+# =========================================================
+# LỊCH SỬ
+# =========================================================
+
+async def history(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE
+):
+
     user = update.effective_user
+
     conn = get_db()
     cur = conn.cursor()
+
     cur.execute(
-        "SELECT tx_id, type, amount, status, created_at FROM transactions WHERE user_id = ? ORDER BY id DESC LIMIT 10",
+        """
+        SELECT
+            tx_id,
+            type,
+            amount,
+            status,
+            created_at
+        FROM transactions
+        WHERE user_id = ?
+        ORDER BY id DESC
+        LIMIT 10
+        """,
         (user.id,)
     )
+
     rows = cur.fetchall()
+
     conn.close()
 
     if not rows:
-        await update.message.reply_text("📜 Bạn chưa có giao dịch nào.")
+
+        await update.message.reply_text(
+            "📜 Bạn chưa có giao dịch nào."
+        )
+
         return
 
     text = "📜 LỊCH SỬ GIAO DỊCH\n\n"
-    for row in rows:
-        icon = "📥" if row[1] == "DEPOSIT" else "📤"
-        text += f"{icon} {row[1]}\n🪙 {row[2]:,} điểm\n🔖 {row[0]}\n📌 {row[3]}\n🕐 {row[4]}\n\n"
 
-    await update.message.reply_text(text)
+    for row in rows:
+
+        icon = (
+            "📥"
+            if row[1] == "DEPOSIT"
+            else "📤"
+        )
+
+        type_name = (
+            "NẠP"
+            if row[1] == "DEPOSIT"
+            else "RÚT"
+        )
+
+        text += (
+            f"{icon} {type_name}\n"
+            f"🪙 {row[2]:,} điểm\n"
+            f"🔖 {row[0]}\n"
+            f"📌 {row[3]}\n"
+            f"🕐 {row[4]}\n\n"
+        )
+
+    await update.message.reply_text(
+        text
+    )
 
 
 # =========================================================
-# COMMANDS: ADMIN
+# ADMIN
 # =========================================================
 
 def is_admin(update):
-    return ADMIN_ID != 0 and update.effective_user.id == ADMIN_ID
+
+    return (
+        ADMIN_ID != 0
+        and
+        update.effective_user.id == ADMIN_ID
+    )
 
 
-async def approve_deposit(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not is_admin(update) or len(context.args) != 1:
+async def approve_deposit(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE
+):
+
+    if not is_admin(update):
+        return
+
+    if len(context.args) != 1:
+
+        await update.message.reply_text(
+            "❌ Cú pháp:\n/approve_deposit TX_ID"
+        )
+
         return
 
     tx_id = context.args[0].upper()
+
     conn = get_db()
     cur = conn.cursor()
 
-    cur.execute("SELECT user_id, amount, status FROM transactions WHERE tx_id = ?", (tx_id,))
+    cur.execute(
+        """
+        SELECT user_id, amount, status
+        FROM transactions
+        WHERE tx_id = ?
+        """,
+        (tx_id,)
+    )
+
     row = cur.fetchone()
+
     if not row or row[2] != "PENDING":
+
         conn.close()
-        await update.message.reply_text("❌ Giao dịch không hợp lệ hoặc đã được xử lý.")
+
+        await update.message.reply_text(
+            "❌ Giao dịch không hợp lệ hoặc đã xử lý."
+        )
+
         return
 
-    user_id, amount, _ = row
-    new_balance = change_points(user_id, amount)
+    user_id, amount, status = row
+
+    new_balance = change_points(
+        user_id,
+        amount
+    )
 
     cur.execute(
-        "UPDATE transactions SET status = 'APPROVED', balance_after = ? WHERE tx_id = ?",
-        (new_balance, tx_id)
+        """
+        UPDATE transactions
+        SET
+            status = 'APPROVED',
+            balance_after = ?
+        WHERE tx_id = ?
+        """,
+        (
+            new_balance,
+            tx_id
+        )
     )
+
     conn.commit()
     conn.close()
 
-    await update.message.reply_text(f"✅ ĐÃ DUYỆT NẠP\n\n🔖 {tx_id}\n🪙 +{amount:,} điểm\n💰 Số dư mới: {new_balance:,}")
+    await update.message.reply_text(
+        f"""
+✅ ĐÃ DUYỆT NẠP
+
+🔖 {tx_id}
+
+🪙 +{amount:,} điểm
+
+💰 Số dư:
+{new_balance:,}
+"""
+    )
 
 
-async def approve_withdraw(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not is_admin(update) or len(context.args) != 1:
+async def approve_withdraw(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE
+):
+
+    if not is_admin(update):
+        return
+
+    if len(context.args) != 1:
+
+        await update.message.reply_text(
+            "❌ Cú pháp:\n/approve_withdraw TX_ID"
+        )
+
         return
 
     tx_id = context.args[0].upper()
+
     conn = get_db()
     cur = conn.cursor()
 
-    cur.execute("SELECT user_id, amount, status FROM transactions WHERE tx_id = ?", (tx_id,))
+    cur.execute(
+        """
+        SELECT user_id, amount, status
+        FROM transactions
+        WHERE tx_id = ?
+        """,
+        (tx_id,)
+    )
+
     row = cur.fetchone()
+
     if not row or row[2] != "PENDING":
+
         conn.close()
-        await update.message.reply_text("❌ Giao dịch không hợp lệ hoặc đã được xử lý.")
+
+        await update.message.reply_text(
+            "❌ Giao dịch không hợp lệ hoặc đã xử lý."
+        )
+
         return
 
-    user_id, amount, _ = row
-    current_points = get_user(user_id)
+    user_id, amount, status = row
+
+    current_points = get_user(
+        user_id
+    )
 
     if amount > current_points:
+
         conn.close()
-        await update.message.reply_text("❌ Người dùng không đủ điểm để rút.")
+
+        await update.message.reply_text(
+            "❌ Người dùng không đủ điểm."
+        )
+
         return
 
-    new_balance = change_points(user_id, -amount)
-    cur.execute(
-        "UPDATE transactions SET status = 'APPROVED', balance_after = ? WHERE tx_id = ?",
-        (new_balance, tx_id)
+    new_balance = change_points(
+        user_id,
+        -amount
     )
+
+    cur.execute(
+        """
+        UPDATE transactions
+        SET
+            status = 'APPROVED',
+            balance_after = ?
+        WHERE tx_id = ?
+        """,
+        (
+            new_balance,
+            tx_id
+        )
+    )
+
     conn.commit()
     conn.close()
 
-    await update.message.reply_text(f"✅ ĐÃ DUYỆT RÚT\n\n🔖 {tx_id}\n🪙 -{amount:,} điểm\n💰 Số dư mới: {new_balance:,}")
+    await update.message.reply_text(
+        f"""
+✅ ĐÃ DUYỆT RÚT
+
+🔖 {tx_id}
+
+🪙 -{amount:,} điểm
+
+💰 Số dư:
+{new_balance:,}
+"""
+    )
 
 
-async def reject(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not is_admin(update) or len(context.args) != 1:
+async def reject(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE
+):
+
+    if not is_admin(update):
+        return
+
+    if len(context.args) != 1:
+
+        await update.message.reply_text(
+            "❌ Cú pháp:\n/reject TX_ID"
+        )
+
         return
 
     tx_id = context.args[0].upper()
+
     conn = get_db()
     cur = conn.cursor()
-    cur.execute("UPDATE transactions SET status = 'REJECTED' WHERE tx_id = ? AND status = 'PENDING'", (tx_id,))
+
+    cur.execute(
+        """
+        UPDATE transactions
+        SET status = 'REJECTED'
+        WHERE tx_id = ?
+        AND status = 'PENDING'
+        """,
+        (tx_id,)
+    )
+
     changed = cur.rowcount
+
     conn.commit()
     conn.close()
 
     if changed:
-        await update.message.reply_text(f"❌ Đã từ chối giao dịch {tx_id}")
+
+        await update.message.reply_text(
+            f"""
+❌ ĐÃ TỪ CHỐI
+
+🔖 {tx_id}
+"""
+        )
+
     else:
-        await update.message.reply_text("❌ Không tìm thấy giao dịch đang chờ.")
+
+        await update.message.reply_text(
+            "❌ Không tìm thấy giao dịch đang chờ."
+        )
 
 
-async def add_points(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not is_admin(update) or len(context.args) != 2:
+# =========================================================
+# ADMIN CỘNG ĐIỂM
+# =========================================================
+
+async def add_points(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE
+):
+
+    if not is_admin(update):
+        return
+
+    if len(context.args) != 2:
+
+        await update.message.reply_text(
+            """
+❌ Cú pháp:
+
+/addpoints USER_ID SO_DIEM
+"""
+        )
+
         return
 
     try:
-        user_id = int(context.args[0])
-        amount = int(context.args[1])
+
+        user_id = int(
+            context.args[0]
+        )
+
+        amount = int(
+            context.args[1]
+        )
+
     except ValueError:
-        await update.message.reply_text("❌ Sai định dạng. Cú pháp: /addpoints USER_ID SO_DIEM")
+
+        await update.message.reply_text(
+            "❌ User ID hoặc số điểm không hợp lệ."
+        )
+
         return
 
-    new_balance = change_points(user_id, amount)
-    await update.message.reply_text(f"✅ CỘNG ĐIỂM THÀNH CÔNG\n👤 User ID: {user_id}\n🪙 +{amount:,}\n💰 Số dư: {new_balance:,}")
+    if amount <= 0:
+
+        await update.message.reply_text(
+            "❌ Số điểm phải lớn hơn 0."
+        )
+
+        return
+
+    new_balance = change_points(
+        user_id,
+        amount
+    )
+
+    await update.message.reply_text(
+        f"""
+✅ CỘNG ĐIỂM
+
+👤 User ID:
+{user_id}
+
+🪙 +{amount:,}
+
+💰 Số dư:
+{new_balance:,}
+"""
+    )
 
 
-async def remove_points(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not is_admin(update) or len(context.args) != 2:
+# =========================================================
+# ADMIN TRỪ ĐIỂM
+# =========================================================
+
+async def remove_points(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE
+):
+
+    if not is_admin(update):
+        return
+
+    if len(context.args) != 2:
+
+        await update.message.reply_text(
+            """
+❌ Cú pháp:
+
+/removepoints USER_ID SO_DIEM
+"""
+        )
+
         return
 
     try:
-        user_id = int(context.args[0])
-        amount = int(context.args[1])
+
+        user_id = int(
+            context.args[0]
+        )
+
+        amount = int(
+            context.args[1]
+        )
+
     except ValueError:
-        await update.message.reply_text("❌ Sai định dạng. Cú pháp: /removepoints USER_ID SO_DIEM")
+
+        await update.message.reply_text(
+            "❌ User ID hoặc số điểm không hợp lệ."
+        )
+
         return
 
-    new_balance = change_points(user_id, -amount)
+    if amount <= 0:
+
+        await update.message.reply_text(
+            "❌ Số điểm phải lớn hơn 0."
+        )
+
+        return
+
+    new_balance = change_points(
+        user_id,
+        -amount
+    )
+
     if new_balance is None:
-        await update.message.reply_text("❌ Người dùng không đủ điểm để trừ.")
+
+        await update.message.reply_text(
+            "❌ Người dùng không đủ điểm."
+        )
+
         return
 
-    await update.message.reply_text(f"✅ TRỪ ĐIỂM THÀNH CÔNG\n👤 User ID: {user_id}\n🪙 -{amount:,}\n💰 Số dư: {new_balance:,}")
+    await update.message.reply_text(
+        f"""
+✅ TRỪ ĐIỂM
+
+👤 User ID:
+{user_id}
+
+🪙 -{amount:,}
+
+💰 Số dư:
+{new_balance:,}
+"""
+    )
 
 
 # =========================================================
@@ -591,36 +1332,135 @@ async def remove_points(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # =========================================================
 
 def main():
+
     if not TOKEN:
-        raise RuntimeError("❌ Chưa thiết lập BOT_TOKEN")
+
+        raise RuntimeError(
+            "❌ Chưa thiết lập BOT_TOKEN"
+        )
 
     init_db()
 
-    # Khởi động web server cho Render chạy nền
-    threading.Thread(target=run_web_server, daemon=True).start()
+    threading.Thread(
+        target=run_web_server,
+        daemon=True
+    ).start()
 
-    app = Application.builder().token(TOKEN).build()
+    app = (
+        Application
+        .builder()
+        .token(TOKEN)
+        .build()
+    )
 
-    # User handlers
-    app.add_handler(CommandHandler("start", start))
-    app.add_handler(CommandHandler("help", help_command))
-    app.add_handler(CommandHandler("balance", balance))
-    app.add_handler(CommandHandler("deposit", deposit))
-    app.add_handler(CommandHandler("withdraw", withdraw))
-    app.add_handler(CommandHandler("history", history))
-    app.add_handler(CommandHandler("dice", dice))
+    # -------------------------
+    # USER
+    # -------------------------
 
-    # Admin handlers
-    app.add_handler(CommandHandler("approve_deposit", approve_deposit))
-    app.add_handler(CommandHandler("approve_withdraw", approve_withdraw))
-    app.add_handler(CommandHandler("reject", reject))
-    app.add_handler(CommandHandler("addpoints", add_points))
-    app.add_handler(CommandHandler("removepoints", remove_points))
+    app.add_handler(
+        CommandHandler(
+            "start",
+            start
+        )
+    )
 
-    # Bắt tin nhắn cược nhanh (T 10000 / X 10000)
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, text_bet))
+    app.add_handler(
+        CommandHandler(
+            "help",
+            help_command
+        )
+    )
 
-    print("🤖 BOT ĐANG CHẠY...")
+    app.add_handler(
+        CommandHandler(
+            "tk",
+            balance
+        )
+    )
+
+    app.add_handler(
+        CommandHandler(
+            "nap",
+            deposit
+        )
+    )
+
+    app.add_handler(
+        CommandHandler(
+            "rut",
+            withdraw
+        )
+    )
+
+    app.add_handler(
+        CommandHandler(
+            "ls",
+            history
+        )
+    )
+
+    app.add_handler(
+        CommandHandler(
+            "dice",
+            dice
+        )
+    )
+
+    # -------------------------
+    # ADMIN
+    # -------------------------
+
+    app.add_handler(
+        CommandHandler(
+            "approve_deposit",
+            approve_deposit
+        )
+    )
+
+    app.add_handler(
+        CommandHandler(
+            "approve_withdraw",
+            approve_withdraw
+        )
+    )
+
+    app.add_handler(
+        CommandHandler(
+            "reject",
+            reject
+        )
+    )
+
+    app.add_handler(
+        CommandHandler(
+            "addpoints",
+            add_points
+        )
+    )
+
+    app.add_handler(
+        CommandHandler(
+            "removepoints",
+            remove_points
+        )
+    )
+
+    # -------------------------
+    # T / X
+    # -------------------------
+
+    app.add_handler(
+        MessageHandler(
+            filters.TEXT
+            & ~filters.COMMAND,
+            text_bet
+        )
+    )
+
+    print(
+        "🤖 BOT ĐANG CHẠY..."
+    )
+
     app.run_polling()
 
 
