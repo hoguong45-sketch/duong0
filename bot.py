@@ -1,6 +1,8 @@
 import os
 import sqlite3
 import asyncio
+import threading
+from http.server import BaseHTTPRequestHandler, HTTPServer
 
 from telegram import Update
 from telegram.ext import (
@@ -16,6 +18,34 @@ TOKEN = os.getenv("BOT_TOKEN")
 DB_FILE = "bot.db"
 START_POINTS = 100_000
 MULTIPLIER = 1.97
+
+
+# =========================
+# RENDER PORT SERVER
+# =========================
+
+class HealthHandler(BaseHTTPRequestHandler):
+
+    def do_GET(self):
+        self.send_response(200)
+        self.send_header("Content-Type", "text/plain; charset=utf-8")
+        self.end_headers()
+        self.wfile.write(b"BOT IS RUNNING")
+
+    def log_message(self, format, *args):
+        return
+
+
+def run_web_server():
+    port = int(os.environ.get("PORT", 10000))
+
+    server = HTTPServer(
+        ("0.0.0.0", port),
+        HealthHandler
+    )
+
+    print(f"🌐 Render port: {port}")
+    server.serve_forever()
 
 
 # =========================
@@ -58,8 +88,10 @@ def get_user(user_id, username=""):
             """,
             (user_id, username, START_POINTS)
         )
+
         conn.commit()
         points = START_POINTS
+
     else:
         points = row[0]
 
@@ -100,6 +132,7 @@ def set_points(user_id, points):
 # =========================
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+
     user = update.effective_user
 
     points = get_user(
@@ -129,7 +162,7 @@ X 10000
 ℹ️ /help
 → Xem hướng dẫn
 
-🎲 Bot sử dụng xúc xắc thật của Telegram.
+🎲 Bot sử dụng xúc xắc Telegram.
 🪙 Chỉ sử dụng điểm ảo.
 """
     )
@@ -140,6 +173,7 @@ X 10000
 # =========================
 
 async def balance(update: Update, context: ContextTypes.DEFAULT_TYPE):
+
     user = update.effective_user
 
     points = get_user(
@@ -157,6 +191,7 @@ async def balance(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # =========================
 
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+
     await update.message.reply_text(
         """
 📖 HƯỚNG DẪN
@@ -183,14 +218,10 @@ T 100000
 🏆 Nếu dự đoán đúng:
 Cược × 1,97 điểm
 
-Ví dụ:
-10.000 × 1,97 = 19.700 điểm
-
-⚠️ Bộ ba giống nhau được tính là
+⚠️ Bộ ba giống nhau là
 kết quả đặc biệt.
 
-🪙 Đây chỉ là điểm ảo,
-không có nạp/rút tiền thật.
+🪙 Chỉ sử dụng điểm ảo.
 """
     )
 
@@ -242,7 +273,6 @@ Lựa chọn: {choice}
 
     await asyncio.sleep(0.5)
 
-    # Xúc xắc Telegram thật
     dice1 = await update.message.reply_dice(emoji="🎲")
 
     await asyncio.sleep(0.8)
@@ -259,18 +289,20 @@ Lựa chọn: {choice}
 
     total = a + b + c
 
-    # Bộ ba
     triple = (a == b == c)
 
     if triple:
+
         result = "BỘ BA"
         win = False
 
     elif 4 <= total <= 10:
+
         result = "XỈU"
         win = choice == "X"
 
     else:
+
         result = "TÀI"
         win = choice == "T"
 
@@ -329,7 +361,7 @@ Lựa chọn: {choice}
 
 
 # =========================
-# NHẬN T 10000 / X 10000
+# T 10000 / X 10000
 # =========================
 
 async def text_bet(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -350,14 +382,22 @@ async def text_bet(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     try:
-        bet = int(parts[1].replace(",", "").replace(".", ""))
+
+        bet = int(
+            parts[1]
+            .replace(",", "")
+            .replace(".", "")
+        )
+
     except ValueError:
+
         await update.message.reply_text(
             "❌ Số điểm không hợp lệ.\n\n"
             "Ví dụ:\n"
             "T 10000\n"
             "X 10000"
         )
+
         return
 
     await play_game(
@@ -375,10 +415,16 @@ def main():
 
     if not TOKEN:
         raise RuntimeError(
-            "Chưa thiết lập BOT_TOKEN"
+            "❌ Chưa thiết lập BOT_TOKEN"
         )
 
     init_db()
+
+    # Khởi động server cho Render
+    threading.Thread(
+        target=run_web_server,
+        daemon=True
+    ).start()
 
     app = (
         Application
@@ -399,9 +445,6 @@ def main():
         CommandHandler("help", help_command)
     )
 
-    # Nhận:
-    # T 10000
-    # X 10000
     app.add_handler(
         MessageHandler(
             filters.TEXT & ~filters.COMMAND,
