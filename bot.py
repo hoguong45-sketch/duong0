@@ -26,6 +26,10 @@ DB_FILE = "bot.db"
 START_POINTS = 100_000
 MULTIPLIER = 1.97
 
+# Cấu hình giới hạn giao dịch và cược
+MIN_BET = 1_000
+MIN_DEPOSIT = 30_000
+
 
 # =========================================================
 # RENDER WEB SERVER
@@ -263,7 +267,7 @@ def create_transaction(
 
 
 # =========================================================
-# GAME
+# GAME (CHECK MIN BET = 1,000)
 # =========================================================
 
 async def play_game(
@@ -279,10 +283,12 @@ async def play_game(
         user.username or ""
     )
 
-    if bet <= 0:
+    if bet < MIN_BET:
 
         await update.message.reply_text(
-            "❌ Số điểm phải lớn hơn 0."
+            f"""
+❌ Mức cược tối thiểu là {MIN_BET:,} điểm!
+"""
         )
 
         return
@@ -494,7 +500,7 @@ Xin chào {user.first_name}!
 💰 Số dư:
 {points:,} điểm
 
-🎮 Cách chơi:
+🎮 Cách chơi (Min cược: {MIN_BET:,} điểm):
 
 T 10000
 → Chọn TÀI
@@ -507,8 +513,8 @@ X 10000
 /tk
 → Xem số dư
 
-/nap 10000
-→ Yêu cầu nạp điểm
+/nap 30000
+→ Nạp điểm (Tối thiểu {MIN_DEPOSIT:,})
 
 /rut 100000 VCB 0123456789 Tran Van B
 → Yêu cầu rút tiền về ngân hàng
@@ -531,10 +537,10 @@ async def help_command(
 ):
 
     await update.message.reply_text(
-        """
+        f"""
 📖 HƯỚNG DẪN
 
-🎯 TÀI XỈU:
+🎯 TÀI XỈU (Min cược: {MIN_BET:,} điểm):
 
 T 10000
 → Chọn TÀI
@@ -543,22 +549,18 @@ X 10000
 → Chọn XỈU
 
 🎲 Kết quả:
-
 4 → 10 = XỈU
 11 → 17 = TÀI
+⚠️ Bộ ba giống nhau = Thua
 
-⚠️ Bộ ba giống nhau:
-BỘ BA
-
-🏆 Thắng:
-Cược × 1.97
+🏆 Thắng: Cược × 1.97
 
 💰 GIAO DỊCH:
 
 /tk
 → Xem số dư
 
-/nap 10000
+/nap [Số điểm] (Tối thiểu {MIN_DEPOSIT:,})
 → Nạp điểm (Nhận STK chuyển khoản MSB)
 
 /rut [Số tiền] [Mã NH] [Số TK] [Tên TK]
@@ -642,7 +644,7 @@ async def dice(
 
 
 # =========================================================
-# NẠP (HIỆN STK MSB VÀ NỘI DUNG LÀ MÃ GIAO DỊCH)
+# NẠP (CHECK MIN DEPOSIT = 30,000)
 # =========================================================
 
 async def deposit(
@@ -655,12 +657,13 @@ async def deposit(
     if len(context.args) != 1:
 
         await update.message.reply_text(
-            """
+            f"""
 ❌ Cú pháp:
 /nap [số điểm cần nạp]
+(Nạp tối thiểu: {MIN_DEPOSIT:,})
 
 Ví dụ:
-/nap 100000
+/nap 30000
 """
         )
 
@@ -682,10 +685,12 @@ Ví dụ:
 
         return
 
-    if amount <= 0:
+    if amount < MIN_DEPOSIT:
 
         await update.message.reply_text(
-            "❌ Số điểm phải lớn hơn 0."
+            f"""
+❌ Số tiền nạp tối thiểu phải từ {MIN_DEPOSIT:,} điểm trở lên!
+"""
         )
 
         return
