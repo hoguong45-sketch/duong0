@@ -647,6 +647,7 @@ Xin chào {user.first_name}!
 
 📌 LỆNH:
 /tk → Xem số dư & thông tin tài khoản
+/se → Lấy link mời bạn bè
 /nap 10000 → Nạp điểm (Min nạp: {MIN_DEPOSIT:,})
 /rut [Số tiền] [Mã NH] [Số TK] [Tên TK] → Rút tiền (Min rút: {MIN_WITHDRAW:,})
 /code [Mã_Quà] → Nhập mã nhận thưởng từ Admin
@@ -654,6 +655,27 @@ Xin chào {user.first_name}!
 /lichsucuoc → Xem lịch sử đặt cược game
 /dice → Tung xúc xắc giải trí
 /help → Xem hướng dẫn
+""",
+        parse_mode="Markdown"
+    )
+
+
+async def get_referral_link(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE
+):
+    """Lệnh /se để bot gửi link mời bạn bè riêng"""
+    user = update.effective_user
+    bot_info = await context.bot.get_me()
+    bot_username = bot_info.username
+    ref_link = f"https://t.me/{bot_username}?start={user.id}"
+
+    await update.message.reply_text(
+        f"""
+🔗 **LINK MỜI BẠN BÈ CỦA BẠN:**
+`{ref_link}`
+
+💡 *Mỗi người bạn tham gia qua link này và cược, bạn sẽ nhận được ngay **+{REF_BONUS:,} điểm**!*
 """,
         parse_mode="Markdown"
     )
@@ -678,6 +700,7 @@ async def help_command(
 
 💰 GIAO DỊCH & TIỆN ÍCH:
 /tk → Xem số dư & tiến độ tài khoản
+/se → Lấy link giới thiệu bạn bè
 /nap [Số điểm] (Tối thiểu {MIN_DEPOSIT:,}) → Nạp điểm
 /rut [Số tiền] [Mã NH] [Số TK] [Tên TK] (Min rút: {MIN_WITHDRAW:,}, yêu cầu tổng cược tối thiểu bằng tổng tiền đã nạp) → Rút tiền
 /code [Mã] → Nhập giftcode nhận thưởng
@@ -1004,7 +1027,6 @@ async def withdraw(
 
     ok, req, comp, total_dep = check_wagering_status(user.id)
     
-    # Kiểm tra điều kiện nạp và cược tối thiểu bằng tổng tiền nạp
     if comp < total_dep:
         await update.message.reply_text(
             f"""
@@ -1270,7 +1292,6 @@ async def handle_admin_callback(update: Update, context: ContextTypes.DEFAULT_TY
     user_id, amount, tx_type, status = row
 
     if action == "app_dep":
-        # Cộng dồn trực tiếp số dư vào tài khoản người chơi (ví dụ có 40k nạp 30k lên 70k)
         new_balance = change_points(user_id, amount)
         cur.execute(
             """
@@ -1402,6 +1423,7 @@ async def post_init(application: Application):
     commands = [
         ("start", "Bắt đầu / Lấy link mời bạn bè"),
         ("tk", "Xem số dư tài khoản"),
+        ("se", "Lấy link giới thiệu bạn bè"),
         ("nap", "Nạp điểm vào tài khoản"),
         ("rut", "Rút tiền về ngân hàng"),
         ("code", "Nhập mã quà tặng"),
@@ -1436,6 +1458,7 @@ def main():
     app.add_handler(CallbackQueryHandler(handle_admin_callback))
 
     app.add_handler(CommandHandler("start", start))
+    app.add_handler(CommandHandler("se", get_referral_link))
     app.add_handler(CommandHandler("help", help_command))
     app.add_handler(CommandHandler("tk", balance))
     app.add_handler(CommandHandler("nap", deposit))
