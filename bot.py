@@ -24,13 +24,13 @@ TOKEN = os.getenv("BOT_TOKEN")
 ADMIN_ID = int(os.getenv("ADMIN_ID", "0"))
 
 DB_FILE = "bot.db"
-START_POINTS = 0  # Số dư lúc đầu là 0 (hoặc nhận từ code tân thủ)
+START_POINTS = 0  
 MULTIPLIER = 1.97
 
-# Cấu hình giới hạn giao dịch và cược
-MIN_BET = 1_000
+# Cấu hình mức cược và giao dịch theo yêu cầu mới
+MIN_BET = 5_000         # Min cược 5k
 MIN_DEPOSIT = 30_000
-MIN_WITHDRAW = 10_000  # Min rút 10k theo yêu cầu
+MIN_WITHDRAW = 30_000   # Min rút 30k
 
 # Cấu hình Tân thủ & Giới thiệu
 NEWBIE_BONUS = 5_000
@@ -120,7 +120,6 @@ def init_db():
         )
     """)
 
-    # Bảng lưu trữ Giftcode do Admin tạo
     cur.execute("""
         CREATE TABLE IF NOT EXISTS promo_codes (
             code TEXT PRIMARY KEY,
@@ -130,7 +129,6 @@ def init_db():
         )
     """)
 
-    # Bảng ghi nhận ai đã dùng code nào để tránh dùng 2 lần
     cur.execute("""
         CREATE TABLE IF NOT EXISTS user_codes (
             user_id INTEGER,
@@ -156,10 +154,8 @@ def get_user(user_id, username="", referrer_id=None):
     row = cur.fetchone()
 
     if row is None:
-        # Tránh tự giới thiệu chính mình
         ref = referrer_id if referrer_id != user_id else None
         
-        # Đăng ký mới, tự động tặng thưởng tân thủ 5,000 điểm kèm x10 vòng cược yêu cầu
         initial_points = START_POINTS + NEWBIE_BONUS
         wagering_req = NEWBIE_BONUS * NEWBIE_WAGERING_ROUNDS
 
@@ -178,21 +174,17 @@ def get_user(user_id, username="", referrer_id=None):
             )
         )
 
-        # Nếu có người giới thiệu hợp lệ và người đó thực sự tồn tại
         if ref:
             cur.execute("SELECT user_id, ref_count FROM users WHERE user_id = ?", (ref,))
             ref_user = cur.fetchone()
             if ref_user:
-                # Cộng 10,000 điểm cho người mời
                 cur.execute("UPDATE users SET points = points + ?, ref_count = ref_count + 1 WHERE user_id = ?", (REF_BONUS, ref))
 
         conn.commit()
         points = initial_points
 
     else:
-
         points = row[0]
-
         cur.execute(
             """
             UPDATE users
@@ -204,7 +196,6 @@ def get_user(user_id, username="", referrer_id=None):
                 user_id
             )
         )
-
         conn.commit()
 
     conn.close()
@@ -270,7 +261,6 @@ def change_points(user_id, amount):
 
 
 def update_wagering(user_id, bet_amount):
-    """Cập nhật tiến độ hoàn thành vòng cược của người chơi"""
     conn = get_db()
     cur = conn.cursor()
     cur.execute("UPDATE users SET wagering_completed = wagering_completed + ? WHERE user_id = ?", (bet_amount, user_id))
@@ -279,12 +269,11 @@ def update_wagering(user_id, bet_amount):
 
 
 def check_wagering_status(user_id):
-    """Kiểm tra xem user đã hoàn thành đủ số vòng cược tân thủ/khuyến mãi chưa"""
     conn = get_db()
     cur = conn.cursor()
+    conn.close()
     cur.execute("SELECT wagering_required, wagering_completed FROM users WHERE user_id = ?", (user_id,))
     row = cur.fetchone()
-    conn.close()
     if not row:
         return True, 0, 0
     req, comp = row
@@ -338,7 +327,7 @@ def create_transaction(
 
 
 # =========================================================
-# GAME
+# GAME (TÀI XỈU & CHẴN LẺ)
 # =========================================================
 
 async def play_game(
@@ -377,25 +366,36 @@ async def play_game(
 
         return
 
-    # Trừ tiền cược
     change_points(
         user.id,
         -bet
     )
     
-    # Cập nhật tiến độ vòng cược
     update_wagering(user.id, bet)
 
     tx_id = uuid.uuid4().hex[:6].upper()
-    choice_str = "t2" if choice == "T" else "x1"  # Hoặc hiển thị theo lựa chọn TÀI/XỈU tương ứng mẫu
+    
+    # Thiết lập nhãn hiển thị cửa đặt dựa vào lựa chọn của người chơi (Tài / Xỉu / Chẵn / Lẻ)
+    if choice == "T":
+        choice_name = "TÀI"
+        cửa_dat_display = "t2"
+    elif choice == "X":
+        choice_name = "XỈU"
+        cửa_dat_display = "x1"
+    elif choice == "C":
+        choice_name = "CHẴN"
+        cửa_dat_display = "c"
+    else:  # 'L'
+        choice_name = "LẺ"
+        cửa_dat_display = "l"
+
+    noi_dung_display = cửa_dat_display
 
     await update.message.reply_text(
         f"""
 🎯 {user.first_name}
 
-Lựa chọn:
-{"TÀI" if choice == "T" else "XỈU"}
-
+Lựa chọn: {choice_name}
 🪙 Cược: {bet:,} điểm
 
 🎲 Đang tung xúc xắc...
@@ -404,50 +404,34 @@ Lựa chọn:
 
     await asyncio.sleep(0.5)
 
-    dice1 = await update.message.reply_dice(
-        emoji="🎲"
-    )
-
+    dice1 = await update.message.reply_dice(emoji="🎲")
     await asyncio.sleep(0.8)
-
-    dice2 = await update.message.reply_dice(
-        emoji="🎲"
-    )
-
+    dice2 = await update.message.reply_dice(emoji="🎲")
     await asyncio.sleep(0.8)
-
-    dice3 = await update.message.reply_dice(
-        emoji="🎲"
-    )
+    dice3 = await update.message.reply_dice(emoji="🎲")
 
     a = dice1.dice.value
     b = dice2.dice.value
     c = dice3.dice.value
 
     total = a + b + c
+    triple = (a == b == c)
 
-    triple = (
-        a == b == c
-    )
-
-    if triple:
-
-        result = "BỘ BA"
-        win = False
-
-    elif 4 <= total <= 10:
-
-        result = "XỈU"
-        win = choice == "X"
-
-    else:
-
-        result = "TÀI"
-        win = choice == "T"
-
-    # Lựa chọn hiển thị cửa đặt theo mẫu yêu cầu
-    cửa_dat_display = "t2" if choice == "T" else "x1"
-    noi_dung_display = cửa_dat_display
+    # Xét thắng thua tùy thuộc vào loại game (Tài/Xỉu hay Chẵn/Lẻ)
+    if choice in ("T", "X"):
+        if triple:
+            win = False
+        elif 4 <= total <= 10:
+            win = (choice == "X")
+        else:
+            win = (choice == "T")
+    else:  # Chẵn / Lẻ
+        if triple:
+            win = False  # Bộ ba xúc xắc (ví dụ 3 con giống nhau như 2-2-2) thường được tính là nhà cái ăn hoặc thua cược Chẵn/Lẻ tùy hệ thống, hoặc tính theo tổng chẵn/lẻ thuần túy. Ở đây xét theo tổng:
+        win = (total % 2 == 0) if choice == "C" else (total % 2 != 0)
+        # Nếu muốn bộ ba vẫn bắt buộc thua như Tài Xỉu thì giữ nguyên logic dưới:
+        if triple:
+            win = False
 
     if win:
 
@@ -463,7 +447,7 @@ Lựa chọn:
         await update.message.reply_text(
             f"""
 ┌─────────────────────────
-├─ Trò chơi: Xúc xắc
+├─ Trò chơi: Xúc xắc ({choice_name})
 ├─ Kết quả: {a} + {b} + {c} = {total}
 ├─ Cửa đặt : {cửa_dat_display}
 ├─ Mã giao dịch: {tx_id}
@@ -486,7 +470,7 @@ Số dư: {new_balance:,}đ
         await update.message.reply_text(
             f"""
 ┌─────────────────────────
-├─ Trò chơi: Xúc xắc
+├─ Trò chơi: Xúc xắc ({choice_name})
 ├─ Kết quả: {a} + {b} + {c} = {total}
 ├─ Cửa đặt : {cửa_dat_display}
 ├─ Mã giao dịch: {tx_id}
@@ -519,7 +503,8 @@ async def text_bet(
 
     choice = parts[0].upper()
 
-    if choice not in ("T", "X"):
+    # Thêm hỗ trợ nhận diện 'C' (Chẵn) và 'L' (Lẻ)
+    if choice not in ("T", "X", "C", "L"):
         return
 
     try:
@@ -537,9 +522,10 @@ async def text_bet(
 ❌ Số điểm không hợp lệ.
 
 Ví dụ:
-
-T 10000
-X 10000
+T 5000 (Tài)
+X 5000 (Xỉu)
+C 5000 (Chẵn)
+L 5000 (Lẻ)
 """
         )
 
@@ -578,7 +564,6 @@ async def start(
         referrer_id
     )
 
-    # Lấy thông tin số lượng bạn bè đã mời và vòng cược
     conn = get_db()
     cur = conn.cursor()
     cur.execute("SELECT ref_count, wagering_required, wagering_completed FROM users WHERE user_id = ?", (user.id,))
@@ -589,12 +574,11 @@ async def start(
     w_req = row[1] if row else 0
     w_comp = row[2] if row else 0
 
-    # Tạo link giới thiệu riêng biệt cho từng user
     ref_link = f"https://t.me/{bot_username}?start={user.id}"
 
     await update.message.reply_text(
         f"""
-🎲 BOT TÀI XỈU & ĐIỂM ẢO
+🎲 BOT TÀI XỈU & CHẴN LẺ
 
 Xin chào {user.first_name}!
 🎁 **Đã nhận quà Tân thủ:** +{NEWBIE_BONUS:,} điểm (Yêu cầu hoàn thành x{NEWBIE_WAGERING_ROUNDS} vòng cược tương đương {w_req:,} điểm).
@@ -605,11 +589,12 @@ Xin chào {user.first_name}!
 
 🔗 **Link mời bạn bè của bạn:**
 `{ref_link}`
-(Mỗi người chơi bấm vào link này và tham gia, bạn sẽ nhận ngay {REF_BONUS:,} điểm).
 
 🎮 Cách chơi (Min cược: {MIN_BET:,} điểm):
-T 10000 → Chọn TÀI
-X 10000 → Chọn XỈU
+• T 5000 → Chọn TÀI
+• X 5000 → Chọn XỈU
+• C 5000 → Chọn CHẴN
+• L 5000 → Chọn LẺ
 
 📌 LỆNH:
 /tk → Xem số dư & thông tin tài khoản
@@ -633,9 +618,11 @@ async def help_command(
         f"""
 📖 HƯỚNG DẪN
 
-🎯 TÀI XỈU (Min cược: {MIN_BET:,} điểm):
-T 10000 → Chọn TÀI
-X 10000 → Chọn XỈU
+🎯 TRÒ CHƠI (Min cược: {MIN_BET:,} điểm):
+• T 5000 → Chọn TÀI
+• X 5000 → Chọn XỈU
+• C 5000 → Chọn CHẴN
+• L 5000 → Chọn LẺ
 ⚠️ Bộ ba giống nhau = Thua
 🏆 Thắng: Cược × 1.97
 
@@ -692,21 +679,11 @@ async def dice(
         "🎲 Đang tung 3 xúc xắc..."
     )
 
-    d1 = await update.message.reply_dice(
-        emoji="🎲"
-    )
-
+    d1 = await update.message.reply_dice(emoji="🎲")
     await asyncio.sleep(0.8)
-
-    d2 = await update.message.reply_dice(
-        emoji="🎲"
-    )
-
+    d2 = await update.message.reply_dice(emoji="🎲")
     await asyncio.sleep(0.8)
-
-    d3 = await update.message.reply_dice(
-        emoji="🎲"
-    )
+    d3 = await update.message.reply_dice(emoji="🎲")
 
     total = (
         d1.dice.value
@@ -718,13 +695,8 @@ async def dice(
         f"""
 🎲 KẾT QUẢ
 
-{d1.dice.value}
-+
-{d2.dice.value}
-+
-{d3.dice.value}
-
-🔢 Tổng: {total}
+{d1.dice.value} + {d2.dice.value} + {d3.dice.value}
+🔢 Tổng: {total} ({"Chẵn" if total % 2 == 0 else "Lẻ"})
 """
     )
 
@@ -748,7 +720,6 @@ async def use_code(
     conn = get_db()
     cur = conn.cursor()
 
-    # Kiểm tra mã có tồn tại không
     cur.execute("SELECT amount, max_uses, used_count FROM promo_codes WHERE code = ?", (code,))
     row = cur.fetchone()
 
@@ -764,20 +735,17 @@ async def use_code(
         await update.message.reply_text("❌ Mã quà tặng này đã hết lượt sử dụng!")
         return
 
-    # Kiểm tra xem user này đã dùng mã này chưa
     cur.execute("SELECT * FROM user_codes WHERE user_id = ? AND code = ?", (user.id, code))
     if cur.fetchone():
         conn.close()
         await update.message.reply_text("❌ Bạn đã sử dụng mã quà tặng này rồi!")
         return
 
-    # Đánh dấu user đã dùng và tăng số lượt dùng code
     cur.execute("INSERT INTO user_codes (user_id, code) VALUES (?, ?)", (user.id, code))
     cur.execute("UPDATE promo_codes SET used_count = used_count + 1 WHERE code = ?", (code,))
     conn.commit()
     conn.close()
 
-    # Cộng điểm cho người dùng
     new_balance = change_points(user.id, amount)
 
     await update.message.reply_text(
@@ -893,11 +861,7 @@ Ví dụ:
             )
 
         except Exception as e:
-
-            print(
-                "Lỗi gửi Admin:",
-                e
-            )
+            print("Lỗi gửi Admin:", e)
 
 
 async def withdraw(
@@ -916,7 +880,7 @@ async def withdraw(
 (Min rút: {MIN_WITHDRAW:,})
 
 💡 Ví dụ:
-/rut 10000 VCB 0123456789 Tran Van B
+/rut 30000 VCB 0123456789 Tran Van B
 """
         )
 
@@ -946,7 +910,6 @@ async def withdraw(
         await update.message.reply_text(f"❌ Số tiền rút tối thiểu phải từ {MIN_WITHDRAW:,} điểm trở lên.")
         return
 
-    # Kiểm tra điều kiện vòng cược trước khi cho phép rút
     completed, req, comp = check_wagering_status(user.id)
     if not completed:
         await update.message.reply_text(
@@ -1023,11 +986,7 @@ async def withdraw(
             )
 
         except Exception as e:
-
-            print(
-                "Lỗi gửi Admin:",
-                e
-            )
+            print("Lỗi gửi Admin:", e)
 
 
 # =========================================================
@@ -1099,7 +1058,7 @@ async def history(
 
 
 # =========================================================
-# ADMIN COMMANDS (TẠO CODE, DUYỆT GIAO DỊCH)
+# ADMIN COMMANDS
 # =========================================================
 
 def is_admin(update):
@@ -1111,7 +1070,6 @@ def is_admin(update):
     )
 
 
-# Lệnh Admin tạo mã quà tặng: /taocode [MÃ] [SỐ_ĐIỂM] [SỐ_LƯỢT_DÙNG(tùy chọn)]
 async def create_promo_code(
     update: Update,
     context: ContextTypes.DEFAULT_TYPE
@@ -1488,7 +1446,6 @@ def main():
     app.add_handler(CommandHandler("ls", history))
     app.add_handler(CommandHandler("dice", dice))
 
-    # Lệnh Admin
     app.add_handler(CommandHandler("taocode", create_promo_code))
     app.add_handler(CommandHandler("approve_deposit", approve_deposit))
     app.add_handler(CommandHandler("approve_withdraw", approve_withdraw))
