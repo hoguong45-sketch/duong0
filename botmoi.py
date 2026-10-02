@@ -66,7 +66,21 @@ def run_web_server():
 
 Thread(target=run_web_server, daemon=True).start()
 
-# --- 3. LỆNH ĐẶT CƯỢC & KIỂM TRA SỐ DƯ ---
+# --- 3. LỆNH /START, ĐẶT CƯỢC & KIỂM TRA SỐ DƯ ---
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_name = update.effective_user.first_name
+    chat_id = update.effective_chat.id
+    welcome_msg = (
+        f"👋 Xin chào {user_name}!\n"
+        f"🤖 Bot Tài Xỉu tự động phiên 35s đã sẵn sàng.\n"
+        f"📌 ID Chat của bạn là: `{chat_id}`\n\n"
+        f"📌 **Hướng dẫn lệnh:**\n"
+        f"• `/sodu` - Xem số dư tài khoản\n"
+        f"• `/tai <số_tiền>` - Đặt cửa Tài\n"
+        f"• `/xiu <số_tiền>` - Đặt cửa Xỉu"
+    )
+    await update.message.reply_text(welcome_msg, parse_mode="Markdown")
+
 async def dat_cuoc(update: Update, context: ContextTypes.DEFAULT_TYPE):
     global is_betting_open, current_bets
     if not is_betting_open:
@@ -89,7 +103,7 @@ async def dat_cuoc(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     if amount < MIN_BET:
-        await update.message.reply_text(f"⚠️ Cược tối thiểu {MIN_BET:,} điểm!")
+        await update.message.reply_text(f"⚠️️ Cược tối thiểu {MIN_BET:,} điểm!")
         return
 
     user_id = update.effective_user.id
@@ -101,7 +115,6 @@ async def dat_cuoc(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(f"❌ Số dư không đủ! Số dư hiện tại: `{balance:,}` điểm.", parse_mode="Markdown")
         return
 
-    # Trừ tiền trực tiếp vào database
     update_balance(user_id, -amount)
     current_bets[user_id] = {"choice": command, "amount": amount, "name": username}
 
@@ -124,7 +137,6 @@ async def game_loop(application):
     target_chat_id = os.getenv("CHAT_ID", "NHẬP_CHAT_ID_VÀO_ĐÂY")
 
     while True:
-        # Mở cược 25 giây
         is_betting_open = True
         current_bets.clear()
         
@@ -146,7 +158,6 @@ async def game_loop(application):
 
         await asyncio.sleep(25)
 
-        # Đóng cược & Quay thưởng
         is_betting_open = False
         await asyncio.sleep(2)
         
@@ -213,6 +224,8 @@ def main():
     init_db()
     app = ApplicationBuilder().token(BOT_TOKEN).build()
     
+    # Đăng ký các lệnh đầy đủ
+    app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("tai", dat_cuoc))
     app.add_handler(CommandHandler("xiu", dat_cuoc))
     app.add_handler(CommandHandler("sodu", check_sodu))
