@@ -27,7 +27,7 @@ DB_FILE = "bot.db"
 START_POINTS = 0  
 MULTIPLIER = 1.97
 
-# Cấu hình mức cược và giao dịch theo yêu cầu mới
+# Cấu hình mức cược và giao dịch
 MIN_BET = 5_000         # Min cược 5k
 MIN_DEPOSIT = 30_000
 MIN_WITHDRAW = 30_000   # Min rút 30k
@@ -35,7 +35,7 @@ MIN_WITHDRAW = 30_000   # Min rút 30k
 # Cấu hình Tân thủ & Giới thiệu
 NEWBIE_BONUS = 5_000
 NEWBIE_WAGERING_ROUNDS = 10  # x10 vòng cược
-REF_BONUS = 10_000
+REF_BONUS = 1_000            # Mời mỗi bạn bè được 1,000 điểm
 
 
 # =========================================================
@@ -120,6 +120,23 @@ def init_db():
         )
     """)
 
+    # Bảng lưu trữ lịch sử đặt cược của người chơi
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS bet_history (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER,
+            tx_id TEXT,
+            game_type TEXT,
+            choice TEXT,
+            bet_amount INTEGER,
+            result_dice TEXT,
+            total_score INTEGER,
+            status TEXT,
+            reward_amount INTEGER,
+            created_at TEXT
+        )
+    """)
+
     cur.execute("""
         CREATE TABLE IF NOT EXISTS promo_codes (
             code TEXT PRIMARY KEY,
@@ -141,7 +158,7 @@ def init_db():
     conn.close()
 
 
-def get_user(user_id, username="", referrer_id=None):
+def get_user(user_id, username="", referrer_id=None, context=None):
 
     conn = get_db()
     cur = conn.cursor()
@@ -174,11 +191,25 @@ def get_user(user_id, username="", referrer_id=None):
             )
         )
 
+        # Nếu có người giới thiệu hợp lệ
         if ref:
             cur.execute("SELECT user_id, ref_count FROM users WHERE user_id = ?", (ref,))
             ref_user = cur.fetchone()
             if ref_user:
                 cur.execute("UPDATE users SET points = points + ?, ref_count = ref_count + 1 WHERE user_id = ?", (REF_BONUS, ref))
+                
+                # Gửi thông báo trực tiếp cộng tiền cho người mời
+                if context:
+                    try:
+                        asyncio.create_task(
+                            context.bot.send_message(
+                                ref,
+                                f"🎉 **CÓ BẠN MỚI THAM GIA!**\n\n👤 Thành viên: `{username or user_id}` đã tham gia qua link của bạn.\n🪙 Hệ thống cộng thưởng: **+{REF_BONUS:,} điểm** vào tài khoản!",
+                                parse_mode="Markdown"
+                            )
+                        )
+                    except Exception:
+                        pass
 
         conn.commit()
         points = initial_points
@@ -271,15 +302,42 @@ def update_wagering(user_id, bet_amount):
 def check_wagering_status(user_id):
     conn = get_db()
     cur = conn.cursor()
-    conn.close()
     cur.execute("SELECT wagering_required, wagering_completed FROM users WHERE user_id = ?", (user_id,))
     row = cur.fetchone()
+    conn.close()
     if not row:
         return True, 0, 0
     req, comp = row
     if comp >= req:
         return True, req, comp
     return False, req, comp
+
+
+def log_bet_history(user_id, tx_id, game_type, choice, bet_amount, result_dice, total_score, status, reward_amount):
+    """Ghi lại lịch sử đặt cược"""
+    conn = get_db()
+    cur = conn.cursor()
+    cur.execute(
+        """
+        INSERT INTO bet_history 
+        (user_id, tx_id, game_type, choice, bet_amount, result_dice, total_score, status, reward_amount, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            user_id,
+            tx_id,
+            game_type,
+            choice,
+            bet_amount,
+            result_dice,
+            total_score,
+            status,
+            reward_amount,
+            datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        )
+    )
+    conn.commit()
+    conn.close()
 
 
 def create_transaction(
@@ -375,7 +433,6 @@ async def play_game(
 
     tx_id = uuid.uuid4().hex[:6].upper()
     
-    # Thiết lập nhãn hiển thị cửa đặt dựa vào lựa chọn của người chơi (Tài / Xỉu / Chẵn / Lẻ)
     if choice == "T":
         choice_name = "TÀI"
         cửa_dat_display = "t2"
@@ -417,7 +474,6 @@ Lựa chọn: {choice_name}
     total = a + b + c
     triple = (a == b == c)
 
-    # Xét thắng thua tùy thuộc vào loại game (Tài/Xỉu hay Chẵn/Lẻ)
     if choice in ("T", "X"):
         if triple:
             win = False
@@ -426,58 +482,56 @@ Lựa chọn: {choice_name}
         else:
             win = (choice == "T")
     else:  # Chẵn / Lẻ
-        if triple:
-            win = False  # Bộ ba xúc xắc (ví dụ 3 con giống nhau như 2-2-2) thường được tính là nhà cái ăn hoặc thua cược Chẵn/Lẻ tùy hệ thống, hoặc tính theo tổng chẵn/lẻ thuần túy. Ở đây xét theo tổng:
         win = (total % 2 == 0) if choice == "C" else (total % 2 != 0)
-        # Nếu muốn bộ ba vẫn bắt buộc thua như Tài Xỉu thì giữ nguyên logic dưới:
         if triple:
             win = False
 
+    result_dice_str = f"{a} + {b} + {c}"
+
     if win:
-
-        reward = int(
-            bet * MULTIPLIER
-        )
-
-        new_balance = change_points(
-            user.id,
-            reward
-        )
+        reward = int(bet * MULTIPLIER)
+        new_balance = change_points(user.id, reward)
+        status_text = "Thắng cuộc"
+        reward_display = f"+{reward:,}đ"
+        
+        # Ghi lịch sử cược
+        log_bet_history(user.id, tx_id, choice_name, cửa_dat_display, bet, result_dice_str, total, "THẮNG", reward)
 
         await update.message.reply_text(
             f"""
 ┌─────────────────────────
 ├─ Trò chơi: Xúc xắc ({choice_name})
-├─ Kết quả: {a} + {b} + {c} = {total}
+├─ Kết quả: {result_dice_str} = {total}
 ├─ Cửa đặt : {cửa_dat_display}
 ├─ Mã giao dịch: {tx_id}
 ├─ Tiền cược: {bet:,}đ
 ├─ Nội dung: {noi_dung_display}
 └─────────────────────────
-├─ Kết quả: Thắng cuộc - {reward:,}đ
+├─ Kết quả: {status_text} - {reward_display}
 
 Số dư: {new_balance:,}đ
 """
         )
 
     else:
-
-        new_balance = get_user(
-            user.id,
-            user.username or ""
-        )
+        new_balance = get_user(user.id, user.username or "")
+        status_text = "Thua cuộc"
+        reward_display = "0đ"
+        
+        # Ghi lịch sử cược
+        log_bet_history(user.id, tx_id, choice_name, cửa_dat_display, bet, result_dice_str, total, "THUA", 0)
 
         await update.message.reply_text(
             f"""
 ┌─────────────────────────
 ├─ Trò chơi: Xúc xắc ({choice_name})
-├─ Kết quả: {a} + {b} + {c} = {total}
+├─ Kết quả: {result_dice_str} = {total}
 ├─ Cửa đặt : {cửa_dat_display}
 ├─ Mã giao dịch: {tx_id}
 ├─ Tiền cược: {bet:,}đ
 ├─ Nội dung: {noi_dung_display}
 └─────────────────────────
-├─ Kết quả: Thua cuộc - 0đ
+├─ Kết quả: {status_text} - {reward_display}
 
 Số dư: {new_balance:,}đ
 """
@@ -503,7 +557,6 @@ async def text_bet(
 
     choice = parts[0].upper()
 
-    # Thêm hỗ trợ nhận diện 'C' (Chẵn) và 'L' (Lẻ)
     if choice not in ("T", "X", "C", "L"):
         return
 
@@ -561,7 +614,8 @@ async def start(
     points = get_user(
         user.id,
         user.username or "",
-        referrer_id
+        referrer_id,
+        context
     )
 
     conn = get_db()
@@ -601,7 +655,8 @@ Xin chào {user.first_name}!
 /nap 30000 → Nạp điểm
 /rut [Số tiền] [Mã NH] [Số TK] [Tên TK] → Rút tiền (Min rút: {MIN_WITHDRAW:,})
 /code [Mã_Quà] → Nhập mã nhận thưởng từ Admin
-/ls → Lịch sử giao dịch
+/ls → Lịch sử nạp rút
+/lichsucuoc → Xem lịch sử đặt cược game
 /dice → Tung xúc xắc giải trí
 /help → Xem hướng dẫn
 """,
@@ -631,7 +686,8 @@ async def help_command(
 /nap [Số điểm] (Tối thiểu {MIN_DEPOSIT:,}) → Nạp điểm
 /rut [Số tiền] [Mã NH] [Số TK] [Tên TK] (Min rút: {MIN_WITHDRAW:,}) → Rút tiền
 /code [Mã] → Nhập giftcode nhận thưởng
-/ls → Lịch sử giao dịch
+/ls → Lịch sử giao dịch nạp rút
+/lichsucuoc → Lịch sử đặt cược trò chơi
 🎲 /dice → Tung xúc xắc giải trí
 """
     )
@@ -668,6 +724,46 @@ async def balance(
 📈 Vòng cược đã hoàn thành: {w_comp:,} / {w_req:,} điểm
 """
     )
+
+
+async def bet_history(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE
+):
+    """Xem lịch sử 10 ván cược gần nhất"""
+    user = update.effective_user
+    conn = get_db()
+    cur = conn.cursor()
+    cur.execute(
+        """
+        SELECT tx_id, game_type, bet_amount, result_dice, total_score, status, reward_amount, created_at
+        FROM bet_history
+        WHERE user_id = ?
+        ORDER BY id DESC
+        LIMIT 10
+        """,
+        (user.id,)
+    )
+    rows = cur.fetchall()
+    conn.close()
+
+    if not rows:
+        await update.message.reply_text("📜 Bạn chưa có lịch sử đặt cược trò chơi nào.")
+        return
+
+    text = "📜 **LỊCH SỬ ĐẶT CƯỢC (10 VÁN GẦN NHẤT)**\n\n"
+    for r in rows:
+        tx_id, g_type, bet_amt, dice_res, total, status, reward, time_str = r
+        icon = "✅" if status == "THẮNG" else "❌"
+        text += (
+            f"{icon} **{g_type}** ({status})\n"
+            f"🔖 Mã GD: `{tx_id}`\n"
+            f"🪙 Cược: {bet_amt:,}đ | Nhận: +{reward:,}đ\n"
+            f"🎲 Xúc xắc: {dice_res} = {total}\n"
+            f"🕐 {time_str}\n\n"
+        )
+
+    await update.message.reply_text(text, parse_mode="Markdown")
 
 
 async def dice(
@@ -990,7 +1086,7 @@ async def withdraw(
 
 
 # =========================================================
-# LỊCH SỬ
+# LỊCH SỬ GIAO DỊCH NẠP RÚT
 # =========================================================
 
 async def history(
@@ -1025,12 +1121,12 @@ async def history(
     if not rows:
 
         await update.message.reply_text(
-            "📜 Bạn chưa có giao dịch nào."
+            "📜 Bạn chưa có giao dịch nạp rút nào."
         )
 
         return
 
-    text = "📜 LỊCH SỬ GIAO DỊCH\n\n"
+    text = "📜 LỊCH SỬ GIAO DỊCH NẠP RÚT\n\n"
 
     for row in rows:
 
@@ -1444,6 +1540,7 @@ def main():
     app.add_handler(CommandHandler("rut", withdraw))
     app.add_handler(CommandHandler("code", use_code))
     app.add_handler(CommandHandler("ls", history))
+    app.add_handler(CommandHandler("lichsucuoc", bet_history))
     app.add_handler(CommandHandler("dice", dice))
 
     app.add_handler(CommandHandler("taocode", create_promo_code))
