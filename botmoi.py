@@ -18,6 +18,9 @@ is_betting_open = False
 current_bets = {} 
 history_cautai = [] # Lưu lịch sử dây cầu
 
+# Biến toàn cục lưu trữ app bot để vòng lặp game gọi được
+global_application = None
+
 # --- 1. QUẢN LÝ DATABASE TRỰC TIẾP TRONG 1 FILE ---
 def init_db():
     conn = sqlite3.connect("bot_database.db")
@@ -103,7 +106,7 @@ async def dat_cuoc(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     if amount < MIN_BET:
-        await update.message.reply_text(f"⚠️️ Cược tối thiểu {MIN_BET:,} điểm!")
+        await update.message.reply_text(f"⚠️ Cược tối thiểu {MIN_BET:,} điểm!")
         return
 
     user_id = update.effective_user.id
@@ -132,9 +135,12 @@ async def check_sodu(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(f"💰 Số dư tài khoản của bạn: `{balance:,}` điểm", parse_mode="Markdown")
 
 # --- 4. VÒNG LẶP CHẠY LIÊN TỤC MỖI 35 GIÂY ---
-async def game_loop(application):
-    global current_session, is_betting_open, current_bets, history_cautai
+async def game_loop():
+    global current_session, is_betting_open, current_bets, history_cautai, global_application
     target_chat_id = os.getenv("CHAT_ID", "NHẬP_CHAT_ID_VÀO_ĐÂY")
+
+    # Đợi bot khởi động xong hẳn
+    await asyncio.sleep(5)
 
     while True:
         is_betting_open = True
@@ -142,9 +148,9 @@ async def game_loop(application):
         
         cau_string = " ".join(history_cautai) if history_cautai else "Chưa có lịch sử"
 
-        if target_chat_id != "NHẬP_CHAT_ID_VÀO_ĐÂY":
+        if target_chat_id != "NHẬP_CHAT_ID_VÀO_ĐÂY" and global_application:
             try:
-                await application.bot.send_message(
+                await global_application.bot.send_message(
                     chat_id=target_chat_id,
                     text=f"🔔 **PHIÊN #{current_session} BẮT ĐẦU!**\n"
                          f"📈 **Dây cầu gần đây:** {cau_string}\n"
@@ -210,28 +216,37 @@ async def game_loop(application):
             f"📝 **Biến động cược:**\n" + (payout_summary if payout_summary else "*(Không có lượt cược nào phiên này)*")
         )
 
-        if target_chat_id != "NHẬP_CHAT_ID_VÀO_ĐÂY":
+        if target_chat_id != "NHẬP_CHAT_ID_VÀO_ĐÂY" and global_application:
             try:
-                await application.bot.send_message(chat_id=target_chat_id, text=result_msg, parse_mode="Markdown")
+                await global_application.bot.send_message(chat_id=target_chat_id, text=result_msg, parse_mode="Markdown")
             except Exception as e:
                 print(f"Lỗi gửi kết quả: {e}")
 
         current_session += 1
         await asyncio.sleep(8)
 
+def run_async_loop(loop):
+    asyncio.set_event_loop(loop)
+    loop.run_until_complete(game_loop())
+
 # --- 5. HÀM KHỞI CHẠY ---
 def main():
+    global global_application
     init_db()
-    app = ApplicationBuilder().token(BOT_TOKEN).build()
     
-    # Đăng ký các lệnh đầy đủ
-    app.add_handler(CommandHandler("start", start))
-    app.add_handler(CommandHandler("tai", dat_cuoc))
-    app.add_handler(CommandHandler("xiu", dat_cuoc))
-    app.add_handler(CommandHandler("sodu", check_sodu))
+    global_application = ApplicationBuilder().token(BOT_TOKEN).build()
     
-    app.post_init = lambda app: app.create_task(game_loop(app))
-    app.run_polling()
+    global_application.add_handler(CommandHandler("start", start))
+    global_application.add_handler(CommandHandler("tai", dat_cuoc))
+    global_application.add_handler(CommandHandler("xiu", dat_cuoc))
+    global_application.add_handler(CommandHandler("sodu", check_sodu))
+    
+    # Khởi chạy vòng lặp game bằng luồng độc lập an toàn
+    loop = asyncio.new_event_loop()
+    t = Thread(target=run_async_loop, args=(loop,), daemon=True)
+    t.start()
+    
+    global_application.run_polling()
 
 if __name__ == "__main__":
     main()
