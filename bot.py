@@ -27,9 +27,9 @@ DB_FILE = "bot.db"
 START_POINTS = 0  
 MULTIPLIER = 1.97
 
-# Cấu hình mức cược và giao dịch theo yêu cầu mới
+# Cấu hình mức cược và giao dịch
 MIN_BET = 5_000         
-MIN_DEPOSIT = 10_000    # Min nạp 10k theo yêu cầu
+MIN_DEPOSIT = 10_000    # Min nạp 10k
 MIN_WITHDRAW = 30_000   # Min rút 30k
 
 # Cấu hình Tân thủ & Giới thiệu
@@ -104,7 +104,7 @@ def init_db():
             wagering_completed INTEGER NOT NULL DEFAULT 0,
             received_newbie BOOLEAN NOT NULL DEFAULT 0,
             ref_count INTEGER NOT NULL DEFAULT 0,
-            total_deposited INTEGER NOT NULL DEFAULT 0  -- Kiểm tra tổng tiền đã nạp để mở khóa rút
+            total_deposited INTEGER NOT NULL DEFAULT 0
         )
     """)
 
@@ -1002,7 +1002,6 @@ async def withdraw(
         await update.message.reply_text(f"❌ Số tiền rút tối thiểu phải từ {MIN_WITHDRAW:,} điểm trở lên.")
         return
 
-    # Kiểm tra điều kiện vòng cược và tổng tiền nạp (phải nạp tối thiểu 30k mới được rút)
     ok, req, comp, total_dep = check_wagering_status(user.id)
     
     if total_dep < 30_000:
@@ -1162,7 +1161,7 @@ async def history(
 
 
 # =========================================================
-# ADMIN COMMANDS
+# ADMIN COMMANDS (PHÂN QUYỀN RIÊNG CHO ADMIN)
 # =========================================================
 
 def is_admin(update):
@@ -1178,7 +1177,9 @@ async def create_promo_code(
     update: Update,
     context: ContextTypes.DEFAULT_TYPE
 ):
+    # Kiểm tra bảo mật: Chỉ có Admin mới được tạo mã, thành viên gõ sẽ bị chặn
     if not is_admin(update):
+        await update.message.reply_text("❌ Bạn không có quyền sử dụng lệnh này!")
         return
 
     if len(context.args) < 2:
@@ -1259,23 +1260,44 @@ async def handle_admin_callback(update: Update, context: ContextTypes.DEFAULT_TY
     if not row or row[3] != "PENDING":
         conn.close()
         await query.answer("❌ Giao dịch không tồn tại hoặc đã được xử lý!", show_alert=True)
-        await query.edit_message_text(text=query.message.text + "\n\n⚠ [ĐÃ XỬ LÝ]")
+        try:
+            await query.edit_message_text(text=query.message.text + "\n\n⚠ [ĐÃ XỬ LÝ]")
+        except Exception:
+            pass
         return
 
     user_id, amount, tx_type, status = row
 
     if action == "app_dep":
         new_balance = change_points(user_id, amount)
-        # Cập nhật tổng số tiền đã nạp của user để mở khóa điều kiện rút tiền (>= 30k)
-        cur.execute("UPDATE users SET total_deposited = total_deposited + ?, status = 'APPROVED', balance_after = ? WHERE tx_id = ?", (amount, new_balance, tx_id))
+        # Sửa lỗi: Cập nhật chuẩn trạng thái giao dịch nạp thành APPROVED và cộng dồn tổng tiền nạp của user
+        cur.execute(
+            """
+            UPDATE transactions
+            SET status = 'APPROVED', balance_after = ?
+            WHERE tx_id = ?
+            """,
+            (new_balance, tx_id)
+        )
+        cur.execute(
+            """
+            UPDATE users
+            SET total_deposited = total_deposited + ?
+            WHERE user_id = ?
+            """,
+            (amount, user_id)
+        )
         conn.commit()
         conn.close()
 
         await query.answer(f"✅ Đã duyệt nạp mã {tx_id}!", show_alert=True)
-        await query.edit_message_text(
-            text=f"{query.message.text}\n\n✅ **ĐÃ DUYỆT NẠP THÀNH CÔNG** (+{amount:,} điểm)",
-            parse_mode="Markdown"
-        )
+        try:
+            await query.edit_message_text(
+                text=f"{query.message.text}\n\n✅ **ĐÃ DUYỆT NẠP THÀNH CÔNG** (+{amount:,} điểm)",
+                parse_mode="Markdown"
+            )
+        except Exception:
+            pass
 
         try:
             await context.bot.send_message(
@@ -1312,10 +1334,13 @@ async def handle_admin_callback(update: Update, context: ContextTypes.DEFAULT_TY
         conn.close()
 
         await query.answer(f"✅ Đã duyệt rút mã {tx_id}!", show_alert=True)
-        await query.edit_message_text(
-            text=f"{query.message.text}\n\n✅ **ĐÃ DUYỆT RÚT THÀNH CÔNG** (-{amount:,} điểm)",
-            parse_mode="Markdown"
-        )
+        try:
+            await query.edit_message_text(
+                text=f"{query.message.text}\n\n✅ **ĐÃ DUYỆT RÚT THÀNH CÔNG** (-{amount:,} điểm)",
+                parse_mode="Markdown"
+            )
+        except Exception:
+            pass
 
         try:
             await context.bot.send_message(
@@ -1345,10 +1370,13 @@ async def handle_admin_callback(update: Update, context: ContextTypes.DEFAULT_TY
         conn.close()
 
         await query.answer(f"❌ Đã từ chối giao dịch {tx_id}!", show_alert=True)
-        await query.edit_message_text(
-            text=f"{query.message.text}\n\n❌ **ĐÃ TỪ CHỐI GIAO DỊCH**",
-            parse_mode="Markdown"
-        )
+        try:
+            await query.edit_message_text(
+                text=f"{query.message.text}\n\n❌ **ĐÃ TỪ CHỐI GIAO DỊCH**",
+                parse_mode="Markdown"
+            )
+        except Exception:
+            pass
 
         try:
             await context.bot.send_message(
@@ -1362,153 +1390,6 @@ async def handle_admin_callback(update: Update, context: ContextTypes.DEFAULT_TY
             )
         except Exception:
             pass
-
-
-async def approve_deposit(
-    update: Update,
-    context: ContextTypes.DEFAULT_TYPE
-):
-
-    if not is_admin(update):
-        return
-
-    if len(context.args) != 1:
-        await update.message.reply_text("❌ Cú pháp:\n/approve_deposit TX_ID")
-        return
-
-    tx_id = context.args[0].upper()
-    conn = get_db()
-    cur = conn.cursor()
-    cur.execute("SELECT user_id, amount, status FROM transactions WHERE tx_id = ?", (tx_id,))
-    row = cur.fetchone()
-
-    if not row or row[2] != "PENDING":
-        conn.close()
-        await update.message.reply_text("❌ Giao dịch không hợp lệ hoặc đã xử lý.")
-        return
-
-    user_id, amount, status = row
-    new_balance = change_points(user_id, amount)
-    cur.execute("UPDATE transactions SET status = 'APPROVED', balance_after = ? WHERE tx_id = ?", (new_balance, tx_id))
-    cur.execute("UPDATE users SET total_deposited = total_deposited + ? WHERE user_id = ?", (amount, user_id))
-    conn.commit()
-    conn.close()
-
-    await update.message.reply_text(f"✅ ĐÃ DUYỆT NẠP\n🔖 {tx_id}\n🪙 +{amount:,} điểm\n💰 Số dư: {new_balance:,}")
-
-
-async def approve_withdraw(
-    update: Update,
-    context: ContextTypes.DEFAULT_TYPE
-):
-
-    if not is_admin(update):
-        return
-
-    if len(context.args) != 1:
-        await update.message.reply_text("❌ Cú pháp:\n/approve_withdraw TX_ID")
-        return
-
-    tx_id = context.args[0].upper()
-    conn = get_db()
-    cur = conn.cursor()
-    cur.execute("SELECT user_id, amount, status FROM transactions WHERE tx_id = ?", (tx_id,))
-    row = cur.fetchone()
-
-    if not row or row[2] != "PENDING":
-        conn.close()
-        await update.message.reply_text("❌ Giao dịch không hợp lệ hoặc đã xử lý.")
-        return
-
-    user_id, amount, status = row
-    current_points = get_user(user_id)
-    if amount > current_points:
-        conn.close()
-        await update.message.reply_text("❌ Người dùng không đủ điểm.")
-        return
-
-    new_balance = change_points(user_id, -amount)
-    cur.execute("UPDATE transactions SET status = 'APPROVED', balance_after = ? WHERE tx_id = ?", (new_balance, tx_id))
-    conn.commit()
-    conn.close()
-
-    await update.message.reply_text(f"✅ ĐÃ DUYỆT RÚT\n🔖 {tx_id}\n🪙 -{amount:,} điểm\n💰 Số dư: {new_balance:,}")
-
-
-async def reject(
-    update: Update,
-    context: ContextTypes.DEFAULT_TYPE
-):
-
-    if not is_admin(update):
-        return
-
-    if len(context.args) != 1:
-        await update.message.reply_text("❌ Cú pháp:\n/reject TX_ID")
-        return
-
-    tx_id = context.args[0].upper()
-    conn = get_db()
-    cur = conn.cursor()
-    cur.execute("UPDATE transactions SET status = 'REJECTED' WHERE tx_id = ? AND status = 'PENDING'", (tx_id,))
-    changed = cur.rowcount
-    conn.commit()
-    conn.close()
-
-    if changed:
-        await update.message.reply_text(f"❌ ĐÃ TỪ CHỐI\n🔖 {tx_id}")
-    else:
-        await update.message.reply_text("❌ Không tìm thấy giao dịch đang chờ.")
-
-
-async def add_points(
-    update: Update,
-    context: ContextTypes.DEFAULT_TYPE
-):
-
-    if not is_admin(update):
-        return
-
-    if len(context.args) != 2:
-        await update.message.reply_text("❌ Cú pháp:\n/addpoints USER_ID SO_DIEM")
-        return
-
-    try:
-        user_id = int(context.args[0])
-        amount = int(context.args[1])
-    except ValueError:
-        await update.message.reply_text("❌ User ID hoặc số điểm không hợp lệ.")
-        return
-
-    new_balance = change_points(user_id, amount)
-    await update.message.reply_text(f"✅ CỘNG ĐIỂM\n👤 User ID: {user_id}\n🪙 +{amount:,}\n💰 Số dư mới: {new_balance:,}")
-
-
-async def remove_points(
-    update: Update,
-    context: ContextTypes.DEFAULT_TYPE
-):
-
-    if not is_admin(update):
-        return
-
-    if len(context.args) != 2:
-        await update.message.reply_text("❌ Cú pháp:\n/removepoints USER_ID SO_DIEM")
-        return
-
-    try:
-        user_id = int(context.args[0])
-        amount = int(context.args[1])
-    except ValueError:
-        await update.message.reply_text("❌ User ID hoặc số điểm không hợp lệ.")
-        return
-
-    new_balance = change_points(user_id, -amount)
-    if new_balance is None:
-        await update.message.reply_text("❌ Người dùng không đủ điểm.")
-        return
-
-    await update.message.reply_text(f"✅ TRỪ ĐIỂM\n👤 User ID: {user_id}\n🪙 -{amount:,}\n💰 Số dư mới: {new_balance:,}")
 
 
 # =========================================================
@@ -1547,11 +1428,6 @@ def main():
     app.add_handler(CommandHandler("dice", dice))
 
     app.add_handler(CommandHandler("taocode", create_promo_code))
-    app.add_handler(CommandHandler("approve_deposit", approve_deposit))
-    app.add_handler(CommandHandler("approve_withdraw", approve_withdraw))
-    app.add_handler(CommandHandler("reject", reject))
-    app.add_handler(CommandHandler("addpoints", add_points))
-    app.add_handler(CommandHandler("removepoints", remove_points))
 
     app.add_handler(
         MessageHandler(
