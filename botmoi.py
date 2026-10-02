@@ -4,7 +4,6 @@ import sqlite3
 import asyncio
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from threading import Thread
-from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
 
 # --- CẤU HÌNH CƠ BẢN ---
@@ -16,9 +15,7 @@ MIN_BET = 1000
 current_session = 1
 is_betting_open = False
 current_bets = {} 
-history_cautai = [] # Lưu lịch sử dây cầu
-
-# Biến toàn cục lưu trữ app bot để vòng lặp game gọi được
+history_cautai = [] 
 global_application = None
 
 # --- 1. QUẢN LÝ DATABASE TRỰC TIẾP TRONG 1 FILE ---
@@ -61,7 +58,7 @@ class SimpleHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         self.send_response(200)
         self.end_headers()
-        self.wfile.write(b"Tai Xiu Bot Single-File is running 24/7!")
+        self.wfile.write(b"Tai Xiu Bot Auto Running 24/7!")
 
 def run_web_server():
     server = HTTPServer(('0.0.0.0', PORT), SimpleHandler)
@@ -69,25 +66,11 @@ def run_web_server():
 
 Thread(target=run_web_server, daemon=True).start()
 
-# --- 3. LỆNH /START, ĐẶT CƯỢC & KIỂM TRA SỐ DƯ ---
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_name = update.effective_user.first_name
-    chat_id = update.effective_chat.id
-    welcome_msg = (
-        f"👋 Xin chào {user_name}!\n"
-        f"🤖 Bot Tài Xỉu tự động phiên 35s đã sẵn sàng.\n"
-        f"📌 ID Chat của bạn là: `{chat_id}`\n\n"
-        f"📌 **Hướng dẫn lệnh:**\n"
-        f"• `/sodu` - Xem số dư tài khoản\n"
-        f"• `/tai <số_tiền>` - Đặt cửa Tài\n"
-        f"• `/xiu <số_tiền>` - Đặt cửa Xỉu"
-    )
-    await update.message.reply_text(welcome_msg, parse_mode="Markdown")
-
-async def dat_cuoc(update: Update, context: ContextTypes.DEFAULT_TYPE):
+# --- 3. LỆNH ĐẶT CƯỢC & KIỂM TRA SỐ DƯ (KHÔNG CẦN LỆNH KHỞI ĐỘNG VẪN CHẠY) ---
+async def dat_cuoc(update, context):
     global is_betting_open, current_bets
     if not is_betting_open:
-        await update.message.reply_text("⏳ Chưa tới thời gian đặt cược! Vui lòng đợi phiên mới.")
+        await update.message.reply_text("⏳ Đang trong thời gian chờ kết quả hoặc chuẩn bị phiên mới, chưa thể cược!")
         return
 
     args = context.args
@@ -128,21 +111,22 @@ async def dat_cuoc(update: Update, context: ContextTypes.DEFAULT_TYPE):
         parse_mode="Markdown"
     )
 
-async def check_sodu(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def check_sodu(update, context):
     user_id = update.effective_user.id
     username = update.effective_user.username or update.effective_user.first_name
     balance = get_user_balance(user_id, username)
     await update.message.reply_text(f"💰 Số dư tài khoản của bạn: `{balance:,}` điểm", parse_mode="Markdown")
 
-# --- 4. VÒNG LẶP CHẠY LIÊN TỤC MỖI 35 GIÂY ---
+# --- 4. VÒNG LẶP TỰ ĐỘNG HOÀN TOÀN (35S 1 LƯỢT + 10S ĐẾM NGƯỢC) ---
 async def game_loop():
     global current_session, is_betting_open, current_bets, history_cautai, global_application
     target_chat_id = os.getenv("CHAT_ID", "NHẬP_CHAT_ID_VÀO_ĐÂY")
 
-    # Đợi bot khởi động xong hẳn
+    # Đợi 5 giây cho bot ổn định khi vừa khởi động xong
     await asyncio.sleep(5)
 
     while True:
+        # --- GIAI ĐOẠN 1: MỞ CƯỢC (25 GIÂY CHO NGƯỜI CHƠI NHẬP LỆNH) ---
         is_betting_open = True
         current_bets.clear()
         
@@ -155,7 +139,7 @@ async def game_loop():
                     text=f"🔔 **PHIÊN #{current_session} BẮT ĐẦU!**\n"
                          f"📈 **Dây cầu gần đây:** {cau_string}\n"
                          f"----------------------------------\n"
-                         f"⏰ Thời gian cược: **25 giây**\n"
+                         f"⏰ Thời gian đặt cược: **25 giây**\n"
                          f"👉 Cú pháp: `/tai <số>` hoặc `/xiu <số>`",
                     parse_mode="Markdown"
                 )
@@ -164,9 +148,26 @@ async def game_loop():
 
         await asyncio.sleep(25)
 
+        # --- GIAI ĐOẠN 2: ĐẾM NGƯỢC 10 GIÂY & KHÓA CƯỢC ---
         is_betting_open = False
-        await asyncio.sleep(2)
         
+        if target_chat_id != "NHẬP_CHAT_ID_VÀO_ĐÂY" and global_application:
+            try:
+                msg = await global_application.bot.send_message(
+                    chat_id=target_chat_id,
+                    text="🔒 **ĐÃ KHÓA CƯỢC!** Chuẩn bị tung xúc xắc trong **10 giây**..."
+                )
+                
+                # Đếm ngược thực tế từng giây (từ 10 về 1)
+                for i in range(10, 0, -1):
+                    await asyncio.sleep(1)
+                    # Nếu muốn cập nhật số đếm ngược, có thể bỏ qua hoặc giữ nguyên dòng thông báo tĩnh tùy thích
+            except Exception as e:
+                print(f"Lỗi đếm ngược: {e}")
+        else:
+            await asyncio.sleep(10)
+
+        # --- GIAI ĐOẠN 3: TUNG XÚC XẮC & TRẢ THƯỞNG ---
         d1, d2, d3 = random.randint(1, 6), random.randint(1, 6), random.randint(1, 6)
         total = d1 + d2 + d3
 
@@ -223,7 +224,8 @@ async def game_loop():
                 print(f"Lỗi gửi kết quả: {e}")
 
         current_session += 1
-        await asyncio.sleep(8)
+        # Thời gian nghỉ ngắn trước khi sang phiên mới (tổng cộng thời gian mỗi vòng lặp trọn vẹn sẽ cực kỳ chuẩn xác)
+        await asyncio.sleep(3)
 
 def run_async_loop(loop):
     asyncio.set_event_loop(loop)
@@ -236,12 +238,12 @@ def main():
     
     global_application = ApplicationBuilder().token(BOT_TOKEN).build()
     
-    global_application.add_handler(CommandHandler("start", start))
+    # Chỉ cần đăng ký lệnh cược và xem số dư, không cần lệnh bắt đầu game
     global_application.add_handler(CommandHandler("tai", dat_cuoc))
     global_application.add_handler(CommandHandler("xiu", dat_cuoc))
     global_application.add_handler(CommandHandler("sodu", check_sodu))
     
-    # Khởi chạy vòng lặp game bằng luồng độc lập an toàn
+    # Chạy vòng lặp tự động độc lập
     loop = asyncio.new_event_loop()
     t = Thread(target=run_async_loop, args=(loop,), daemon=True)
     t.start()
