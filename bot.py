@@ -6,7 +6,7 @@ import threading
 from datetime import datetime
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, BotCommand
 from telegram.ext import (
     Application,
     CommandHandler,
@@ -34,7 +34,7 @@ MIN_WITHDRAW = 30_000   # Min rút 30k
 
 # Cấu hình Tân thủ & Giới thiệu
 NEWBIE_BONUS = 5_000
-NEWBIE_WAGERING_ROUNDS = 10  # x10 vòng cược
+NEWBIE_WAGERING_ROUNDS = 10  # x10 vòng cược cho code tân thủ
 REF_BONUS = 1_000            # Mời mỗi bạn bè được 1,000 điểm
 
 
@@ -634,7 +634,7 @@ Xin chào {user.first_name}!
 💰 Số dư: {points:,} điểm
 👥 Số bạn bè đã mời: {ref_count} người (Mỗi lượt mời thành công nhận +{REF_BONUS:,} điểm)
 📈 Tiến độ vòng cược: {w_comp:,} / {w_req:,} điểm
-📥 Tổng tiền đã nạp: {total_dep:,} / 30,000đ (Cần nạp tối thiểu 30k để mở khóa rút)
+📥 Tổng tiền đã nạp: {total_dep:,}đ (Cần cược đủ bằng tổng tiền nạp để mở khóa rút)
 
 🔗 **Link mời bạn bè của bạn:**
 `{ref_link}`
@@ -679,7 +679,7 @@ async def help_command(
 💰 GIAO DỊCH & TIỆN ÍCH:
 /tk → Xem số dư & tiến độ tài khoản
 /nap [Số điểm] (Tối thiểu {MIN_DEPOSIT:,}) → Nạp điểm
-/rut [Số tiền] [Mã NH] [Số TK] [Tên TK] (Min rút: {MIN_WITHDRAW:,}, yêu cầu nạp tổng tối thiểu 30,000đ) → Rút tiền
+/rut [Số tiền] [Mã NH] [Số TK] [Tên TK] (Min rút: {MIN_WITHDRAW:,}, yêu cầu tổng cược tối thiểu bằng tổng tiền đã nạp) → Rút tiền
 /code [Mã] → Nhập giftcode nhận thưởng
 /ls → Lịch sử giao dịch nạp rút
 /lichsucuoc → Lịch sử đặt cược trò chơi
@@ -718,7 +718,7 @@ async def balance(
 🪙 Số dư: {points:,} điểm
 👥 Bạn bè đã mời: {ref_count} người
 📈 Vòng cược đã hoàn thành: {w_comp:,} / {w_req:,} điểm
-📥 Tổng tiền đã nạp: {total_dep:,} / 30,000đ
+📥 Tổng tiền đã nạp: {total_dep:,}đ
 """
     )
 
@@ -969,7 +969,7 @@ async def withdraw(
             f"""
 ❌ Cú pháp rút tiền ngân hàng:
 /rut [số tiền] [mã ngân hàng] [số TK] [Tên TK không dấu]
-(Min rút: {MIN_WITHDRAW:,}, yêu cầu tổng nạp tối thiểu 30,000đ)
+(Min rút: {MIN_WITHDRAW:,}, yêu cầu tổng cược tối thiểu bằng tổng tiền đã nạp)
 
 💡 Ví dụ:
 /rut 30000 VCB 0123456789 Tran Van B
@@ -1004,12 +1004,14 @@ async def withdraw(
 
     ok, req, comp, total_dep = check_wagering_status(user.id)
     
-    if total_dep < 30_000:
+    # Kiểm tra điều kiện nạp và cược tối thiểu bằng tổng tiền nạp
+    if comp < total_dep:
         await update.message.reply_text(
             f"""
 ❌ Bạn chưa đủ điều kiện rút tiền!
-📥 Tổng tiền đã nạp: {total_dep:,} / 30,000đ
-⚠️ Bạn cần nạp tối thiểu tổng cộng 30,000đ (đã nạp qua lệnh /nap) thì mới được phép thực hiện lệnh rút tiền.
+📥 Tổng tiền đã nạp: {total_dep:,}đ
+📈 Tổng cược đã thực hiện: {comp:,}đ
+⚠️ Bạn cần phải cược tối thiểu bằng tổng số tiền đã nạp ({total_dep:,}đ) thì mới được phép rút tiền.
 """
         )
         return
@@ -1177,7 +1179,6 @@ async def create_promo_code(
     update: Update,
     context: ContextTypes.DEFAULT_TYPE
 ):
-    # Kiểm tra bảo mật: Chỉ có Admin mới được tạo mã, thành viên gõ sẽ bị chặn
     if not is_admin(update):
         await update.message.reply_text("❌ Bạn không có quyền sử dụng lệnh này!")
         return
@@ -1269,8 +1270,8 @@ async def handle_admin_callback(update: Update, context: ContextTypes.DEFAULT_TY
     user_id, amount, tx_type, status = row
 
     if action == "app_dep":
+        # Cộng dồn trực tiếp số dư vào tài khoản người chơi (ví dụ có 40k nạp 30k lên 70k)
         new_balance = change_points(user_id, amount)
-        # Sửa lỗi: Cập nhật chuẩn trạng thái giao dịch nạp thành APPROVED và cộng dồn tổng tiền nạp của user
         cur.execute(
             """
             UPDATE transactions
@@ -1396,6 +1397,22 @@ async def handle_admin_callback(update: Update, context: ContextTypes.DEFAULT_TY
 # MAIN
 # =========================================================
 
+async def post_init(application: Application):
+    """Thiết lập menu lệnh (hiển thị khi gõ /)"""
+    commands = [
+        ("start", "Bắt đầu / Lấy link mời bạn bè"),
+        ("tk", "Xem số dư tài khoản"),
+        ("nap", "Nạp điểm vào tài khoản"),
+        ("rut", "Rút tiền về ngân hàng"),
+        ("code", "Nhập mã quà tặng"),
+        ("lichsucuoc", "Xem lịch sử cược trò chơi"),
+        ("ls", "Xem lịch sử giao dịch nạp rút"),
+        ("dice", "Tung xúc xắc giải trí"),
+        ("help", "Xem hướng dẫn chi tiết")
+    ]
+    await application.bot.set_my_commands(commands)
+
+
 def main():
 
     if not TOKEN:
@@ -1412,6 +1429,7 @@ def main():
         Application
         .builder()
         .token(TOKEN)
+        .post_init(post_init)
         .build()
     )
 
