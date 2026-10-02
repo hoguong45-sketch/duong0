@@ -24,12 +24,18 @@ TOKEN = os.getenv("BOT_TOKEN")
 ADMIN_ID = int(os.getenv("ADMIN_ID", "0"))
 
 DB_FILE = "bot.db"
-START_POINTS = 0  # Số dư lúc đầu là 0
+START_POINTS = 0  # Số dư lúc đầu là 0 (hoặc nhận từ code tân thủ)
 MULTIPLIER = 1.97
 
 # Cấu hình giới hạn giao dịch và cược
 MIN_BET = 1_000
 MIN_DEPOSIT = 30_000
+MIN_WITHDRAW = 10_000  # Min rút 10k theo yêu cầu
+
+# Cấu hình Tân thủ & Giới thiệu
+NEWBIE_BONUS = 5_000
+NEWBIE_WAGERING_ROUNDS = 10  # x10 vòng cược
+REF_BONUS = 10_000
 
 
 # =========================================================
@@ -93,7 +99,11 @@ def init_db():
             user_id INTEGER PRIMARY KEY,
             username TEXT,
             points INTEGER NOT NULL DEFAULT 0,
-            referred_by INTEGER
+            referred_by INTEGER,
+            wagering_required INTEGER NOT NULL DEFAULT 0,
+            wagering_completed INTEGER NOT NULL DEFAULT 0,
+            received_newbie BOOLEAN NOT NULL DEFAULT 0,
+            ref_count INTEGER NOT NULL DEFAULT 0
         )
     """)
 
@@ -139,33 +149,45 @@ def get_user(user_id, username="", referrer_id=None):
     cur = conn.cursor()
 
     cur.execute(
-        "SELECT points, referred_by FROM users WHERE user_id = ?",
+        "SELECT points, referred_by, wagering_required, wagering_completed, received_newbie, ref_count FROM users WHERE user_id = ?",
         (user_id,)
     )
 
     row = cur.fetchone()
 
     if row is None:
-
         # Tránh tự giới thiệu chính mình
         ref = referrer_id if referrer_id != user_id else None
+        
+        # Đăng ký mới, tự động tặng thưởng tân thủ 5,000 điểm kèm x10 vòng cược yêu cầu
+        initial_points = START_POINTS + NEWBIE_BONUS
+        wagering_req = NEWBIE_BONUS * NEWBIE_WAGERING_ROUNDS
 
         cur.execute(
             """
             INSERT INTO users
-            (user_id, username, points, referred_by)
-            VALUES (?, ?, ?, ?)
+            (user_id, username, points, referred_by, wagering_required, wagering_completed, received_newbie, ref_count)
+            VALUES (?, ?, ?, ?, ?, 0, 1, 0)
             """,
             (
                 user_id,
                 username,
-                START_POINTS,
-                ref
+                initial_points,
+                ref,
+                wagering_req
             )
         )
 
+        # Nếu có người giới thiệu hợp lệ và người đó thực sự tồn tại
+        if ref:
+            cur.execute("SELECT user_id, ref_count FROM users WHERE user_id = ?", (ref,))
+            ref_user = cur.fetchone()
+            if ref_user:
+                # Cộng 10,000 điểm cho người mời
+                cur.execute("UPDATE users SET points = points + ?, ref_count = ref_count + 1 WHERE user_id = ?", (REF_BONUS, ref))
+
         conn.commit()
-        points = START_POINTS
+        points = initial_points
 
     else:
 
@@ -245,6 +267,30 @@ def change_points(user_id, amount):
     conn.close()
 
     return new_balance
+
+
+def update_wagering(user_id, bet_amount):
+    """Cập nhật tiến độ hoàn thành vòng cược của người chơi"""
+    conn = get_db()
+    cur = conn.cursor()
+    cur.execute("UPDATE users SET wagering_completed = wagering_completed + ? WHERE user_id = ?", (bet_amount, user_id))
+    conn.commit()
+    conn.close()
+
+
+def check_wagering_status(user_id):
+    """Kiểm tra xem user đã hoàn thành đủ số vòng cược tân thủ/khuyến mãi chưa"""
+    conn = get_db()
+    cur = conn.cursor()
+    cur.execute("SELECT wagering_required, wagering_completed FROM users WHERE user_id = ?", (user_id,))
+    row = cur.fetchone()
+    conn.close()
+    if not row:
+        return True, 0, 0
+    req, comp = row
+    if comp >= req:
+        return True, req, comp
+    return False, req, comp
 
 
 def create_transaction(
@@ -331,10 +377,17 @@ async def play_game(
 
         return
 
+    # Trừ tiền cược
     change_points(
         user.id,
         -bet
     )
+    
+    # Cập nhật tiến độ vòng cược
+    update_wagering(user.id, bet)
+
+    tx_id = uuid.uuid4().hex[:6].upper()
+    choice_str = "t2" if choice == "T" else "x1"  # Hoặc hiển thị theo lựa chọn TÀI/XỈU tương ứng mẫu
 
     await update.message.reply_text(
         f"""
@@ -392,6 +445,10 @@ Lựa chọn:
         result = "TÀI"
         win = choice == "T"
 
+    # Lựa chọn hiển thị cửa đặt theo mẫu yêu cầu
+    cửa_dat_display = "t2" if choice == "T" else "x1"
+    noi_dung_display = cửa_dat_display
+
     if win:
 
         reward = int(
@@ -405,20 +462,17 @@ Lựa chọn:
 
         await update.message.reply_text(
             f"""
-🎉 THẮNG!
+┌─────────────────────────
+├─ Trò chơi: Xúc xắc
+├─ Kết quả: {a} + {b} + {c} = {total}
+├─ Cửa đặt : {cửa_dat_display}
+├─ Mã giao dịch: {tx_id}
+├─ Tiền cược: {bet:,}đ
+├─ Nội dung: {noi_dung_display}
+└─────────────────────────
+├─ Kết quả: Thắng cuộc - {reward:,}đ
 
-🎲 {a} + {b} + {c}
-🔢 Tổng: {total}
-
-📌 Kết quả: {result}
-🎯 Bạn chọn:
-{"TÀI" if choice == "T" else "XỈU"}
-
-🪙 Cược: {bet:,}
-🏆 Nhận: {reward:,} điểm
-
-💰 Số dư:
-{new_balance:,} điểm
+Số dư: {new_balance:,}đ
 """
         )
 
@@ -431,19 +485,17 @@ Lựa chọn:
 
         await update.message.reply_text(
             f"""
-❌ KHÔNG TRÚNG
+┌─────────────────────────
+├─ Trò chơi: Xúc xắc
+├─ Kết quả: {a} + {b} + {c} = {total}
+├─ Cửa đặt : {cửa_dat_display}
+├─ Mã giao dịch: {tx_id}
+├─ Tiền cược: {bet:,}đ
+├─ Nội dung: {noi_dung_display}
+└─────────────────────────
+├─ Kết quả: Thua cuộc - 0đ
 
-🎲 {a} + {b} + {c}
-🔢 Tổng: {total}
-
-📌 Kết quả: {result}
-🎯 Bạn chọn:
-{"TÀI" if choice == "T" else "XỈU"}
-
-🪙 Mất: {bet:,} điểm
-
-💰 Số dư:
-{new_balance:,} điểm
+Số dư: {new_balance:,}đ
 """
         )
 
@@ -526,6 +578,17 @@ async def start(
         referrer_id
     )
 
+    # Lấy thông tin số lượng bạn bè đã mời và vòng cược
+    conn = get_db()
+    cur = conn.cursor()
+    cur.execute("SELECT ref_count, wagering_required, wagering_completed FROM users WHERE user_id = ?", (user.id,))
+    row = cur.fetchone()
+    conn.close()
+    
+    ref_count = row[0] if row else 0
+    w_req = row[1] if row else 0
+    w_comp = row[2] if row else 0
+
     # Tạo link giới thiệu riêng biệt cho từng user
     ref_link = f"https://t.me/{bot_username}?start={user.id}"
 
@@ -534,22 +597,24 @@ async def start(
 🎲 BOT TÀI XỈU & ĐIỂM ẢO
 
 Xin chào {user.first_name}!
+🎁 **Đã nhận quà Tân thủ:** +{NEWBIE_BONUS:,} điểm (Yêu cầu hoàn thành x{NEWBIE_WAGERING_ROUNDS} vòng cược tương đương {w_req:,} điểm).
 
-💰 Số dư:
-{points:,} điểm
+💰 Số dư: {points:,} điểm
+👥 Số bạn bè đã mời: {ref_count} người (Mỗi lượt mời thành công nhận +{REF_BONUS:,} điểm)
+📈 Tiến độ vòng cược: {w_comp:,} / {w_req:,} điểm
 
 🔗 **Link mời bạn bè của bạn:**
 `{ref_link}`
-(Mỗi người chơi bấm vào link này và tham gia sẽ được hệ thống phân biệt riêng cho bạn).
+(Mỗi người chơi bấm vào link này và tham gia, bạn sẽ nhận ngay {REF_BONUS:,} điểm).
 
 🎮 Cách chơi (Min cược: {MIN_BET:,} điểm):
 T 10000 → Chọn TÀI
 X 10000 → Chọn XỈU
 
 📌 LỆNH:
-/tk → Xem số dư
+/tk → Xem số dư & thông tin tài khoản
 /nap 30000 → Nạp điểm
-/rut [Số tiền] [Mã NH] [Số TK] [Tên TK] → Rút tiền
+/rut [Số tiền] [Mã NH] [Số TK] [Tên TK] → Rút tiền (Min rút: {MIN_WITHDRAW:,})
 /code [Mã_Quà] → Nhập mã nhận thưởng từ Admin
 /ls → Lịch sử giao dịch
 /dice → Tung xúc xắc giải trí
@@ -575,9 +640,9 @@ X 10000 → Chọn XỈU
 🏆 Thắng: Cược × 1.97
 
 💰 GIAO DỊCH & TIỆN ÍCH:
-/tk → Xem số dư
+/tk → Xem số dư & tiến độ vòng cược
 /nap [Số điểm] (Tối thiểu {MIN_DEPOSIT:,}) → Nạp điểm
-/rut [Số tiền] [Mã NH] [Số TK] [Tên TK] → Rút tiền
+/rut [Số tiền] [Mã NH] [Số TK] [Tên TK] (Min rút: {MIN_WITHDRAW:,}) → Rút tiền
 /code [Mã] → Nhập giftcode nhận thưởng
 /ls → Lịch sử giao dịch
 🎲 /dice → Tung xúc xắc giải trí
@@ -597,11 +662,23 @@ async def balance(
         user.username or ""
     )
 
+    conn = get_db()
+    cur = conn.cursor()
+    cur.execute("SELECT ref_count, wagering_required, wagering_completed FROM users WHERE user_id = ?", (user.id,))
+    row = cur.fetchone()
+    conn.close()
+
+    ref_count = row[0] if row else 0
+    w_req = row[1] if row else 0
+    w_comp = row[2] if row else 0
+
     await update.message.reply_text(
         f"""
-💰 SỐ DƯ
+💰 THÔNG TIN TÀI KHOẢN
 
-🪙 {points:,} điểm
+🪙 Số dư: {points:,} điểm
+👥 Bạn bè đã mời: {ref_count} người
+📈 Vòng cược đã hoàn thành: {w_comp:,} / {w_req:,} điểm
 """
     )
 
@@ -833,12 +910,13 @@ async def withdraw(
     if len(context.args) < 4:
 
         await update.message.reply_text(
-            """
+            f"""
 ❌ Cú pháp rút tiền ngân hàng:
 /rut [số tiền] [mã ngân hàng] [số TK] [Tên TK không dấu]
+(Min rút: {MIN_WITHDRAW:,})
 
 💡 Ví dụ:
-/rut 100000 VCB 0123456789 Tran Van B
+/rut 10000 VCB 0123456789 Tran Van B
 """
         )
 
@@ -864,12 +942,19 @@ async def withdraw(
     bank_account = context.args[2]
     bank_owner = " ".join(context.args[3:])
 
-    if amount <= 0:
+    if amount < MIN_WITHDRAW:
+        await update.message.reply_text(f"❌ Số tiền rút tối thiểu phải từ {MIN_WITHDRAW:,} điểm trở lên.")
+        return
 
+    # Kiểm tra điều kiện vòng cược trước khi cho phép rút
+    completed, req, comp = check_wagering_status(user.id)
+    if not completed:
         await update.message.reply_text(
-            "❌ Số điểm phải lớn hơn 0."
+            f"""
+❌ Bạn chưa hoàn thành đủ vòng cược yêu cầu để rút tiền!
+📈 Tiến độ hiện tại: {comp:,} / {req:,} điểm cược.
+"""
         )
-
         return
 
     points = get_user(
@@ -1112,7 +1197,7 @@ async def handle_admin_callback(update: Update, context: ContextTypes.DEFAULT_TY
     if not row or row[3] != "PENDING":
         conn.close()
         await query.answer("❌ Giao dịch không tồn tại hoặc đã được xử lý!", show_alert=True)
-        await query.edit_message_text(text=query.message.text + "\n\n⚠️️ [ĐÃ XỬ LÝ]")
+        await query.edit_message_text(text=query.message.text + "\n\n⚠ [ĐÃ XỬ LÝ]")
         return
 
     user_id, amount, tx_type, status = row
