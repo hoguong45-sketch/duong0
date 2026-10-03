@@ -4,10 +4,11 @@ import logging
 import asyncio
 import threading
 from flask import Flask
-from telegram import Update, ChatPermissions
+from telegram import Update, ChatPermissions, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import (
     ApplicationBuilder,
     CommandHandler,
+    CallbackQueryHandler,
     ContextTypes,
 )
 
@@ -18,7 +19,76 @@ web_app = Flask(__name__)
 
 @web_app.route('/')
 def home():
-    return "🤖 Bot Tài Xỉu Telegram đang chạy 24/7 ổn định!"
+    return "🤖 Bot Tài Xỉu & Nạp/Rút Telegram đang chạy 24/7 ổn định!"
+
+def run_web():
+    port = int(os.getenv("PORT", 10000))
+    web_app.run(host="0.0.0.0", port=port)
+
+
+# =========================
+# 2. CẤU HÌNH TELEGRAM BOT
+# =========================
+TOKEN = os.getenv("BOT_TOKEN") # Token của bot game chính
+CHAT_ID = -1003932050774  # ID nhóm game của bạn
+ADMIN_ID = 8013947246     # ID Telegram cá nhân của bạn để nhận lệnh duyệt rút
+
+logging.basicConfig(
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    level=logging.INFO
+)
+
+DB_FILE = "database.json"
+
+current_session = 84
+history = []
+is_locked = False
+
+current_bets = {}
+INITIAL_BALANCE = 0
+
+
+# =========================
+# QUẢN LÝ DATABASE JSON (LƯU SỐ DƯ)
+# =========================
+def load_db():
+    if not os.path.exists(DB_FILE):
+        return {}
+    try:
+        with open(DB_FILE, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except:
+        return {}
+
+def save_db(data):
+    with open(DB_FILE, "w", encoding="utf-8") as f:
+        json.dump(Tuyệt vời! Bạn đã có sẵn toàn bộ mã nguồn của con bot game Tài Xỉu chạy trên Flask Web Server. Bây giờ, để **tích hợp trực tiếp tính năng Nạp/Rút** (với bot riêng `@Chanletl_bot` và ID Admin `8013947246`) vào chung một file này mà không cần tách file lằng nhằng, chúng ta sẽ gộp chung các lệnh `/nap`, `/rut` và nút bấm duyệt tiền của Admin vào cùng mã nguồn.
+
+Dưới đây là **toàn bộ mã nguồn hoàn chỉnh đã gộp chung** (Game Tài Xỉu + Hệ thống Nạp/Rút tự động gửi duyệt về tài khoản của bạn):
+
+```python
+import os
+import json
+import logging
+import asyncio
+import threading
+from flask import Flask
+from telegram import Update, ChatPermissions, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram.ext import (
+    ApplicationBuilder,
+    CommandHandler,
+    CallbackQueryHandler,
+    ContextTypes,
+)
+
+# =========================
+# 1. CẤU HÌNH WEB SERVER (GIỮ BOT 24/7 TRÊN RENDER)
+# =========================
+web_app = Flask(__name__)
+
+@web_app.route('/')
+def home():
+    return "🤖 Bot Tài Xỉu & Nạp Rút đang chạy 24/7 ổn định!"
 
 def run_web():
     port = int(os.getenv("PORT", 10000))
@@ -29,7 +99,8 @@ def run_web():
 # 2. CẤU HÌNH TELEGRAM BOT
 # =========================
 TOKEN = os.getenv("BOT_TOKEN")
-CHAT_ID = -1003932050774  # Thay bằng ID nhóm của bạn
+CHAT_ID = -1003932050774  # ID nhóm game của bạn
+ADMIN_ID = 8013947246     # ID Telegram cá nhân của bạn để nhận thông báo duyệt tiền
 
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
@@ -119,12 +190,10 @@ async def game_loop(app):
 
             await asyncio.sleep(2)
 
-            # Gửi 3 icon xúc xắc động lên nhóm
             dice_msg_1 = await app.bot.send_dice(chat_id=CHAT_ID, emoji="🎲")
             dice_msg_2 = await app.bot.send_dice(chat_id=CHAT_ID, emoji="🎲")
             dice_msg_3 = await app.bot.send_dice(chat_id=CHAT_ID, emoji="🎲")
             
-            # Chờ 4 giây để animation xúc xắc chạy xong và cập nhật giá trị chuẩn
             await asyncio.sleep(4)
 
             d1 = dice_msg_1.dice.value
@@ -136,7 +205,6 @@ async def game_loop(app):
             result_icon = "🔴" if result == "TÀI" else "🟢"
             history.append(result)
 
-            # Tính toán kết quả thắng thua
             result_details = []
             for user_id, bet in current_bets.items():
                 choice = bet["choice"]
@@ -177,7 +245,7 @@ async def game_loop(app):
 
 
 # =========================
-# CÁC LỆNH BOT
+# CÁC LỆNH BOT & TÍNH NĂNG NẠP/RÚT
 # =========================
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
@@ -193,7 +261,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"📋 Menu lệnh:\n"
         f"• `/sd` - Kiểm tra số dư ví\n"
         f"• `/nap` - Hướng dẫn nạp điểm\n"
-        f"• `/rut` - Yêu cầu rút điểm\n"
+        f"• `/rut [số_tiền] [STK/Momo]` - Yêu cầu rút điểm\n"
         f"• `/ls` - Xem lịch sử gần đây\n"
         f"• `/tai [số_tiền]` hoặc `/xiu [số_tiền]` - Đặt cược",
         parse_mode="Markdown"
@@ -208,10 +276,87 @@ async def check_sd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(f"💰 Số dư ví của bạn: `{balance:,}` điểm", parse_mode="Markdown")
 
 async def menu_nap(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("💳 Vui lòng liên hệ trực tiếp Admin để nạp điểm.", parse_mode="Markdown")
+    user = update.effective_user
+    await update.message.reply_text(
+        f"💳 **HƯỚNG DẪN NẠP ĐIỂM**\n\n"
+        f"Bạn vui lòng chuyển khoản qua ngân hàng hoặc Momo với nội dung:\n"
+        f"`NAP {user.id}`\n\n"
+        f"Sau khi chuyển khoản, chụp biên lai gửi cho Admin để được cộng điểm.",
+        parse_mode="Markdown"
+    )
 
 async def menu_rut(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("💸 Vui lòng liên hệ Admin để thực hiện lệnh rút điểm.", parse_mode="Markdown")
+    if not context.args or len(context.args) < 2:
+        await update.message.reply_text("⚠ Sai cú pháp! Vui lòng dùng: `/rut [số_tiền] [STK hoặc Momo]`", parse_mode="Markdown")
+        return
+
+    try:
+        amount = int(context.args[0])
+    except ValueError:
+        await update.message.reply_text("⚠️ Số tiền rút phải là một con số hợp lệ!")
+        return
+
+    info = " ".join(context.args[1:])
+    user = update.effective_user
+    user_id_str = user.id
+
+    if user_id_str not in users_data:
+        users_data[user_id_str] = {"name": user.first_name, "balance": INITIAL_BALANCE}
+
+    if users_data[user_id_str]["balance"] < amount:
+        await update.message.reply_text("❌ Số dư ví của bạn không đủ để thực hiện lệnh rút này!")
+        return
+
+    # Tạo nút Duyệt / Từ chối gửi về Admin
+    keyboard = [
+        [
+            InlineKeyboardButton("✅ Duyệt Rút", callback_data=f"approve_{user.id}_{amount}"),
+            InlineKeyboardButton("❌ Từ chối", callback_data=f"cancel_{user.id}")
+        ]
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+
+    # Gửi thông báo về cho Admin cá nhân
+    await context.bot.send_message(
+        chat_id=ADMIN_ID,
+        text=(
+            f"🔔 **YÊU CẦU RÚT TIỀN MỚI**\n\n"
+            f"👤 Người chơi: {user.first_name} (`{user.id}`)\n"
+            f"💰 Số tiền rút: `{amount:,}` điểm\n"
+            f"🏦 Nhận tiền tại: `{info}`"
+        ),
+        parse_mode="Markdown",
+        reply_markup=reply_markup
+    )
+
+    await update.message.reply_text("⏳ Yêu cầu rút điểm đã được gửi đến Admin, vui lòng chờ xử lý!")
+
+async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    
+    data = query.data
+    if data.startswith("approve_"):
+        parts = data.split("_")
+        target_id = int(parts[1])
+        amount = int(parts[2])
+
+        if target_id in users_data:
+            users_data[target_id]["balance"] -= amount
+
+        await query.edit_message_text(text=f"{query.message.text}\n\n✅ **ĐÃ DUYỆT GIAO DỊCH THÀNH CÔNG!**", parse_mode="Markdown")
+        try:
+            await context.bot.send_message(chat_id=target_id, text=f"🎉 Yêu cầu rút `{amount:,}` điểm của bạn đã được Admin phê duyệt thành công!")
+        except:
+            pass
+            
+    elif data.startswith("cancel_"):
+        target_id = int(data.split("_")[1])
+        await query.edit_message_text(text=f"{query.message.text}\n\n❌ **ĐÃ TỪ CHỐI GIAO DỊCH!**", parse_mode="Markdown")
+        try:
+            await context.bot.send_message(chat_id=target_id, text="❌ Yêu cầu rút điểm của bạn đã bị Admin từ chối.")
+        except:
+            pass
 
 async def menu_ls(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not history:
@@ -222,7 +367,7 @@ async def menu_ls(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def admin_cong_tien(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if len(context.args) < 2:
-        await update.message.reply_text("⚠️️ Cú pháp: `/cong [user_id] [số_tiền]`", parse_mode="Markdown")
+        await update.message.reply_text("⚠ Cú pháp: `/cong [user_id] [số_tiền]`", parse_mode="Markdown")
         return
     try:
         target_id = int(context.args[0])
@@ -286,7 +431,7 @@ def main():
     if not TOKEN:
         raise RuntimeError("Chưa đặt BOT_TOKEN.")
 
-    # Khởi chạy Flask Web Server ở luồng riêng (chạy ngầm song song với bot)
+    # Khởi chạy Flask Web Server ở luồng riêng để giữ Render 24/7
     threading.Thread(target=run_web, daemon=True).start()
 
     app = ApplicationBuilder().token(TOKEN).post_init(post_init).build()
@@ -299,9 +444,10 @@ def main():
     app.add_handler(CommandHandler("cong", admin_cong_tien))
     app.add_handler(CommandHandler("tai", place_bet))
     app.add_handler(CommandHandler("xiu", place_bet))
+    app.add_handler(CallbackQueryHandler(button_handler))
 
-    print("🤖 Bot và Web Server đang chạy ổn định 24/7...")
+    print("🤖 Bot Tài Xỉu & Nạp/Rút cùng Web Server đang chạy ổn định 24/7...")
     app.run_polling(drop_pending_updates=True)
 
-if __name__ == "__main__":
+if __name__ ==- "__main__":
     main()
