@@ -23,6 +23,10 @@ from telegram.ext import (
 TOKEN = os.getenv("BOT_TOKEN")
 ADMIN_ID = int(os.getenv("ADMIN_ID", "0"))
 
+# Lấy danh sách ID CSKH từ biến môi trường (ví dụ: CSKH_IDS="123456789,987654321")
+cskh_env = os.getenv("CSKH_IDS", "")
+CSKH_IDS = [int(x.strip()) for x in cskh_env.split(",") if x.strip().isdigit()]
+
 DB_FILE = "bot.db"
 START_POINTS = 0  
 MULTIPLIER = 1.97
@@ -105,7 +109,14 @@ def init_db():
             received_newbie BOOLEAN NOT NULL DEFAULT 0,
             ref_count INTEGER NOT NULL DEFAULT 0,
             total_deposited INTEGER NOT NULL DEFAULT 0,
-            has_deposited_30k BOOLEAN NOT NULL DEFAULT 0  -- Đánh dấu đã nạp ít nhất 30k lần đầu hay chưa
+            has_deposited_30k BOOLEAN NOT NULL DEFAULT 0
+        )
+    """)
+
+    # Bảng lưu danh sách CSKH được thêm động trong DB
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS cskh_list (
+            user_id INTEGER PRIMARY KEY
         )
     """)
 
@@ -157,6 +168,20 @@ def init_db():
 
     conn.commit()
     conn.close()
+
+
+def is_cskh(user_id):
+    if user_id == ADMIN_ID:
+        return True
+    if user_id in CSKH_IDS:
+        return True
+    
+    conn = get_db()
+    cur = conn.cursor()
+    cur.execute("SELECT user_id FROM cskh_list WHERE user_id = ?", (user_id,))
+    row = cur.fetchone()
+    conn.close()
+    return row is not None
 
 
 def get_user(user_id, username="", referrer_id=None, context=None):
@@ -652,7 +677,7 @@ Xin chào {user.first_name}!
 /se → Lấy link mời bạn bè
 /nap 10000 → Nạp điểm (Min nạp: {MIN_DEPOSIT:,})
 /rut [Số tiền] [Mã NH] [Số TK] [Tên TK] → Rút tiền (Min rút: {MIN_WITHDRAW:,})
-/code [Mã_Quà] → Nhập mã nhận thưởng từ Admin
+/code [Mã_Quà] → Nhập mã nhận thưởng
 /ls → Lịch sử nạp rút
 /lichsucuoc → Xem lịch sử đặt cược game
 /dice → Tung xúc xắc giải trí
@@ -954,8 +979,20 @@ Ví dụ:
         parse_mode="Markdown"
     )
 
+    # Gửi thông báo đến toàn bộ Admin và CSKH
+    conn = get_db()
+    cur = conn.cursor()
+    cur.execute("SELECT user_id FROM cskh_list")
+    cskh_rows = cur.fetchall()
+    conn.close()
+    
+    notify_targets = set(CSKH_IDS)
     if ADMIN_ID:
+        notify_targets.add(ADMIN_ID)
+    for r in cskh_rows:
+        notify_targets.add(r[0])
 
+    for target_id in notify_targets:
         try:
             keyboard = [
                 [
@@ -966,7 +1003,7 @@ Ví dụ:
             reply_markup = InlineKeyboardMarkup(keyboard)
 
             await context.bot.send_message(
-                ADMIN_ID,
+                target_id,
                 f"""
 📥 YÊU CẦU NẠP ĐIỂM MỚI
 
@@ -977,9 +1014,8 @@ Ví dụ:
 """,
                 reply_markup=reply_markup
             )
-
         except Exception as e:
-            print("Lỗi gửi Admin:", e)
+            print(f"Lỗi gửi thông báo cho CSKH/Admin {target_id}:", e)
 
 
 async def withdraw(
@@ -1030,7 +1066,6 @@ async def withdraw(
 
     ok, req, comp, total_dep, has_30k = check_wagering_status(user.id)
     
-    # Kiểm tra điều kiện: Phải nạp lần đầu 30k và cược x1
     if not has_30k:
         await update.message.reply_text(
             f"""
@@ -1092,8 +1127,20 @@ async def withdraw(
         parse_mode="Markdown"
     )
 
+    # Gửi thông báo đến toàn bộ Admin và CSKH
+    conn = get_db()
+    cur = conn.cursor()
+    cur.execute("SELECT user_id FROM cskh_list")
+    cskh_rows = cur.fetchall()
+    conn.close()
+    
+    notify_targets = set(CSKH_IDS)
     if ADMIN_ID:
+        notify_targets.add(ADMIN_ID)
+    for r in cskh_rows:
+        notify_targets.add(r[0])
 
+    for target_id in notify_targets:
         try:
             keyboard = [
                 [
@@ -1104,7 +1151,7 @@ async def withdraw(
             reply_markup = InlineKeyboardMarkup(keyboard)
 
             await context.bot.send_message(
-                ADMIN_ID,
+                target_id,
                 f"""
 📤 YÊU CẦU RÚT TIỀN MỚI
 
@@ -1115,9 +1162,8 @@ async def withdraw(
 """,
                 reply_markup=reply_markup
             )
-
         except Exception as e:
-            print("Lỗi gửi Admin:", e)
+            print(f"Lỗi gửi thông báo cho CSKH/Admin {target_id}:", e)
 
 
 # =========================================================
@@ -1189,11 +1235,10 @@ async def history(
 
 
 # =========================================================
-# ADMIN COMMANDS (PHÂN QUYỀN RIÊNG CHO ADMIN)
+# ADMIN & CSKH COMMANDS
 # =========================================================
 
 def is_admin(update):
-
     return (
         ADMIN_ID != 0
         and
@@ -1201,12 +1246,71 @@ def is_admin(update):
     )
 
 
+async def add_cskh(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE
+):
+    """Lệnh dành riêng cho Admin để thêm một User ID làm CSKH"""
+    if not is_admin(update):
+        await update.message.reply_text("❌ Bạn không có quyền sử dụng lệnh này!")
+        return
+
+    if not context.args:
+        await update.message.reply_text("❌ Cú pháp:\n/addcskh [USER_ID]")
+        return
+
+    try:
+        cskh_id = int(context.args[0])
+    except ValueError:
+        await update.message.reply_text("❌ User ID không hợp lệ.")
+        return
+
+    conn = get_db()
+    cur = conn.cursor()
+    try:
+        cur.execute("INSERT OR IGNORE INTO cskh_list (user_id) VALUES (?)", (cskh_id,))
+        conn.commit()
+        conn.close()
+        await update.message.reply_text(f"✅ Đã thêm User ID `{cskh_id}` vào danh sách CSKH thành công!", parse_mode="Markdown")
+    except Exception as e:
+        conn.close()
+        await update.message.reply_text(f"❌ Lỗi: {e}")
+
+
+async def remove_cskh(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE
+):
+    """Lệnh dành riêng cho Admin để xóa CSKH"""
+    if not is_admin(update):
+        await update.message.reply_text("❌ Bạn không có quyền sử dụng lệnh này!")
+        return
+
+    if not context.args:
+        await update.message.reply_text("❌ Cú pháp:\n/removecskh [USER_ID]")
+        return
+
+    try:
+        cskh_id = int(context.args[0])
+    except ValueError:
+        await update.message.reply_text("❌ User ID không hợp lệ.")
+        return
+
+    conn = get_db()
+    cur = conn.cursor()
+    cur.execute("DELETE FROM cskh_list WHERE user_id = ?", (cskh_id,))
+    conn.commit()
+    conn.close()
+
+    await update.message.reply_text(f"✅ Đã xóa User ID `{cskh_id}` khỏi danh sách CSKH.", parse_mode="Markdown")
+
+
 async def create_promo_code(
     update: Update,
     context: ContextTypes.DEFAULT_TYPE
 ):
     if not is_admin(update):
-        await update.message.reply_text("❌ Bạn không có quyền sử dụng lệnh này!")
+        await update.message.reply_text("❌ Bạn không có quyền sử dụng lệnh này (Chỉ Admin mới có quyền tạo code)!")
         return
 
     if len(context.args) < 2:
@@ -1262,8 +1366,11 @@ async def handle_admin_callback(update: Update, context: ContextTypes.DEFAULT_TY
     if not query:
         return
 
-    if update.effective_user.id != ADMIN_ID:
-        await query.answer("❌ Bạn không có quyền thực hiện thao tác này!", show_alert=True)
+    user_id_callback = update.effective_user.id
+
+    # Kiểm tra xem người bấm có phải là Admin hoặc CSKH không
+    if not is_cskh(user_id_callback):
+        await query.answer("❌ Bạn không có quyền thực hiện thao tác duyệt giao dịch này!", show_alert=True)
         return
 
     data = query.data
@@ -1298,7 +1405,6 @@ async def handle_admin_callback(update: Update, context: ContextTypes.DEFAULT_TY
     if action == "app_dep":
         new_balance = change_points(user_id, amount)
         
-        # Kiểm tra xem nạp lần này có đạt >= 30k không để mở khóa cờ has_deposited_30k
         cur.execute("SELECT total_deposited FROM users WHERE user_id = ?", (user_id,))
         u_row = cur.fetchone()
         current_total = u_row[0] if u_row else 0
@@ -1329,7 +1435,7 @@ async def handle_admin_callback(update: Update, context: ContextTypes.DEFAULT_TY
         await query.answer(f"✅ Đã duyệt nạp mã {tx_id}!", show_alert=True)
         try:
             await query.edit_message_text(
-                text=f"{query.message.text}\n\n✅ **ĐÃ DUYỆT NẠP THÀNH CÔNG** (+{amount:,} điểm)",
+                text=f"{query.message.text}\n\n✅ **ĐÃ DUYỆT NẠP THÀNH CÔNG** (+{amount:,} điểm) bởi CSKH/Admin",
                 parse_mode="Markdown"
             )
         except Exception:
@@ -1372,7 +1478,7 @@ async def handle_admin_callback(update: Update, context: ContextTypes.DEFAULT_TY
         await query.answer(f"✅ Đã duyệt rút mã {tx_id}!", show_alert=True)
         try:
             await query.edit_message_text(
-                text=f"{query.message.text}\n\n✅ **ĐÃ DUYỆT RÚT THÀNH CÔNG** (-{amount:,} điểm)",
+                text=f"{query.message.text}\n\n✅ **ĐÃ DUYỆT RÚT THÀNH CÔNG** (-{amount:,} điểm) bởi CSKH/Admin",
                 parse_mode="Markdown"
             )
         except Exception:
@@ -1408,7 +1514,7 @@ async def handle_admin_callback(update: Update, context: ContextTypes.DEFAULT_TY
         await query.answer(f"❌ Đã từ chối giao dịch {tx_id}!", show_alert=True)
         try:
             await query.edit_message_text(
-                text=f"{query.message.text}\n\n❌ **ĐÃ TỪ CHỐI GIAO DỊCH**",
+                text=f"{query.message.text}\n\n❌ **ĐÃ TỪ CHỐI GIAO DỊCH** bởi CSKH/Admin",
                 parse_mode="Markdown"
             )
         except Exception:
@@ -1482,7 +1588,10 @@ def main():
     app.add_handler(CommandHandler("lichsucuoc", bet_history))
     app.add_handler(CommandHandler("dice", dice))
 
+    # Lệnh quản lý cho Admin & CSKH
     app.add_handler(CommandHandler("taocode", create_promo_code))
+    app.add_handler(CommandHandler("addcskh", add_cskh))
+    app.add_handler(CommandHandler("removecskh", remove_cskh))
 
     app.add_handler(
         MessageHandler(
