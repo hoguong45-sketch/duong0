@@ -16,11 +16,6 @@ from telegram.ext import (
 
 TOKEN = os.getenv("BOT_TOKEN")
 CHAT_ID = -1003932050774
-ADMIN_ID = 0  # (Tùy chọn) Điền Telegram ID của bạn vào đây nếu muốn chặn lệnh admin, để 0 thì ai cũng dùng được lệnh admin (hoặc cấu hình kiểm tra ID của bạn)
-
-# Thông tin Ngân hàng nhận tiền nạp
-BANK_ID = "MSB"
-ACCOUNT_NO = "6314072009"
 
 # =========================
 # LOG
@@ -105,8 +100,8 @@ async def game_loop(app):
                 f"⏰ Chuẩn bị đặt cược trong 40 giây...\n\n"
                 f"👉 Cú pháp:\n"
                 f"• `/tai [số_tiền]` | `/xiu [số_tiền]`\n"
-                f"• `/nap [số_tiền]` (Nạp tiền)\n"
-                f"• `/sodu` (Xem ví)"
+                f"• `/sd` (Xem ví) | `/ls` (Lịch sử)\n"
+                f"• `/nap` | `/rut`"
             ),
             parse_mode="Markdown"
         )
@@ -118,26 +113,31 @@ async def game_loop(app):
 
         await app.bot.send_message(
             chat_id=CHAT_ID,
-            text="🔒 Đã khóa sổ! Chuẩn bị tung xúc xắc trong 10 giây..."
+            text="🔒 Đã khóa sổ! Chuẩn bị tung xúc xắc..."
         )
 
-        await asyncio.sleep(10)
+        await asyncio.sleep(3)
 
-        d1 = random.randint(1, 6)
-        d2 = random.randint(1, 6)
-        d3 = random.randint(1, 6)
+        # Lắc 3 viên xúc xắc icon Telegram liên tiếp
+        dice_msg_1 = await app.bot.send_dice(chat_id=CHAT_ID, emoji="🎲")
+        await asyncio.sleep(1)
+        dice_msg_2 = await app.bot.send_dice(chat_id=CHAT_ID, emoji="🎲")
+        await asyncio.sleep(1)
+        dice_msg_3 = await app.bot.send_dice(chat_id=CHAT_ID, emoji="🎲")
+        
+        # Đợi animation xúc xắc chạy xong trên client (khoảng 3-4 giây)
+        await asyncio.sleep(4)
+
+        # Lấy kết quả từ giá trị trả về của Telegram Dice API (giá trị từ 1 đến 6)
+        d1 = dice_msg_1.dice.value
+        d2 = dice_msg_2.dice.value
+        d3 = dice_msg_3.dice.value
 
         total = d1 + d2 + d3
         result = "TÀI" if total >= 11 else "XỈU"
         history.append(result)
 
-        msg = await app.bot.send_message(
-            chat_id=CHAT_ID,
-            text="🎲 Đang lắc xúc xắc..."
-        )
-
-        await asyncio.sleep(1)
-
+        # Tính toán thắng thua
         result_details = []
         for user_id, bet in current_bets.items():
             choice = bet["choice"]
@@ -155,9 +155,8 @@ async def game_loop(app):
         bet_summary_text = "\n".join(result_details) if result_details else "Không có ai đặt cược phiên này."
         trend = " ".join("🔴" if x == "TÀI" else "🟢" for x in history[-10:])
 
-        await app.bot.edit_message_text(
+        await app.bot.send_message(
             chat_id=CHAT_ID,
-            message_id=msg.message_id,
             text=(
                 f"🎲 *KẾT QUẢ PHIÊN #{current_session}*\n\n"
                 f"🎯 Xúc xắc: `{d1} - {d2} - {d3}`\n"
@@ -175,7 +174,7 @@ async def game_loop(app):
 
 
 # =========================
-# CÁC LỆNH NGƯỜI DÙNG & TÀI CHÍNH
+# CÁC LỆNH MENU MỚI (/sd, /nap, /rut, /ls)
 # =========================
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -188,98 +187,52 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await update.message.reply_text(
         f"👋 Chào {name}!\n\n"
-        f"💰 Số dư hiện tại: `{users_data[user_id]['balance']:,}` VNĐ\n\n"
-        f"📋 Hướng dẫn nạp tiền & chơi:\n"
-        f"• `/nap [số_tiền]` - Tạo mã QR nạp tiền MSB (STK: `6314072009`)\n"
-        f"• `/sodu` - Xem ví tiền\n"
-        f"• `/chuyen [user_id] [số_tiền]` - Chuyển tiền cho người khác\n"
-        f"• `/tai [số_tiền]` / `/xiu [số_tiền]` - Đặt cược",
+        f"💰 Số dư ví: `{users_data[user_id]['balance']:,}` điểm\n\n"
+        f"📋 Menu lệnh:\n"
+        f"• `/sd` - Kiểm tra số dư ví\n"
+        f"• `/nap` - Hướng dẫn nạp tiền\n"
+        f"• `/rut` - Yêu cầu rút tiền\n"
+        f"• `/ls` - Xem lịch sử kết quả các phiên gần đây\n"
+        f"• `/tai [số_tiền]` hoặc `/xiu [số_tiền]` - Đặt cược",
         parse_mode="Markdown"
     )
 
-async def check_balance(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def check_sd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     if user_id not in users_data:
         users_data[user_id] = {"name": update.effective_user.first_name, "balance": INITIAL_BALANCE}
     
     balance = users_data[user_id]["balance"]
-    await update.message.reply_text(f"💰 Số dư ví của bạn: `{balance:,}` VNĐ", parse_mode="Markdown")
+    await update.message.reply_text(f"💰 Số dư ví của bạn: `{balance:,}` điểm", parse_mode="Markdown")
 
-async def nap_tien(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user = update.effective_user
-    user_id = user.id
-
-    if not context.args:
-        await update.message.reply_text("⚠️ Vui lòng nhập số tiền muốn nạp! Ví dụ: `/nap 50000`", parse_mode="Markdown")
-        return
-
-    try:
-        amount = int(context.args[0])
-    except ValueError:
-        await update.message.reply_text("⚠️ Số tiền không hợp lệ!")
-        return
-
-    if amount < 10000:
-        await update.message.reply_text("⚠️ Số tiền nạp tối thiểu là 10,000 VNĐ.")
-        return
-
-    # Tạo nội dung chuyển khoản kèm ID người dùng để Admin dễ check
-    add_info = f"NAP {user_id}"
-    
-    # URL tạo mã QR tự động từ VietQR API
-    qr_url = f"https://img.vietqr.io/image/{BANK_ID}-{ACCOUNT_NO}-compact2.png?amount={amount}&addInfo={add_info}"
-
-    caption = (
-        f"💳 **THÔNG TIN NẠP TIỀN (MSB)**\n\n"
-        f"🏦 Ngân hàng: **MSB (Maritime Bank)**\n"
-        f"📌 Số tài khoản: `{ACCOUNT_NO}`\n"
-        f"👤 Chủ tài khoản: `TO NGOC DUONG`\n"
-        f"💵 Số tiền: `{amount:,}` VNĐ\n"
-        f"📝 Nội dung chuyển khoản (bắt buộc): `{add_info}`\n\n"
-        f"⚠️ *Lưu ý:* Quét mã QR trên bằng ứng dụng Ngân hàng của bạn. Sau khi chuyển khoản thành công, vui lòng đợi Admin duyệt cộng tiền vào ví!"
+async def menu_nap(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text(
+        "💳 **HƯỚNG DẪN NẠP TIỀN**\n\n"
+        "Vui lòng liên hệ Admin nhóm hoặc thực hiện chuyển khoản theo cú pháp hướng dẫn riêng để được cộng điểm vào ví.",
+        parse_mode="Markdown"
     )
 
-    await update.message.reply_photo(photo=qr_url, caption=caption, parse_mode="Markdown")
-
-async def chuyen_tien(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_id = update.effective_user.id
-    
-    if len(context.args) < 2:
-        await update.message.reply_text("⚠️ Cú pháp sai! Dùng: `/chuyen [user_id] [số_tiền]`", parse_mode="Markdown")
-        return
-
-    try:
-        target_id = int(context.args[0])
-        amount = int(context.args[1])
-    except ValueError:
-        await update.message.reply_text("⚠️ User ID hoặc số tiền không hợp lệ!")
-        return
-
-    if amount <= 0:
-        await update.message.reply_text("⚠️ Số tiền chuyển phải lớn hơn 0!")
-        return
-
-    if user_id not in users_data or users_data[user_id]["balance"] < amount:
-        await update.message.reply_text("❌ Số dư ví của bạn không đủ để thực hiện giao dịch này!")
-        return
-
-    if target_id not in users_data:
-        users_data[target_id] = {"name": f"User {target_id}", "balance": 0}
-
-    # Thực hiện chuyển tiền
-    users_data[user_id]["balance"] -= amount
-    users_data[target_id]["balance"] += amount
-
+async def menu_rut(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
-        f"✅ Chuyển thành công `{amount:,}` VNĐ cho tài khoản `{target_id}`!\n"
-        f"💰 Số dư ví còn lại: `{users_data[user_id]['balance']:,}` VNĐ",
+        "💸 **YÊU CẦU RÚT TIỀN**\n\n"
+        "Vui lòng liên hệ trực tiếp với Admin để tạo lệnh rút điểm quy đổi.",
+        parse_mode="Markdown"
+    )
+
+async def menu_ls(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not history:
+        await update.message.reply_text("📈 Chưa có lịch sử kết quả phiên nào.")
+        return
+    
+    trend = " ".join("🔴" if x == "TÀI" else "🟢" for x in history[-20:])
+    await update.message.reply_text(
+        f"📈 **Lịch sử 20 phiên gần nhất:**\n{trend}",
         parse_mode="Markdown"
     )
 
 async def admin_cong_tien(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    # Lệnh cho admin: /cong [user_id] [số_tiền]
     if len(context.args) < 2:
-        await update.message.reply_text("⚠️ Cú pháp admin: `/cong [user_id] [số_tiền]`", parse_mode="Markdown")
+        await update.message.reply_text("⚠️ Cú pháp: `/cong [user_id] [số_tiền]`", parse_mode="Markdown")
         return
 
     try:
@@ -295,8 +248,8 @@ async def admin_cong_tien(update: Update, context: ContextTypes.DEFAULT_TYPE):
     users_data[target_id]["balance"] += amount
 
     await update.message.reply_text(
-        f"👑 [ADMIN] Đã cộng thành công `{amount:,}` VNĐ cho user `{target_id}`.\n"
-        f"💰 Số dư mới của user: `{users_data[target_id]['balance']:,}` VNĐ",
+        f"👑 [ADMIN] Đã cộng thành công `{amount:,}` điểm cho user `{target_id}`.\n"
+        f"💰 Số dư mới: `{users_data[target_id]['balance']:,}` điểm",
         parse_mode="Markdown"
     )
 
@@ -330,7 +283,7 @@ async def place_bet(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if users_data[user_id]["balance"] < amount:
         await update.message.reply_text(
-            f"❌ Số dư không đủ! Bạn đang có `{users_data[user_id]['balance']:,}` VNĐ. Hãy dùng `/nap [số_tiền]` để nạp thêm.",
+            f"❌ Số dư không đủ! Bạn đang có `{users_data[user_id]['balance']:,}` điểm. Hãy liên hệ nạp thêm.",
             parse_mode="Markdown"
         )
         return
@@ -341,7 +294,7 @@ async def place_bet(update: Update, context: ContextTypes.DEFAULT_TYPE):
     current_bets[user_id] = {"choice": choice, "amount": amount, "name": name}
 
     await update.message.reply_text(
-        f"✅ {name} đã cược **{amount:,}** vào cửa **{choice}** thành công!",
+        f"✅ {name} đã cược **{amount:,}** điểm vào cửa **{choice}** thành công!",
         parse_mode="Markdown"
     )
 
@@ -368,16 +321,16 @@ def main():
     )
 
     app.add_handler(CommandHandler("start", start))
-    app.add_handler(CommandHandler("sodu", check_balance))
-    app.add_handler(CommandHandler("vi", check_balance))
-    app.add_handler(CommandHandler("nap", nap_tien))
-    app.add_handler(CommandHandler("chuyen", chuyen_tien))
+    app.add_handler(CommandHandler("sd", check_sd))
+    app.add_handler(CommandHandler("nap", menu_nap))
+    app.add_handler(CommandHandler("rut", menu_rut))
+    app.add_handler(CommandHandler("ls", menu_ls))
     app.add_handler(CommandHandler("cong", admin_cong_tien))
     app.add_handler(CommandHandler("tai", place_bet))
     app.add_handler(CommandHandler("xiu", place_bet))
     app.add_handler(CommandHandler("id", get_id))
 
-    print("🤖 Bot đang chạy (Vốn 0đ + Tích hợp QR MSB 6314072009)...")
+    print("🤖 Bot đang chạy (Xúc xắc icon + Menu /sd, /nap, /rut, /ls)...")
     app.run_polling(drop_pending_updates=True)
 
 if __name__ == "__main__":
