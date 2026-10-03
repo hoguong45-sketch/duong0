@@ -60,6 +60,9 @@ session_state = "CLOSED"  # "OPENED" (Nhận cược), "CLOSING" (Khóa cược 
 session_bets = {}         # {user_id: {"choice": "T"/"X", "amount": 10000, "name": "..."}}
 session_lock = asyncio.Lock()
 
+# Biến toàn cục lưu chat_id gần nhất tương tác nếu không set CHANNEL_OR_GROUP_CHAT_ID
+active_chat_ids = set()
+
 
 # =========================================================
 # RENDER WEB SERVER
@@ -318,7 +321,7 @@ def create_transaction(user_id, tx_type, amount):
 
 
 # =========================================================
-# HỆ THỐNG PHIÊN TỰ ĐỘNG (HIỆU ỨNG ICON XÚC XẮC VÀ KHÓA TN)
+# HỆ THỐNG PHIÊN TỰ ĐỘNG (HIỆU ỨNG ICON XÚC XẮC & KHÓA TN)
 # =========================================================
 
 async def get_recent_bridge_history():
@@ -354,8 +357,6 @@ async def auto_session_loop(application: Application):
     else:
         current_session_id = 1
 
-    target_chat = int(CHAT_TARGET_ID) if CHAT_TARGET_ID and CHAT_TARGET_ID.isdigit() else None
-
     while True:
         try:
             async with session_lock:
@@ -373,9 +374,13 @@ async def auto_session_loop(application: Application):
                 f"👉 Cú pháp: `/tai <số>` hoặc `/xiu <số>`"
             )
             
-            if target_chat:
+            targets = list(active_chat_ids)
+            if CHAT_TARGET_ID and CHAT_TARGET_ID.isdigit():
+                targets.append(int(CHAT_TARGET_ID))
+
+            for chat_id in targets:
                 try:
-                    await application.bot.send_message(target_chat, open_text, parse_mode="Markdown")
+                    await application.bot.send_message(chat_id, open_text, parse_mode="Markdown")
                 except Exception:
                     pass
 
@@ -386,32 +391,31 @@ async def auto_session_loop(application: Application):
                 session_state = "CLOSING"
 
             lock_text = f"🔒 **ĐÃ KHÓA CƯỢC!** Chuẩn bị tung xúc xắc trong **10 giây**..."
-            if target_chat:
+            for chat_id in targets:
                 try:
-                    await application.bot.send_message(target_chat, lock_text, parse_mode="Markdown")
+                    await application.bot.send_message(chat_id, lock_text, parse_mode="Markdown")
                 except Exception:
                     pass
 
             await asyncio.sleep(4)
 
             # 3. TẠO HIỆU ỨNG TUNG XÚC XẮC BẰNG ICON TELEGRAM TRỰC TIẾP
-            if target_chat:
+            a, b, c = random.randint(1, 6), random.randint(1, 6), random.randint(1, 6)
+            for chat_id in targets:
                 try:
-                    await application.bot.send_message(target_chat, "🎲 Đang lắc xúc xắc...")
-                    d1 = await application.bot.send_dice(target_chat, emoji="🎲")
+                    await application.bot.send_message(chat_id, "🎲 Đang lắc xúc xắc...")
+                    d1 = await application.bot.send_dice(chat_id, emoji="🎲")
                     await asyncio.sleep(1.2)
-                    d2 = await application.bot.send_dice(target_chat, emoji="🎲")
+                    d2 = await application.bot.send_dice(chat_id, emoji="🎲")
                     await asyncio.sleep(1.2)
-                    d3 = await application.bot.send_dice(target_chat, emoji="🎲")
+                    d3 = await application.bot.send_dice(chat_id, emoji="🎲")
                     await asyncio.sleep(1.5)
                     
                     a = d1.dice.value
                     b = d2.dice.value
                     c = d3.dice.value
                 except Exception:
-                    a, b, c = random.randint(1, 6), random.randint(1, 6), random.randint(1, 6)
-            else:
-                a, b, c = random.randint(1, 6), random.randint(1, 6), random.randint(1, 6)
+                    pass
 
             total = a + b + c
             triple = (a == b == c)
@@ -471,9 +475,9 @@ async def auto_session_loop(application: Application):
                 f"{bet_movement}"
             )
 
-            if target_chat:
+            for chat_id in targets:
                 try:
-                    await application.bot.send_message(target_chat, result_text, parse_mode="Markdown")
+                    await application.bot.send_message(chat_id, result_text, parse_mode="Markdown")
                 except Exception:
                     pass
 
@@ -500,10 +504,9 @@ async def handle_command_bet(update: Update, context: ContextTypes.DEFAULT_TYPE)
     if cmd not in ("tai", "xiu", "t", "x", "c", "l"):
         return
 
-    # Kiểm tra trạng thái phiên: nếu đang KHÓA CƯỢC (CLOSING) thì bỏ qua/chặn tin nhắn cược
     global session_state
     if session_state != "OPENED":
-        return
+        return  # Đã khóa cược hoặc đang quay, bỏ qua tin nhắn cược của mọi người
 
     if len(parts) < 2:
         await update.message.reply_text("❌ Cú pháp không hợp lệ. Ví dụ: `/tai 10000` hoặc `/xiu 10000`", parse_mode="Markdown")
@@ -558,6 +561,9 @@ async def handle_command_bet(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
+    chat_id = update.effective_chat.id
+    active_chat_ids.add(chat_id)
+
     bot_info = await context.bot.get_me()
     bot_username = bot_info.username
 
@@ -1039,4 +1045,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+main()
