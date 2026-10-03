@@ -1,7 +1,9 @@
-import asyncio
-import logging
 import os
-
+import json
+import logging
+import asyncio
+import threading
+from flask import Flask
 from telegram import Update, ChatPermissions
 from telegram.ext import (
     ApplicationBuilder,
@@ -10,22 +12,31 @@ from telegram.ext import (
 )
 
 # =========================
-# CONFIG
+# 1. CẤU HÌNH WEB SERVER (GIỮ BOT 24/7 TRÊN RENDER)
 # =========================
+web_app = Flask(__name__)
 
+@web_app.route('/')
+def home():
+    return "🤖 Bot Tài Xỉu Telegram đang chạy 24/7 ổn định!"
+
+def run_web():
+    port = int(os.getenv("PORT", 10000))
+    web_app.run(host="0.0.0.0", port=port)
+
+
+# =========================
+# 2. CẤU HÌNH TELEGRAM BOT
+# =========================
 TOKEN = os.getenv("BOT_TOKEN")
-CHAT_ID = -1003932050774
-
-# =========================
-# LOG
-# =========================
+CHAT_ID = -1003932050774  # Thay bằng ID nhóm của bạn
 
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     level=logging.INFO
 )
 
-current_session = 84  # Khớp với phiên hiện tại của bạn
+current_session = 84
 history = []
 is_locked = False
 
@@ -37,7 +48,6 @@ INITIAL_BALANCE = 0
 # =========================
 # KHÓA / MỞ NHÓM
 # =========================
-
 async def lock_chat(app):
     try:
         await app.bot.set_chat_permissions(
@@ -68,107 +78,107 @@ async def unlock_chat(app):
 
 
 # =========================
-# GAME LOOP
+# VÒNG LẶP GAME TÀI XỈU
 # =========================
-
 async def game_loop(app):
     global current_session, is_locked, current_bets
 
-    while True:
-        current_session += 1
-        is_locked = False
-        current_bets.clear()
+    try:
+        while True:
+            current_session += 1
+            is_locked = False
+            current_bets.clear()
 
-        trend = (
-            " ".join("🔴" if x == "TÀI" else "🟢" for x in history[-10:])
-            if history
-            else "Chưa có"
-        )
+            trend = (
+                " ".join("🔴" if x == "TÀI" else "🟢" for x in history[-10:])
+                if history
+                else "Chưa có"
+            )
 
-        await app.bot.send_message(
-            chat_id=CHAT_ID,
-            text=(
-                f"🎲 *PHIÊN #{current_session}*\n\n"
-                f"📈 Lịch sử: {trend}\n"
-                f"⏰ Chuẩn bị đặt cược trong 40 giây...\n\n"
-                f"👉 Cú pháp đặt cược:\n"
-                f"• `/tai [số_tiền]` hoặc `/xiu [số_tiền]`"
-            ),
-            parse_mode="Markdown"
-        )
+            await app.bot.send_message(
+                chat_id=CHAT_ID,
+                text=(
+                    f"🎲 *PHIÊN #{current_session}*\n\n"
+                    f"📈 Lịch sử: {trend}\n"
+                    f"⏰ Chuẩn bị đặt cược trong 40 giây...\n\n"
+                    f"👉 Cú pháp đặt cược:\n"
+                    f"• `/tai [số_tiền]` hoặc `/xiu [số_tiền]`"
+                ),
+                parse_mode="Markdown"
+            )
 
-        await asyncio.sleep(40)
+            await asyncio.sleep(40)
 
-        is_locked = True
-        await lock_chat(app)
+            is_locked = True
+            await lock_chat(app)
 
-        await app.bot.send_message(
-            chat_id=CHAT_ID,
-            text="🔒 Đã khóa sổ! Chuẩn bị tung xúc xắc..."
-        )
+            await app.bot.send_message(
+                chat_id=CHAT_ID,
+                text="🔒 Đã khóa sổ! Chuẩn bị tung xúc xắc..."
+            )
 
-        await asyncio.sleep(2)
+            await asyncio.sleep(2)
 
-        # Gửi 3 icon xúc xắc động lên nhóm
-        dice_msg_1 = await app.bot.send_dice(chat_id=CHAT_ID, emoji="🎲")
-        dice_msg_2 = await app.bot.send_dice(chat_id=CHAT_ID, emoji="🎲")
-        dice_msg_3 = await app.bot.send_dice(chat_id=CHAT_ID, emoji="🎲")
-        
-        # BẮT BUỘC ĐỢI 4 GIÂY để animation Telegram chạy xong và cập nhật giá trị dice.value chuẩn xác
-        await asyncio.sleep(4)
+            # Gửi 3 icon xúc xắc động lên nhóm
+            dice_msg_1 = await app.bot.send_dice(chat_id=CHAT_ID, emoji="🎲")
+            dice_msg_2 = await app.bot.send_dice(chat_id=CHAT_ID, emoji="🎲")
+            dice_msg_3 = await app.bot.send_dice(chat_id=CHAT_ID, emoji="🎲")
+            
+            # Chờ 4 giây để animation xúc xắc chạy xong và cập nhật giá trị chuẩn
+            await asyncio.sleep(4)
 
-        # Lấy lại thông tin tin nhắn mới nhất chứa giá trị xúc xắc thật từ server Telegram
-        d1 = dice_msg_1.dice.value
-        d2 = dice_msg_2.dice.value
-        d3 = dice_msg_3.dice.value
+            d1 = dice_msg_1.dice.value
+            d2 = dice_msg_2.dice.value
+            d3 = dice_msg_3.dice.value
 
-        total = d1 + d2 + d3
-        result = "TÀI" if total >= 11 else "XỈU"
-        result_icon = "🔴" if result == "TÀI" else "🟢"
-        history.append(result)
+            total = d1 + d2 + d3
+            result = "TÀI" if total >= 11 else "XỈU"
+            result_icon = "🔴" if result == "TÀI" else "🟢"
+            history.append(result)
 
-        # Tính toán thắng thua cho người chơi
-        result_details = []
-        for user_id, bet in current_bets.items():
-            choice = bet["choice"]
-            amount = bet["amount"]
-            name = bet["name"]
+            # Tính toán kết quả thắng thua
+            result_details = []
+            for user_id, bet in current_bets.items():
+                choice = bet["choice"]
+                amount = bet["amount"]
+                name = bet["name"]
 
-            if choice == result:
-                win_amount = amount
-                users_data[user_id]["balance"] += win_amount
-                result_details.append(f"✅ {name} thắng +`{win_amount:,}` (Ví: `{users_data[user_id]['balance']:,}`)")
-            else:
-                users_data[user_id]["balance"] -= amount
-                result_details.append(f"❌ {name} thua -`{amount:,}` (Ví: `{users_data[user_id]['balance']:,}`)")
+                if choice == result:
+                    win_amount = amount
+                    users_data[user_id]["balance"] += win_amount
+                    result_details.append(f"✅ {name} thắng +`{win_amount:,}` (Ví: `{users_data[user_id]['balance']:,}`)")
+                else:
+                    users_data[user_id]["balance"] -= amount
+                    result_details.append(f"❌ {name} thua -`{amount:,}` (Ví: `{users_data[user_id]['balance']:,}`)")
 
-        bet_summary_text = "\n".join(result_details) if result_details else "(Không có lượt cược nào phiên này)"
-        trend_str = " ".join("🔴" if x == "TÀI" else "🟢" for x in history[-6:])
+            bet_summary_text = "\n".join(result_details) if result_details else "(Không có lượt cược nào phiên này)"
+            trend_str = " ".join("🔴" if x == "TÀI" else "🟢" for x in history[-6:])
 
-        # Gửi kết quả chuẩn khớp 100% với hình ảnh mẫu của bạn
-        await app.bot.send_message(
-            chat_id=CHAT_ID,
-            text=(
-                f"📊 *KẾT QUẢ PHIÊN: #{current_session}*\n"
-                f"----------------------------------------\n"
-                f"🎲 Xúc xắc: `{d1} - {d2} - {d3}`\n"
-                f"🔢 Tổng điểm: *{total}* ({result_icon} *{result}*)\n"
-                f"📈 Dây cầu: {trend_str}\n"
-                f"----------------------------------------\n"
-                f"📝 *Biến động cược:*\n{bet_summary_text}"
-            ),
-            parse_mode="Markdown"
-        )
+            await app.bot.send_message(
+                chat_id=CHAT_ID,
+                text=(
+                    f"📊 *KẾT QUẢ PHIÊN: #{current_session}*\n"
+                    f"----------------------------------------\n"
+                    f"🎲 Xúc xắc: `{d1} - {d2} - {d3}`\n"
+                    f"🔢 Tổng điểm: *{total}* ({result_icon} *{result}*)\n"
+                    f"📈 Dây cầu: {trend_str}\n"
+                    f"----------------------------------------\n"
+                    f"📝 *Biến động cược:*\n{bet_summary_text}"
+                ),
+                parse_mode="Markdown"
+            )
 
-        is_locked = False
-        await unlock_chat(app)
-        await asyncio.sleep(2)
+            is_locked = False
+            await unlock_chat(app)
+            await asyncio.sleep(2)
+            
+    except asyncio.CancelledError:
+        logging.info("Vòng lặp game đã dừng an toàn.")
 
 
 # =========================
-# MENU LỆNH
+# CÁC LỆNH BOT
 # =========================
-
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     user_id = user.id
@@ -212,7 +222,7 @@ async def menu_ls(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def admin_cong_tien(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if len(context.args) < 2:
-        await update.message.reply_text("⚠️ Cú pháp: `/cong [user_id] [số_tiền]`", parse_mode="Markdown")
+        await update.message.reply_text("⚠️️ Cú pháp: `/cong [user_id] [số_tiền]`", parse_mode="Markdown")
         return
     try:
         target_id = int(context.args[0])
@@ -265,20 +275,19 @@ async def place_bet(update: Update, context: ContextTypes.DEFAULT_TYPE):
     current_bets[user_id] = {"choice": choice, "amount": amount, "name": name}
     await update.message.reply_text(f"✅ {name} đã cược **{amount:,}** điểm vào cửa **{choice}** thành công!", parse_mode="Markdown")
 
-async def get_id(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text(f"Chat ID của bạn: {update.effective_user.id}\nGroup ID: {update.effective_chat.id}")
-
-
-# =========================
-# KHỞI ĐỘNG
-# =========================
-
 async def post_init(app):
     app.create_task(game_loop(app))
 
+
+# =========================
+# KHỞI CHẠY CHÍNH
+# =========================
 def main():
     if not TOKEN:
         raise RuntimeError("Chưa đặt BOT_TOKEN.")
+
+    # Khởi chạy Flask Web Server ở luồng riêng (chạy ngầm song song với bot)
+    threading.Thread(target=run_web, daemon=True).start()
 
     app = ApplicationBuilder().token(TOKEN).post_init(post_init).build()
 
@@ -290,9 +299,8 @@ def main():
     app.add_handler(CommandHandler("cong", admin_cong_tien))
     app.add_handler(CommandHandler("tai", place_bet))
     app.add_handler(CommandHandler("xiu", place_bet))
-    app.add_handler(CommandHandler("id", get_id))
 
-    print("🤖 Bot đang chạy với logic xúc xắc đồng bộ...")
+    print("🤖 Bot và Web Server đang chạy ổn định 24/7...")
     app.run_polling(drop_pending_updates=True)
 
 if __name__ == "__main__":
