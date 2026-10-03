@@ -16,7 +16,7 @@ CHAT_ID = "@your_channel_or_group_username"  # Thay bằng username nhóm của 
 # Trạng thái game
 current_session = 0
 game_history = []  # Lưu lịch sử ('TÀI' hoặc 'XỈU')
-bets = {}  # Lưu cược của người chơi: {user_id: {"name": username, "choice": "tai"/"xiu", "amount": số_tiền}}
+bets = {}  # Lưu cược của người chơi
 is_locked = False
 
 async def start_game(application):
@@ -46,7 +46,7 @@ async def start_game(application):
         # 2. KHÓA CƯỢC (10 giây cuối trước khi tung)
         is_locked = True
         
-        # Tự động khóa chat thành viên trong nhóm (Bot cần là Admin có quyền Restricted)
+        # Tự động khóa chat thành viên trong nhóm
         try:
             await application.bot.set_chat_permissions(
                 chat_id=CHAT_ID,
