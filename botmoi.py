@@ -9,9 +9,9 @@ from telegram.ext import (
     ContextTypes,
 )
 
-# Lấy token của bot nạp rút từ biến môi trường trên Render
-TOKEN_NAP_RUT = os.getenv("BOT_TOKEN_NAP_RUT")
-ADMIN_ID = 8013947246  # ID Telegram cá nhân của bạn
+# Token và Admin ID
+TOKEN_NAP_RUT = "8980298303:AAEnfjr43Nr6USFYAwWLbLV4IoXBc9aIYAk"
+ADMIN_ID = 8013947246
 
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
@@ -33,18 +33,16 @@ def save_db(data):
     with open(DB_FILE, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=4)
 
-# Lệnh /nap
 async def nap_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     await update.message.reply_text(
         f"💳 **HƯỚNG DẪN NẠP ĐIỂM**\n\n"
         f"Bạn vui lòng chuyển khoản qua ngân hàng hoặc Momo với nội dung chuyển khoản:\n"
         f"`NAP {user.id}`\n\n"
-        f"Sau khi chuyển khoản thành công, hãy chụp lại biên lai và gửi cho Admin để được cộng điểm tự động/thủ công.",
+        f"Sau khi chuyển khoản thành công, hãy chụp lại biên lai và gửi cho Admin để được cộng điểm.",
         parse_mode="Markdown"
     )
 
-# Lệnh /rut [số_tiền] [STK hoặc Momo]
 async def rut_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not context.args or len(context.args) < 2:
         await update.message.reply_text("⚠ Sai cú pháp! Vui lòng dùng: `/rut [số_tiền] [Số_tài_khoản / Ngân_hàng]`", parse_mode="Markdown")
@@ -65,7 +63,6 @@ async def rut_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("❌ Số dư ví của bạn không đủ để thực hiện lệnh rút này!")
         return
 
-    # Tạo nút Duyệt / Hủy cho Admin
     keyboard = [
         [
             InlineKeyboardButton("✅ Duyệt Rút", callback_data=f"approve_{user.id}_{amount}"),
@@ -74,7 +71,6 @@ async def rut_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
 
-    # Gửi thông báo về cho Admin
     await context.bot.send_message(
         chat_id=ADMIN_ID,
         text=(
@@ -89,7 +85,6 @@ async def rut_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await update.message.reply_text("⏳ Yêu cầu rút điểm của bạn đã được gửi tới Admin, vui lòng chờ xử lý trong giây lát!")
 
-# Xử lý khi Admin bấm nút trên Telegram
 async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
@@ -120,9 +115,6 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             pass
 
 def main():
-    if not TOKEN_NAP_RUT:
-        raise RuntimeError("Chưa cấu hình BOT_TOKEN_NAP_RUT.")
-
     app = ApplicationBuilder().token(TOKEN_NAP_RUT).build()
     app.add_handler(CommandHandler("nap", nap_cmd))
     app.add_handler(CommandHandler("rut", rut_cmd))
