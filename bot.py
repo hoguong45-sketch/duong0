@@ -19,75 +19,6 @@ web_app = Flask(__name__)
 
 @web_app.route('/')
 def home():
-    return "🤖 Bot Tài Xỉu & Nạp/Rút Telegram đang chạy 24/7 ổn định!"
-
-def run_web():
-    port = int(os.getenv("PORT", 10000))
-    web_app.run(host="0.0.0.0", port=port)
-
-
-# =========================
-# 2. CẤU HÌNH TELEGRAM BOT
-# =========================
-TOKEN = os.getenv("BOT_TOKEN") # Token của bot game chính
-CHAT_ID = -1003932050774  # ID nhóm game của bạn
-ADMIN_ID = 8013947246     # ID Telegram cá nhân của bạn để nhận lệnh duyệt rút
-
-logging.basicConfig(
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    level=logging.INFO
-)
-
-DB_FILE = "database.json"
-
-current_session = 84
-history = []
-is_locked = False
-
-current_bets = {}
-INITIAL_BALANCE = 0
-
-
-# =========================
-# QUẢN LÝ DATABASE JSON (LƯU SỐ DƯ)
-# =========================
-def load_db():
-    if not os.path.exists(DB_FILE):
-        return {}
-    try:
-        with open(DB_FILE, "r", encoding="utf-8") as f:
-            return json.load(f)
-    except:
-        return {}
-
-def save_db(data):
-    with open(DB_FILE, "w", encoding="utf-8") as f:
-        json.dump(Tuyệt vời! Bạn đã có sẵn toàn bộ mã nguồn của con bot game Tài Xỉu chạy trên Flask Web Server. Bây giờ, để **tích hợp trực tiếp tính năng Nạp/Rút** (với bot riêng `@Chanletl_bot` và ID Admin `8013947246`) vào chung một file này mà không cần tách file lằng nhằng, chúng ta sẽ gộp chung các lệnh `/nap`, `/rut` và nút bấm duyệt tiền của Admin vào cùng mã nguồn.
-
-Dưới đây là **toàn bộ mã nguồn hoàn chỉnh đã gộp chung** (Game Tài Xỉu + Hệ thống Nạp/Rút tự động gửi duyệt về tài khoản của bạn):
-
-```python
-import os
-import json
-import logging
-import asyncio
-import threading
-from flask import Flask
-from telegram import Update, ChatPermissions, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import (
-    ApplicationBuilder,
-    CommandHandler,
-    CallbackQueryHandler,
-    ContextTypes,
-)
-
-# =========================
-# 1. CẤU HÌNH WEB SERVER (GIỮ BOT 24/7 TRÊN RENDER)
-# =========================
-web_app = Flask(__name__)
-
-@web_app.route('/')
-def home():
     return "🤖 Bot Tài Xỉu & Nạp Rút đang chạy 24/7 ổn định!"
 
 def run_web():
@@ -307,7 +238,6 @@ async def menu_rut(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("❌ Số dư ví của bạn không đủ để thực hiện lệnh rút này!")
         return
 
-    # Tạo nút Duyệt / Từ chối gửi về Admin
     keyboard = [
         [
             InlineKeyboardButton("✅ Duyệt Rút", callback_data=f"approve_{user.id}_{amount}"),
@@ -316,7 +246,6 @@ async def menu_rut(update: Update, context: ContextTypes.DEFAULT_TYPE):
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
 
-    # Gửi thông báo về cho Admin cá nhân
     await context.bot.send_message(
         chat_id=ADMIN_ID,
         text=(
@@ -431,7 +360,6 @@ def main():
     if not TOKEN:
         raise RuntimeError("Chưa đặt BOT_TOKEN.")
 
-    # Khởi chạy Flask Web Server ở luồng riêng để giữ Render 24/7
     threading.Thread(target=run_web, daemon=True).start()
 
     app = ApplicationBuilder().token(TOKEN).post_init(post_init).build()
@@ -449,5 +377,5 @@ def main():
     print("🤖 Bot Tài Xỉu & Nạp/Rút cùng Web Server đang chạy ổn định 24/7...")
     app.run_polling(drop_pending_updates=True)
 
-if __name__ ==- "__main__":
+if __name__ == "__main__":
     main()
