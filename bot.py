@@ -2,6 +2,7 @@ import os
 import json
 import logging
 import asyncio
+import random
 import threading
 from flask import Flask
 from telegram import Update, ChatPermissions, InlineKeyboardButton, InlineKeyboardMarkup
@@ -45,6 +46,20 @@ is_locked = False
 users_data = {}
 current_bets = {}
 INITIAL_BALANCE = 0
+
+# Danh sách ngân hàng luân phiên ngẫu nhiên
+BANK_LIST = [
+    {
+        "name": "MSB (Ngân hàng Hàng Hải)",
+        "stk": "6314072009",
+        "chủ tài khoản": "TÔ NGỌC DƯƠNG"
+    },
+    {
+        "name": "MBBank (Quân Đội)",
+        "stk": "0776876883",
+        "chủ tài khoản": "TÔ NGỌC DƯƠNG"
+    }
+]
 
 
 # =========================
@@ -187,7 +202,8 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         users_data[user_id] = {"name": name, "balance": INITIAL_BALANCE}
 
     await update.message.reply_text(
-        f"👋 Chào {name}!\n\n"
+        f"👋 Chào {name}!\n"
+        f"🆔 ID của bạn: `{user_id}`\n\n"
         f"💰 Số dư ví: `{users_data[user_id]['balance']:,}` điểm\n\n"
         f"📋 Menu lệnh:\n"
         f"• `/sd` - Kiểm tra số dư ví\n"
@@ -199,22 +215,50 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 async def check_sd(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_id = update.effective_user.id
+    user = update.effective_user
+    user_id = user.id
     if user_id not in users_data:
-        users_data[user_id] = {"name": update.effective_user.first_name, "balance": INITIAL_BALANCE}
+        users_data[user_id] = {"name": user.first_name, "balance": INITIAL_BALANCE}
     
     balance = users_data[user_id]["balance"]
-    await update.message.reply_text(f"💰 Số dư ví của bạn: `{balance:,}` điểm", parse_mode="Markdown")
+    await update.message.reply_text(f"🆔 ID: `{user_id}`\n💰 Số dư ví của bạn: `{balance:,}` điểm", parse_mode="Markdown")
 
 async def menu_nap(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
-    await update.message.reply_text(
+    user_id = user.id
+    name = user.first_name
+
+    if user_id not in users_data:
+        users_data[user_id] = {"name": name, "balance": INITIAL_BALANCE}
+
+    # Chọn ngẫu nhiên 1 ngân hàng
+    chosen_bank = random.choice(BANK_LIST)
+    
+    # Cho phép khách nhập số tiền muốn nạp (ví dụ /nap 50000 hoặc mặc định)
+    amount = 50000
+    if context.args:
+        try:
+            amount = int(context.args[0])
+        except ValueError:
+            pass
+
+    nap_text = (
         f"💳 **HƯỚNG DẪN NẠP ĐIỂM**\n\n"
-        f"Bạn vui lòng chuyển khoản qua ngân hàng hoặc Momo với nội dung:\n"
-        f"`NAP {user.id}`\n\n"
-        f"Sau khi chuyển khoản, chụp biên lai gửi cho Admin để được cộng điểm.",
-        parse_mode="Markdown"
+        f"👤 Khách hàng: *{name}*\n"
+        f"🆔 ID của bạn: `{user_id}`\n"
+        f"🏦 Ngân hàng: *{chosen_bank['name']}*\n"
+        f"📌 Số tài khoản: `{chosen_bank['stk']}`\n"
+        f"👤 Chủ tài khoản: *{chosen_bank['chủ tài khoản']}*\n"
+        f"💰 Nội dung chuyển khoản bắt buộc:\n`NAP {name} {user_id}`\n\n"
+        f"⚠️ Sau khi chuyển khoản, bấm nút bên dưới để gửi yêu cầu duyệt nhanh cho Admin!"
     )
+    
+    keyboard = [
+        [InlineKeyboardButton("✅ Đã Chuyển, Báo Admin Duyệt", callback_data=f"nap_req_{user_id}_{amount}")]
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+
+    await update.message.reply_text(nap_text, parse_mode="Markdown", reply_markup=reply_markup)
 
 async def menu_rut(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not context.args or len(context.args) < 2:
@@ -229,19 +273,19 @@ async def menu_rut(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     info = " ".join(context.args[1:])
     user = update.effective_user
-    user_id_str = user.id
+    user_id = user.id
 
-    if user_id_str not in users_data:
-        users_data[user_id_str] = {"name": user.first_name, "balance": INITIAL_BALANCE}
+    if user_id not in users_data:
+        users_data[user_id] = {"name": user.first_name, "balance": INITIAL_BALANCE}
 
-    if users_data[user_id_str]["balance"] < amount:
+    if users_data[user_id]["balance"] < amount:
         await update.message.reply_text("❌ Số dư ví của bạn không đủ để thực hiện lệnh rút này!")
         return
 
     keyboard = [
         [
-            InlineKeyboardButton("✅ Duyệt Rút", callback_data=f"approve_{user.id}_{amount}"),
-            InlineKeyboardButton("❌ Từ chối", callback_data=f"cancel_{user.id}")
+            InlineKeyboardButton("✅ Duyệt Rút", callback_data=f"approve_rut_{user_id}_{amount}"),
+            InlineKeyboardButton("❌ Từ chối", callback_data=f"cancel_rut_{user_id}")
         ]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
@@ -250,7 +294,7 @@ async def menu_rut(update: Update, context: ContextTypes.DEFAULT_TYPE):
         chat_id=ADMIN_ID,
         text=(
             f"🔔 **YÊU CẦU RÚT TIỀN MỚI**\n\n"
-            f"👤 Người chơi: {user.first_name} (`{user.id}`)\n"
+            f"👤 Người chơi: {user.first_name} (`{user_id}`)\n"
             f"💰 Số tiền rút: `{amount:,}` điểm\n"
             f"🏦 Nhận tiền tại: `{info}`"
         ),
@@ -265,23 +309,92 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await query.answer()
     
     data = query.data
-    if data.startswith("approve_"):
+    
+    # Xử lý khi khách bấm báo nạp -> Gửi thông tin kèm nút duyệt nhanh cho Admin
+    if data.startswith("nap_req_"):
         parts = data.split("_")
-        target_id = int(parts[1])
-        amount = int(parts[2])
+        target_id = int(parts[2])
+        amount = int(parts[3])
+        target_name = users_data.get(target_id, {}).get("name", f"User {target_id}")
+
+        # Tạo nút duyệt 1 chạm cho Admin
+        admin_keyboard = [
+            [
+                InlineKeyboardButton(f"✅ Duyệt +{amount:,} điểm", callback_data=f"admin_cong_{target_id}_{amount}"),
+                InlineKeyboardButton("❌ Hủy", callback_data=f"admin_huy_{target_id}")
+            ]
+        ]
+        admin_markup = InlineKeyboardMarkup(admin_keyboard)
+
+        # Gửi về cho Admin kèm nút bấm trực tiếp
+        await context.bot.send_message(
+            chat_id=ADMIN_ID,
+            text=(
+                f"🔔 **CÓ YÊU CẦU NẠP TIỀN!**\n\n"
+                f"👤 Tên: **{target_name}**\n"
+                f"🆔 ID: `{target_id}`\n"
+                f"💵 Số tiền dự kiến: `{amount:,}` điểm\n"
+                f"📝 Nội dung cần check: `NAP {target_name} {target_id}`\n\n"
+                f"👇 Bấm nút bên dưới để cộng điểm ngay lập tức cho khách:"
+            ),
+            parse_mode="Markdown",
+            reply_markup=admin_markup
+        )
+
+        await query.answer("Đã gửi yêu cầu nạp cho Admin thành công!", show_alert=True)
+        await query.edit_message_text(text=f"{query.message.text}\n\n✅ **ĐÃ GỬI YÊU CẦU CHO ADMIN, VUI LÒNG CHỜ DUYỆT!**", parse_mode="Markdown")
+
+    # Admin bấm duyệt nạp 1 chạm
+    elif data.startswith("admin_cong_"):
+        parts = data.split("_")
+        target_id = int(parts[2])
+        amount = int(parts[3])
+
+        if target_id not in users_data:
+            users_data[target_id] = {"name": f"User {target_id}", "balance": 0}
+
+        users_data[target_id]["balance"] += amount
+
+        await query.edit_message_text(
+            text=f"{query.message.text}\n\n✅ **ĐÃ DUYỆT CỘNG `{amount:,}` ĐIỂM CHO ID `{target_id}` THÀNH CÔNG!**",
+            parse_mode="Markdown"
+        )
+        
+        # Báo tin vui cho khách
+        try:
+            await context.bot.send_message(
+                chat_id=target_id,
+                text=f"🎉 Yêu cầu nạp tiền của bạn đã được Admin duyệt! Đã cộng `{amount:,}` điểm vào ví. Kiểm tra bằng lệnh `/sd`.",
+                parse_mode="Markdown"
+            )
+        except:
+            pass
+
+    elif data.startswith("admin_huy_"):
+        target_id = int(data.split("_")[2])
+        await query.edit_message_text(text=f"{query.message.text}\n\n❌ **ĐÃ HỦY YÊU CẦU NẠP NÀY.**", parse_mode="Markdown")
+        try:
+            await context.bot.send_message(chat_id=target_id, text="❌ Yêu cầu nạp điểm của bạn đã bị từ chối hoặc hủy bỏ bởi Admin.")
+        except:
+            pass
+
+    elif data.startswith("approve_rut_"):
+        parts = data.split("_")
+        target_id = int(parts[2])
+        amount = int(parts[3])
 
         if target_id in users_data:
             users_data[target_id]["balance"] -= amount
 
-        await query.edit_message_text(text=f"{query.message.text}\n\n✅ **ĐÃ DUYỆT GIAO DỊCH THÀNH CÔNG!**", parse_mode="Markdown")
+        await query.edit_message_text(text=f"{query.message.text}\n\n✅ **ĐÃ DUYỆT RÚT TIỀN THÀNH CÔNG!**", parse_mode="Markdown")
         try:
-            await context.bot.send_message(chat_id=target_id, text=f"🎉 Yêu cầu rút `{amount:,}` điểm của bạn đã được Admin phê duyệt thành công!")
+            await context.bot.send_message(chat_id=target_id, text=f"🎉 Yêu cầu rút `{amount:,}` điểm của bạn đã được Admin thanh toán thành công!")
         except:
             pass
             
-    elif data.startswith("cancel_"):
-        target_id = int(data.split("_")[1])
-        await query.edit_message_text(text=f"{query.message.text}\n\n❌ **ĐÃ TỪ CHỐI GIAO DỊCH!**", parse_mode="Markdown")
+    elif data.startswith("cancel_rut_"):
+        target_id = int(data.split("_")[2])
+        await query.edit_message_text(text=f"{query.message.text}\n\n❌ **ĐÃ TỪ CHỐI GIAO DỊCH RÚT!**", parse_mode="Markdown")
         try:
             await context.bot.send_message(chat_id=target_id, text="❌ Yêu cầu rút điểm của bạn đã bị Admin từ chối.")
         except:
@@ -310,6 +423,15 @@ async def admin_cong_tien(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     users_data[target_id]["balance"] += amount
     await update.message.reply_text(f"👑 Đã cộng `{amount:,}` điểm cho user `{target_id}`.", parse_mode="Markdown")
+    
+    try:
+        await context.bot.send_message(
+            chat_id=target_id,
+            text=f"🎉 Tài khoản của bạn đã được Admin cộng thành công `{amount:,}` điểm! Kiểm tra số dư bằng lệnh `/sd`.",
+            parse_mode="Markdown"
+        )
+    except:
+        pass
 
 async def place_bet(update: Update, context: ContextTypes.DEFAULT_TYPE):
     global is_locked, current_bets
@@ -319,7 +441,7 @@ async def place_bet(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     if not context.args:
-        await update.message.reply_text("⚠️ Vui lòng nhập số tiền cược! Ví dụ: `/tai 10000`", parse_mode="Markdown")
+        await update.message.reply_text("⚠️️ Vui lòng nhập số tiền cược! Ví dụ: `/tai 10000`", parse_mode="Markdown")
         return
 
     try:
