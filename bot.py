@@ -39,7 +39,7 @@ NEWBIE_BONUS = 5_000
 NEWBIE_WAGERING_ROUNDS = 10  
 REF_BONUS = 1_000            
 
-# Danh sách tài khoản ngân hàng nạp (Hệ thống sẽ random ngẫu nhiên khi người chơi nạp)
+# Danh sách tài khoản ngân hàng nạp (Random liên tục ngẫu nhiên)
 DEPOSIT_BANKS = [
     {
         "bank_name": "MSB (Maritime Bank)",
@@ -56,7 +56,7 @@ DEPOSIT_BANKS = [
 # Biến toàn cục quản lý trạng thái Phiên tự động
 current_session_id = 1000
 session_state = "CLOSED"  # "OPENED" (Đang nhận cược), "CLOSING" (Đang quay thưởng)
-session_bets = {}         # Lưu cược của phiên hiện tại: {user_id: {"choice": "T"/"X", "amount": 10000, "name": "..."}}
+session_bets = {}         # Lưu cược phiên hiện tại: {user_id: {"choice": "T"/"X", "amount": 10000, "name": "..."}}
 session_lock = asyncio.Lock()
 
 
@@ -317,7 +317,7 @@ def create_transaction(user_id, tx_type, amount):
 
 
 # =========================================================
-# HỆ THỐNG PHIÊN TỰ ĐỘNG CHẠY LIÊN TỤC (BACKGROUND LOOP)
+# HỆ THỐNG PHIÊN TỰ ĐỘNG CHẠY LIÊN TỤC (BẮM START LÀ CHẠY LUÔN)
 # =========================================================
 
 async def get_recent_bridge_history():
@@ -359,22 +359,19 @@ async def auto_session_loop(application: Application):
                 session_state = "OPENED"
                 session_bets.clear()
 
-            bridge_display = await get_recent_bridge_history()
-
-            # 1. BẮT ĐẦU PHIÊN MỚI (Mở cược trong 40 giây)
-            print(f"--- MỞ PHIÊN #{current_session_id} ---")
+            print(f"--- BẮT ĐẦU PHIÊN #{current_session_id} (Đang mở cược 40s) ---")
             
-            # Chờ 40 giây cho khách đặt cược
+            # Chờ 40 giây nhận cược
             await asyncio.sleep(40)
 
-            # 2. THÔNG BÁO ĐẾM NGƯỢC 10 GIÂY CUỐI
+            # Thông báo đếm ngược 10 giây cuối
             async with session_lock:
                 session_state = "CLOSING"
 
-            print(f"--- ĐẾM NGƯỢC 10S PHIÊN #{current_session_id} ---")
+            print(f"--- ĐẾM NGƯỢC 10S CUỐI PHIÊN #{current_session_id} ---")
             await asyncio.sleep(10)
 
-            # 3. QUAY THƯỞNG VÀ TỔNG KẾT PHIÊN
+            # Quay thưởng và tổng kết
             a = random.randint(1, 6)
             b = random.randint(1, 6)
             c = random.randint(1, 6)
@@ -534,7 +531,7 @@ Xin chào {user.first_name}!
 `{ref_link}`
 
 🎮 **Cách chơi tự động:**
-Bot tự động mở phiên mỗi 50 giây. Bạn có thể cược trực tiếp:
+Bot tự động chạy phiên liên tục 24/7 (50s/phiên). Cược trực tiếp qua chat:
 • `T [Số điểm]` → Cược TÀI
 • `X [Số điểm]` → Cược XỈU
 • `C [Số điểm]` → Cược CHẴN
@@ -543,7 +540,7 @@ Bot tự động mở phiên mỗi 50 giây. Bạn có thể cược trực ti�
 📌 LỆNH:
 /tk → Xem số dư & thông tin tài khoản
 /se → Lấy link giới thiệu
-/nap 10000 → Nạp điểm (Hệ thống random STK ngẫu nhiên)
+/nap 10000 → Nạp điểm (Hệ thống random STK ngẫu nhiên liên tục)
 /rut [Số tiền] [Ngân hàng] [STK] [Tên] → Rút tiền
 /code [Mã] → Nhập giftcode
 /ls → Lịch sử nạp rút
@@ -568,12 +565,12 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 📖 HƯỚNG DẪN CHI TIẾT
 
 🎯 **HỆ THỐNG PHIÊN TỰ ĐỘNG:**
-• Phiên diễn ra liên tục 24/7 (50s/phiên).
+• Phiên diễn ra liên tục 24/7 ngay khi bot khởi động (50s/phiên).
 • Cú pháp cược: `T [tiền]`, `X [tiền]`, `C [tiền]`, `L [tiền]`.
 • Thắng nhận hệ số ×1.97.
 
 💰 **GIAO DỊCH:**
-• /nap [số tiền] (Min nạp 10k, hệ thống tự động đổi ngẫu nhiên STK nạp MSB hoặc MB)
+• /nap [số tiền] (Min nạp 10k, hệ thống tự động đổi ngẫu nhiên STK MSB hoặc MB)
 • /rut [số tiền] [NH] [STK] [Tên] (Min rút 30k, yêu cầu nạp lần đầu 30k & cược x1)
 • /tk xem số dư tài khoản.
 """
@@ -632,7 +629,7 @@ async def bet_history(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 # =========================================================
-# NẠP & RÚT (NGẪU NHIÊN NGÂN HÀNG/STK)
+# NẠP & RÚT (RANDOM STK NGẪU NHIÊN LIÊN TỤC)
 # =========================================================
 
 async def deposit(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -653,7 +650,7 @@ async def deposit(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     tx_id = create_transaction(user.id, "DEPOSIT", amount)
 
-    # Lựa chọn ngẫu nhiên 1 trong các tài khoản ngân hàng nạp
+    # Lựa chọn ngẫu nhiên liên tục STK ngân hàng nạp
     selected_bank = random.choice(DEPOSIT_BANKS)
 
     await update.message.reply_text(
@@ -663,7 +660,7 @@ async def deposit(update: Update, context: ContextTypes.DEFAULT_TYPE):
 🪙 Số điểm: {amount:,} VNĐ
 🆔 Mã giao dịch: `{tx_id}`
 
-🏦 THÔNG TIN CHUYỂN KHOẢN (Hệ thống tự động chọn ngẫu nhiên):
+🏦 THÔNG TIN CHUYỂN KHOẢN (Random ngẫu nhiên):
 • Ngân hàng: **{selected_bank['bank_name']}**
 • Số tài khoản: `{selected_bank['account_number']}`
 • Chủ tài khoản: {selected_bank['account_holder']}
@@ -925,12 +922,12 @@ async def handle_admin_callback(update: Update, context: ContextTypes.DEFAULT_TY
 
 
 # =========================================================
-# MAIN
+# MAIN (KHỞI ĐỘNG HỆ THỐNG VÀ CHẠY NGAY PHIÊN TỰ ĐỘNG)
 # =========================================================
 
 async def post_init(application: Application):
     commands = [
-        ("start", "Khởi động bot"),
+        ("start", "Khởi động bot và chạy phiên"),
         ("tk", "Xem số dư"),
         ("se", "Lấy link giới thiệu"),
         ("nap", "Nạp điểm (Random STK)"),
@@ -942,6 +939,7 @@ async def post_init(application: Application):
     ]
     await application.bot.set_my_commands(commands)
     
+    # Kích hoạt vòng lặp chạy phiên tự động chạy luôn ngay khi bot khởi động
     asyncio.create_task(auto_session_loop(application))
 
 
