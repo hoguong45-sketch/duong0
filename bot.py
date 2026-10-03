@@ -1,314 +1,177 @@
 import asyncio
 import random
 import logging
-import os
-from telegram import Update, ChatPermissions
-from telegram.ext import (
-    ApplicationBuilder,
-    CommandHandler,
-    ContextTypes,
-)
-# =========================================================
-# CONFIG
-# =========================================================
-TOKEN = os.getenv("BOT_TOKEN")
-# Thay bằng Chat ID nhóm của bạn
-CHAT_ID = int(os.getenv("CHAT_ID", "0"))
-# =========================================================
-# LOGGING
-# =========================================================
+from telegram import Update
+from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
+
+# Bật logging để dễ theo dõi lỗi
 logging.basicConfig(
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    level=logging.INFO
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO
 )
-# =========================================================
-# GAME DATA
-# =========================================================
+
+TOKEN = "YOUR_TELEGRAM_BOT_TOKEN"  # Thay bằng Token bot của bạn từ BotFather
+CHAT_ID = "@your_channel_or_group_username"  # Hoặc ID nhóm dạng số (ví dụ: -100xxxxxxxxxx)
+
+# Trạng thái game
 current_session = 0
-game_history = []
-bets = {}
+game_history = []  # Lưu lịch sử ('TÀI' hoặc 'XỈU')
+bets = {}  # Lưu cược của người chơi: {user_id: {"name": username, "choice": "tai"/"xiu", "amount": số_tiền}}
 is_locked = False
-# =========================================================
-# KHÓA CHAT
-# =========================================================
-async def lock_chat(application):
-    try:
-        await application.bot.set_chat_permissions(
-            chat_id=CHAT_ID,
-            permissions=ChatPermissions(
-                can_send_messages=False
-            )
-        )
-        logging.info("Đã khóa chat.")
-    except Exception as e:
-        logging.error(f"Lỗi khóa chat: {e}")
-# =========================================================
-# MỞ CHAT
-# =========================================================
-async def unlock_chat(application):
-    try:
-        await application.bot.set_chat_permissions(
-            chat_id=CHAT_ID,
-            permissions=ChatPermissions(
-                can_send_messages=True,
-                can_send_audios=True,
-                can_send_documents=True,
-                can_send_photos=True,
-                can_send_videos=True,
-                can_send_video_notes=True,
-                can_send_voice_notes=True,
-                can_send_polls=True,
-                can_send_other_messages=True
-            )
-        )
-        logging.info("Đã mở chat.")
-    except Exception as e:
-        logging.error(f"Lỗi mở chat: {e}")
-# =========================================================
-# GAME
-# =========================================================
+
 async def start_game(application):
-    global current_session
-    global game_history
-    global bets
-    global is_locked
+    global current_session, game_history, bets, is_locked
+    
     while True:
-        # =========================
-        # PHIÊN MỚI
-        # =========================
         current_session += 1
         bets = {}
         is_locked = False
-        if game_history:
-            recent_trend = " ".join(
-                "🔴" if x == "TÀI" else "🟢"
-                for x in game_history[-5:]
-            )
-        else:
-            recent_trend = "Chưa có"
+        
+        # 1. BẮT ĐẦU PHIÊN MỚI
+        recent_trend = " ".join(["🔴" if h == "TÀI" else "🟢" for h in game_history[-5:]]) if game_history else "Chưa có"
+        
         start_text = (
-            f"🔔 *PHIÊN #{current_session} BẮT ĐẦU!*\n\n"
-            f"📈 Dây cầu: {recent_trend}\n"
-            f"━━━━━━━━━━━━━━━━━━\n"
-            f"⏰ Thời gian đặt cược: *40 giây*\n\n"
-            f"🔴 `/tai số`\n"
-            f"🟢 `/xiu số`"
+            f"🔔 **PHIÊN #{current_session} BẮT ĐẦU!**\n"
+            f"📈 **Dây cầu gần đây:** {recent_trend}\n"
+            f"----------------------------------------\n"
+            f"⏰ **Thời gian đặt cược:** 40 giây\n"
+            f"👉 **Cú pháp:** `/tai <số>` hoặc `/xiu <صố>`"
         )
-        await application.bot.send_message(
-            chat_id=CHAT_ID,
-            text=start_text,
-            parse_mode="Markdown"
-        )
-        # =========================
-        # MỞ CƯỢC 40 GIÂY
-        # =========================
+        
+        msg = await application.bot.send_message(chat_id=CHAT_ID, text=start_text, parse_mode="Markdown")
+        
+        # Chờ 40 giây cho người chơi đặt cược
         await asyncio.sleep(40)
-        # =========================
-        # KHÓA CƯỢC
-        # =========================
+        
+        # 2. KHÓA CƯỢC (10 giây cuối trước khi tung)
         is_locked = True
-        await lock_chat(application)
+        
+        # Khóa chat thành viên trong nhóm (Tắt quyền gửi tin nhắn của members)
+        try:
+            await application.bot.set_chat_permissions(
+                chat_id=CHAT_ID,
+                permissions={
+                    "can_send_messages": False,
+                    "can_send_media_messages": False,
+                    "can_send_polls": False,
+                    "can_send_other_messages": False
+                }
+            )
+        except Exception as e:
+            logging.error(f"Không thể khóa chat (Bot cần quyền Admin): {e}")
+
         await application.bot.send_message(
             chat_id=CHAT_ID,
-            text=(
-                "🔒 *ĐÃ KHÓA CƯỢC!*\n\n"
-                "🎲 Chuẩn bị tung xúc xắc trong *10 giây*..."
-            ),
+            text=f"🔒 **ĐÃ KHÓA CƯỢC!** Chuẩn bị tung xúc xắc trong **10 giây**...",
             parse_mode="Markdown"
         )
+        
+        # Chờ 10 giây cuối
         await asyncio.sleep(10)
-        # =========================
-        # TUNG XÚC XẮC
-        # =========================
-        d1 = random.randint(1, 6)
-        d2 = random.randint(1, 6)
-        d3 = random.randint(1, 6)
+        
+        # 3. TUNG XÚC XẮC & KẾT QUẢ
+        d1, d2, d3 = random.randint(1, 6), random.randint(1, 6), random.randint(1, 6)
         total = d1 + d2 + d3
         result = "TÀI" if total >= 11 else "XỈU"
         game_history.append(result)
-        # =========================
-        # HIỆU ỨNG
-        # =========================
-        dice_msg = await application.bot.send_message(
-            chat_id=CHAT_ID,
-            text="🎲 Đang lắc xúc xắc..."
-        )
+        
+        # Hiệu ứng xúc xắc icon
+        dice_msg = await application.bot.send_message(chat_id=CHAT_ID, text="🎲 Đang lắc xúc xắc...")
         await asyncio.sleep(1)
-        # =========================
-        # DÂY CẦU
-        # =========================
-        trend = " ".join(
-            "🔴" if x == "TÀI" else "🟢"
-            for x in game_history[-10:]
-        )
+        
+        trend_full = " ".join(["🔴" if h == "TÀI" else "🟢" for h in game_history[-10:]])
         result_icon = "🔴" if result == "TÀI" else "🟢"
-        # =========================
-        # KẾT QUẢ
-        # =========================
+        
         result_text = (
-            f"📊 *KẾT QUẢ PHIÊN #{current_session}*\n\n"
-            f"🎲 Xúc xắc: `{d1} - {d2} - {d3}`\n"
-            f"🔢 Tổng điểm: *{total}*\n"
-            f"🏆 Kết quả: {result_icon} *{result}*\n"
-            f"📈 Dây cầu: {trend}\n"
-            f"━━━━━━━━━━━━━━━━━━\n"
+            f"📊 **KẾT QUẢ PHIÊN: #{current_session}**\n"
+            f"----------------------------------------\n"
+            f"🎲 **Xúc xắc:** {d1} - {d2} - {d3}\n"
+            f"🔢 **Tổng điểm:** {total} ({result_icon} {result})\n"
+            f"📈 **Dây cầu:** {trend_full}\n"
+            f"----------------------------------------\n"
+            f"📝 **Biến động cược:**\n"
         )
-        # =========================
-        # HIỂN THỊ CƯỢC
-        # =========================
+        
         if bets:
-            result_text += "📝 *CƯỢC PHIÊN NÀY:*\n"
-            for data in bets.values():
-                win = data["choice"].upper() == result
+            bet_details = []
+            for uid, data in bets.items():
+                win = data['choice'] == result.lower()
                 status = "🟢 THẮNG" if win else "🔴 THUA"
-                result_text += (
-                    f"• @{data['name']} — "
-                    f"{data['choice'].upper()} "
-                    f"{data['amount']:,} → {status}\n"
-                )
+                bet_details.append(-f"- @{data['name']}: Đặt {data['choice'].upper()} ({data['amount']}) -> {status}")
+            result_text += "\n".join(bet_details)
         else:
-            result_text += "📝 Không có lượt cược nào."
-        # =========================
-        # HIỆN KẾT QUẢ
-        # =========================
+            result_text += "(Không có lượt cược nào phiên này)"
+            
         await application.bot.edit_message_text(
             chat_id=CHAT_ID,
             message_id=dice_msg.message_id,
             text=result_text,
             parse_mode="Markdown"
         )
-        # =========================
-        # MỞ CHAT
-        # =========================
-        is_locked = False
-        await unlock_chat(application)
-        # =========================
-        # NGHỈ 2 GIÂY
-        # =========================
+        
+        # Mở lại quyền chat cho thành viên
+        try:
+            await application.bot.set_chat_permissions(
+                chat_id=CHAT_ID,
+                permissions={
+                    "can_send_messages": True,
+                    "can_send_media_messages": True,
+                    "can_send_polls": True,
+                    "can_send_other_messages": True
+                }
+            )
+        except Exception as e:
+            logging.error(f"Không thể mở khóa chat: {e}")
+            
+        # Nghỉ ngắn trước khi sang phiên mới (nếu cần bù trừ thời gian xử lý)
         await asyncio.sleep(2)
-# =========================================================
-# ĐẶT CƯỢC
-# =========================================================
+
 async def place_bet(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    global is_locked
-    global bets
+    global is_locked, bets
     if is_locked:
-        await update.message.reply_text(
-            "🔒 Đã khóa cược!\n"
-            "Chờ phiên tiếp theo."
-        )
+        await update.message.reply_text("🔒 Đã khóa cược, không thể đặt cược lúc này!")
         return
-    if not update.message:
-        return
+        
     command = update.message.text.split()
+    cmd_name = command[0].lower() # /tai hoặc /xiu
+    
     if len(command) < 2:
-        await update.message.reply_text(
-            "⚠️ Sai cú pháp!\n\n"
-            "/tai 10000\n"
-            "/xiu 10000"
-        )
+        await update.message.reply_text("⚠️ Sai cú pháp! Vui lòng dùng: `/tai <số>` hoặc `/xiu <số>`", parse_mode="Markdown")
         return
+        
     try:
         amount = int(command[1])
         if amount <= 0:
-            raise ValueError
+            raise ValueError()
     except ValueError:
-        await update.message.reply_text(
-            "⚠️ Số tiền cược không hợp lệ!"
-        )
+        await update.message.reply_text("⚠️ Số tiền cược không hợp lệ!")
         return
+        
     user = update.effective_user
-    name = user.username or user.first_name or str(user.id)
-    if command[0].lower().startswith("/tai"):
-        choice = "tai"
-    else:
-        choice = "xiu"
+    choice = "tai" if "tai" in cmd_name else "xiu"
+    
     bets[user.id] = {
-        "name": name,
+        "name": user.username or user.first_name,
         "choice": choice,
         "amount": amount
     }
-    await update.message.reply_text(
-        f"✅ @{name}\n"
-        f"Đã đặt *{amount:,}* vào *{choice.upper()}*!",
-        parse_mode="Markdown"
-    )
-# =========================================================
-# LẤY CHAT ID
-# =========================================================
-async def get_id(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text(
-        f"🆔 Chat ID:\n`{update.effective_chat.id}`",
-        parse_mode="Markdown"
-    )
-# =========================================================
-# START
-# =========================================================
-async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text(
-        "🎲 *BOT TÀI XỈU*\n\n"
-        "🔴 `/tai số`\n"
-        "🟢 `/xiu số`\n\n"
-        "Ví dụ:\n"
-        "`/tai 10000`\n"
-        "`/xiu 20000`",
-        parse_mode="Markdown"
-    )
-# =========================================================
-# KHỞI ĐỘNG GAME
-# =========================================================
-async def post_init(application):
-    application.create_task(
-        start_game(application)
-    )
-# =========================================================
-# MAIN
-# =========================================================
+    
+    await update.message.reply_text(f"✅ @{user.username or user.first_name} đã đặt **{amount}** vào **{choice.upper()}** thành công!", parse_mode="Markdown")
+
 def main():
-    if not TOKEN:
-        raise RuntimeError(
-            "Chưa cấu hình BOT_TOKEN trên Render!"
-        )
-    if CHAT_ID == 0:
-        raise RuntimeError(
-            "Chưa cấu hình CHAT_ID trên Render!"
-        )
-    app = (
-        ApplicationBuilder()
-        .token(TOKEN)
-        .post_init(post_init)
-        .build()
-    )
-    app.add_handler(
-        CommandHandler("start", start_command)
-    )
-    app.add_handler(
-        CommandHandler("tai", place_bet)
-    )
-    app.add_handler(
-        CommandHandler("xiu", place_bet)
-    )
-    app.add_handler(
-        CommandHandler("id", get_id)
-    )
-    print("🤖 Bot Tài Xỉu đang chạy...")
-    app.run_polling(
-        drop_pending_updates=True
-    )
+    app = ApplicationBuilder().token(TOKEN).build()
+    
+    # Đăng ký lệnh cược
+    app.add_handler(CommandHandler("tai", place_bet))
+    app.add_handler(CommandHandler("xiu", place_bet))
+    
+    # Chạy vòng lặp game ngầm 24/7 khi bot khởi động
+    async def post_init(application):
+        asyncio.create_task(start_game(application))
+        
+    app.post_init = post_init
+    
+    print("🤖 Bot Tài Xỉu đang chạy 24/7...")
+    app.run_polling()
+
 if __name__ == "__main__":
     main()
-
-Trên Render bạn chỉ cần tạo 2 biến
-
-BOT_TOKEN = token mới của bạn
-CHAT_ID = -100xxxxxxxxxx
-
-Không đặt token trực tiếp trong code.
-
-Bot cần được cấp quyền quản trị nhóm, đặc biệt quyền hạn chế thành viên, thì chức năng khóa/mở chat mới hoạt động.
-
-Nếu bạn muốn lấy CHAT_ID, thêm bot vào nhóm → gửi:
-
-/id
-
-Bot sẽ trả về ID nhóm.
