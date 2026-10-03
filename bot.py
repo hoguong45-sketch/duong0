@@ -961,6 +961,7 @@ Ví dụ:
         amount
     )
 
+    # Đã cập nhật STK nạp sang MB Bank 0365092606 theo yêu cầu
     await update.message.reply_text(
         f"""
 📥 YÊU CẦU NẠP ĐIỂM
@@ -969,8 +970,8 @@ Ví dụ:
 🆔 Mã giao dịch: `{tx_id}`
 
 🏦 THÔNG TIN CHUYỂN KHOẢN:
-• Ngân hàng: **MSB (Maritime Bank)**
-• Số tài khoản: **6314072009**
+• Ngân hàng: **MB (Military Bank)**
+• Số tài khoản: **0365092606**
 • Chủ tài khoản: (Tên của bạn)
 • Nội dung chuyển khoản (BẮT BUỘC): `{tx_id}`
 
@@ -1250,7 +1251,6 @@ async def add_cskh(
     update: Update,
     context: ContextTypes.DEFAULT_TYPE
 ):
-    """Lệnh dành riêng cho Admin để thêm một User ID làm CSKH"""
     if not is_admin(update):
         await update.message.reply_text("❌ Bạn không có quyền sử dụng lệnh này!")
         return
@@ -1281,7 +1281,6 @@ async def remove_cskh(
     update: Update,
     context: ContextTypes.DEFAULT_TYPE
 ):
-    """Lệnh dành riêng cho Admin để xóa CSKH"""
     if not is_admin(update):
         await update.message.reply_text("❌ Bạn không có quyền sử dụng lệnh này!")
         return
@@ -1368,7 +1367,6 @@ async def handle_admin_callback(update: Update, context: ContextTypes.DEFAULT_TY
 
     user_id_callback = update.effective_user.id
 
-    # Kiểm tra xem người bấm có phải là Admin hoặc CSKH không
     if not is_cskh(user_id_callback):
         await query.answer("❌ Bạn không có quyền thực hiện thao tác duyệt giao dịch này!", show_alert=True)
         return
