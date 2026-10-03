@@ -104,7 +104,8 @@ def init_db():
             wagering_completed INTEGER NOT NULL DEFAULT 0,
             received_newbie BOOLEAN NOT NULL DEFAULT 0,
             ref_count INTEGER NOT NULL DEFAULT 0,
-            total_deposited INTEGER NOT NULL DEFAULT 0
+            total_deposited INTEGER NOT NULL DEFAULT 0,
+            has_deposited_30k BOOLEAN NOT NULL DEFAULT 0  -- Đánh dấu đã nạp ít nhất 30k lần đầu hay chưa
         )
     """)
 
@@ -164,7 +165,7 @@ def get_user(user_id, username="", referrer_id=None, context=None):
     cur = conn.cursor()
 
     cur.execute(
-        "SELECT points, referred_by, wagering_required, wagering_completed, received_newbie, ref_count, total_deposited FROM users WHERE user_id = ?",
+        "SELECT points, referred_by, wagering_required, wagering_completed, received_newbie, ref_count, total_deposited, has_deposited_30k FROM users WHERE user_id = ?",
         (user_id,)
     )
 
@@ -179,8 +180,8 @@ def get_user(user_id, username="", referrer_id=None, context=None):
         cur.execute(
             """
             INSERT INTO users
-            (user_id, username, points, referred_by, wagering_required, wagering_completed, received_newbie, ref_count, total_deposited)
-            VALUES (?, ?, ?, ?, ?, 0, 1, 0, 0)
+            (user_id, username, points, referred_by, wagering_required, wagering_completed, received_newbie, ref_count, total_deposited, has_deposited_30k)
+            VALUES (?, ?, ?, ?, ?, 0, 1, 0, 0, 0)
             """,
             (
                 user_id,
@@ -300,13 +301,13 @@ def update_wagering(user_id, bet_amount):
 def check_wagering_status(user_id):
     conn = get_db()
     cur = conn.cursor()
-    cur.execute("SELECT wagering_required, wagering_completed, total_deposited FROM users WHERE user_id = ?", (user_id,))
+    cur.execute("SELECT wagering_required, wagering_completed, total_deposited, has_deposited_30k FROM users WHERE user_id = ?", (user_id,))
     row = cur.fetchone()
     conn.close()
     if not row:
-        return False, 0, 0, 0
-    req, comp, total_dep = row
-    return True, req, comp, total_dep
+        return False, 0, 0, 0, False
+    req, comp, total_dep, has_30k = row
+    return True, req, comp, total_dep, has_30k
 
 
 def log_bet_history(user_id, tx_id, game_type, choice, bet_amount, result_dice, total_score, status, reward_amount):
@@ -613,7 +614,7 @@ async def start(
 
     conn = get_db()
     cur = conn.cursor()
-    cur.execute("SELECT ref_count, wagering_required, wagering_completed, total_deposited FROM users WHERE user_id = ?", (user.id,))
+    cur.execute("SELECT ref_count, wagering_required, wagering_completed, total_deposited, has_deposited_30k FROM users WHERE user_id = ?", (user.id,))
     row = cur.fetchone()
     conn.close()
     
@@ -621,6 +622,7 @@ async def start(
     w_req = row[1] if row else 0
     w_comp = row[2] if row else 0
     total_dep = row[3] if row else 0
+    has_30k = row[4] if row else 0
 
     ref_link = f"https://t.me/{bot_username}?start={user.id}"
 
@@ -634,7 +636,7 @@ Xin chào {user.first_name}!
 💰 Số dư: {points:,} điểm
 👥 Số bạn bè đã mời: {ref_count} người (Mỗi lượt mời thành công nhận +{REF_BONUS:,} điểm)
 📈 Tiến độ vòng cược: {w_comp:,} / {w_req:,} điểm
-📥 Tổng tiền đã nạp: {total_dep:,}đ (Cần cược đủ bằng tổng tiền nạp để mở khóa rút)
+📥 Đã nạp 30k lần đầu: {"✅ Đã nạp" if has_30k else "❌ Chưa nạp (Yêu cầu nạp 30k lần đầu & cược x1 để mở khóa rút)"}
 
 🔗 **Link mời bạn bè của bạn:**
 `{ref_link}`
@@ -664,7 +666,6 @@ async def get_referral_link(
     update: Update,
     context: ContextTypes.DEFAULT_TYPE
 ):
-    """Lệnh /se để bot gửi link mời bạn bè riêng"""
     user = update.effective_user
     bot_info = await context.bot.get_me()
     bot_username = bot_info.username
@@ -702,7 +703,7 @@ async def help_command(
 /tk → Xem số dư & tiến độ tài khoản
 /se → Lấy link giới thiệu bạn bè
 /nap [Số điểm] (Tối thiểu {MIN_DEPOSIT:,}) → Nạp điểm
-/rut [Số tiền] [Mã NH] [Số TK] [Tên TK] (Min rút: {MIN_WITHDRAW:,}, yêu cầu tổng cược tối thiểu bằng tổng tiền đã nạp) → Rút tiền
+/rut [Số tiền] [Mã NH] [Số TK] [Tên TK] (Min rút: {MIN_WITHDRAW:,}, yêu cầu nạp lần đầu 30k & cược x1) → Rút tiền
 /code [Mã] → Nhập giftcode nhận thưởng
 /ls → Lịch sử giao dịch nạp rút
 /lichsucuoc → Lịch sử đặt cược trò chơi
@@ -725,7 +726,7 @@ async def balance(
 
     conn = get_db()
     cur = conn.cursor()
-    cur.execute("SELECT ref_count, wagering_required, wagering_completed, total_deposited FROM users WHERE user_id = ?", (user.id,))
+    cur.execute("SELECT ref_count, wagering_required, wagering_completed, total_deposited, has_deposited_30k FROM users WHERE user_id = ?", (user.id,))
     row = cur.fetchone()
     conn.close()
 
@@ -733,6 +734,7 @@ async def balance(
     w_req = row[1] if row else 0
     w_comp = row[2] if row else 0
     total_dep = row[3] if row else 0
+    has_30k = row[4] if row else 0
 
     await update.message.reply_text(
         f"""
@@ -742,6 +744,7 @@ async def balance(
 👥 Bạn bè đã mời: {ref_count} người
 📈 Vòng cược đã hoàn thành: {w_comp:,} / {w_req:,} điểm
 📥 Tổng tiền đã nạp: {total_dep:,}đ
+✅ Nạp 30k lần đầu: {"Đã hoàn thành" if has_30k else "Chưa hoàn thành"}
 """
     )
 
@@ -992,7 +995,7 @@ async def withdraw(
             f"""
 ❌ Cú pháp rút tiền ngân hàng:
 /rut [số tiền] [mã ngân hàng] [số TK] [Tên TK không dấu]
-(Min rút: {MIN_WITHDRAW:,}, yêu cầu tổng cược tối thiểu bằng tổng tiền đã nạp)
+(Min rút: {MIN_WITHDRAW:,}, yêu cầu nạp lần đầu 30k & cược x1)
 
 💡 Ví dụ:
 /rut 30000 VCB 0123456789 Tran Van B
@@ -1025,24 +1028,25 @@ async def withdraw(
         await update.message.reply_text(f"❌ Số tiền rút tối thiểu phải từ {MIN_WITHDRAW:,} điểm trở lên.")
         return
 
-    ok, req, comp, total_dep = check_wagering_status(user.id)
+    ok, req, comp, total_dep, has_30k = check_wagering_status(user.id)
     
-    if comp < total_dep:
+    # Kiểm tra điều kiện: Phải nạp lần đầu 30k và cược x1
+    if not has_30k:
         await update.message.reply_text(
             f"""
 ❌ Bạn chưa đủ điều kiện rút tiền!
-📥 Tổng tiền đã nạp: {total_dep:,}đ
-📈 Tổng cược đã thực hiện: {comp:,}đ
-⚠️ Bạn cần phải cược tối thiểu bằng tổng số tiền đã nạp ({total_dep:,}đ) thì mới được phép rút tiền.
+⚠️ Yêu cầu: Bạn phải nạp lần đầu tối thiểu 30,000đ thì mới được phép rút tiền.
 """
         )
         return
 
-    if comp < req:
+    if comp < total_dep:
         await update.message.reply_text(
             f"""
-❌ Bạn chưa hoàn thành đủ vòng cược yêu cầu để rút tiền!
-📈 Tiến độ vòng cược hiện tại: {comp:,} / {req:,} điểm cược.
+❌ Bạn chưa hoàn thành đủ vòng cược (x1) để rút tiền!
+📥 Tổng tiền đã nạp: {total_dep:,}đ
+📈 Tổng cược đã thực hiện: {comp:,}đ
+⚠️ Bạn cần phải cược tối thiểu bằng tổng số tiền đã nạp ({total_dep:,}đ) mới được rút.
 """
         )
         return
@@ -1293,6 +1297,15 @@ async def handle_admin_callback(update: Update, context: ContextTypes.DEFAULT_TY
 
     if action == "app_dep":
         new_balance = change_points(user_id, amount)
+        
+        # Kiểm tra xem nạp lần này có đạt >= 30k không để mở khóa cờ has_deposited_30k
+        cur.execute("SELECT total_deposited FROM users WHERE user_id = ?", (user_id,))
+        u_row = cur.fetchone()
+        current_total = u_row[0] if u_row else 0
+        new_total = current_total + amount
+        
+        has_30k_update = 1 if new_total >= 30_000 else 0
+
         cur.execute(
             """
             UPDATE transactions
@@ -1304,10 +1317,11 @@ async def handle_admin_callback(update: Update, context: ContextTypes.DEFAULT_TY
         cur.execute(
             """
             UPDATE users
-            SET total_deposited = total_deposited + ?
+            SET total_deposited = total_deposited + ?,
+                has_deposited_30k = CASE WHEN (total_deposited + ?) >= 30000 THEN 1 ELSE has_deposited_30k END
             WHERE user_id = ?
             """,
-            (amount, user_id)
+            (amount, amount, user_id)
         )
         conn.commit()
         conn.close()
