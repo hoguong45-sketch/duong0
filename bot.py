@@ -54,26 +54,27 @@ BANK_LIST = [
 
 
 # =========================
-# 3. XỬ LÝ CHAT RIÊNG (ĐĂNG KÝ, VÍ, NẠP, RÚT, CODE)
+# 3. XỬ LÝ LỆNH START & MENU
 # =========================
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     user_id = user.id
 
-    # Nếu chat trong nhóm, gửi hướng dẫn cơ bản cho nhóm
+    # Nếu gọi trong Nhóm (Group / Supergroup)
     if update.message.chat.type in ["group", "supergroup"]:
         await update.message.reply_text(
             "🎲 **HỆ THỐNG TÀI XỈU VIP ĐANG HOẠT ĐỘNG TRONG NHÓM**\n\n"
-            "📋 Các lệnh chơi:\n"
-            "• `/tai [số_tiền]` - Đặt cửa Tài\n"
-            "• `/xiu [số_tiền]` - Đặt cửa Xỉu\n"
+            "📋 **Các lệnh chơi tại nhóm:**\n"
+            "• `/tai [số_tiền]` - Đặt cửa Tài (Ví dụ: `/tai 10000`)\n"
+            "• `/xiu [số_tiền]` - Đặt cửa Xỉu (Ví dụ: `/xiu 10000`)\n"
+            "• `/sd` hoặc `/tk` - Kiểm tra số dư ví cá nhân ngay tại đây\n"
             "• `/ls` - Xem lịch sử phiên gần đây\n\n"
-            "💡 *Inbox riêng cho Bot để đăng ký tên, nạp/rút điểm và kiểm tra số dư ví!*",
+            "💡 *Lưu ý: Nếu chưa có tài khoản, hãy nhắn riêng (inbox) cho Bot gõ `/start` để đăng ký tên và nạp điểm!*",
             parse_mode="Markdown"
         )
         return
 
-    # Nếu chat riêng (Inbox)
+    # Nếu chat riêng (Inbox) với Bot
     if user_id not in users_data or users_data[user_id].get("step") != "active":
         users_data[user_id] = {
             "step": "waiting_name",
@@ -132,20 +133,35 @@ async def send_main_menu(update, u):
         parse_mode="Markdown"
     )
 
+
+# =========================
+# 4. KIỂM TRA SỐ DƯ (/sd & /tk - HỖ TRỢ CẢ TRONG NHÓM)
+# =========================
 async def check_sd(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_id = update.effective_user.id
+    user = update.effective_user
+    user_id = user.id
+
     if user_id not in users_data or users_data[user_id].get("step") != "active":
-        await update.message.reply_text("⚠️ Vui lòng gõ `/start` trong tin nhắn riêng với bot để kích hoạt tài khoản!")
+        await update.message.reply_text(
+            f"⚠️ [{user.first_name}](tg://user?id={user_id}) bạn chưa đăng ký tài khoản hoặc chưa kích hoạt!\n"
+            "Vui lòng **nhắn tin riêng (Inbox)** cho bot và gõ lệnh `/start` để đăng ký tên trước nhé!",
+            parse_mode="Markdown"
+        )
         return
     
     u = users_data[user_id]
     await update.message.reply_text(
-        f"👤 Tên chủ thẻ: **{u['name']}**\n"
+        f"👤 Người chơi: [{user.first_name}](tg://user?id={user_id})\n"
+        f"📌 Tên chủ thẻ: **{u['name']}**\n"
         f"🆔 ID định danh: `{u['custom_id']}`\n"
-        f"💰 Số dư ví của bạn: `{u['balance']:,}` điểm",
+        f"💰 Số dư ví hiện tại: `{u['balance']:,}` điểm",
         parse_mode="Markdown"
     )
 
+
+# =========================
+# 5. NẠP, RÚT & NHẬP CODE
+# =========================
 async def menu_nap(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     if user_id not in users_data or users_data[user_id].get("step") != "active":
@@ -176,7 +192,7 @@ async def menu_rut(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     if not context.args or len(context.args) < 2:
-        await update.message.reply_text("⚠️ Sai cú pháp! Dùng: `/rut [số_tiền] [STK - Tên Ngân Hàng]`", parse_mode="Markdown")
+        await update.message.reply_text("⚠️ Sai cú pháp! Dùng: `/rut [số_tiền] [STK - Ngân hàng]`", parse_mode="Markdown")
         return
 
     try:
@@ -235,7 +251,7 @@ async def nhap_code(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 # =========================
-# 4. LỆNH ADMIN TẠO CODE
+# 6. LỆNH ADMIN TẠO CODE
 # =========================
 async def tao_code(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
@@ -244,7 +260,7 @@ async def tao_code(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     if not context.args or len(context.args) < 2:
-        await update.message.reply_text("⚠️️ Sai cú pháp! Dùng: `/taocode [MÃ] [số_tiền]`", parse_mode="Markdown")
+        await update.message.reply_text("⚠️ Sai cú pháp! Dùng: `/taocode [MÃ] [số_tiền]`", parse_mode="Markdown")
         return
 
     code_name = context.args[0].strip().upper()
@@ -264,7 +280,7 @@ async def tao_code(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 # =========================
-# 5. TÍNH NĂNG GAME TÀI XỈU (CHẠY TRONG NHÓM)
+# 7. TÍNH NĂNG GAME TÀI XỈU (TRONG NHÓM)
 # =========================
 async def dat_cuoc(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
@@ -273,7 +289,7 @@ async def dat_cuoc(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if user_id not in users_data or users_data[user_id].get("step") != "active":
         await update.message.reply_text(
             f"⚠️ [{user.first_name}](tg://user?id={user_id}) bạn chưa đăng ký tài khoản!\n"
-            "Vui lòng nhấn vào bot và gõ lệnh `/start` để đăng ký trước khi chơi nhé!",
+            "Vui lòng nhắn tin riêng cho Bot và gõ lệnh `/start` để đăng ký trước khi chơi nhé!",
             parse_mode="Markdown"
         )
         return
@@ -291,13 +307,12 @@ async def dat_cuoc(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     u = users_data[user_id]
     if u["balance"] < amount:
-        await update.message.reply_text(f"❌ [{u['name']}]: Số dư ví của bạn không đủ `{amount:,}` điểm để cược!", parse_mode="Markdown")
+        await update.message.reply_text(f"❌ [{u['name']}]: Số dư ví không đủ `{amount:,}` điểm để cược!", parse_mode="Markdown")
         return
 
     command = update.message.text.split()[0].lower()
     choice = "TÀI" if "tai" in command else "XỈU"
 
-    # Trừ tiền cược tạm thời trong ví
     u["balance"] -= amount
     await update.message.reply_text(
         f"🎲 **{u['name']}** đã đặt **{amount:,}** điểm vào cửa **{choice}** thành công!\n"
@@ -312,7 +327,7 @@ async def xem_lich_su(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = "📜 **Lịch sử các phiên gần đây:**\n" + "\n".join(history_phien[-10:])
     await update.message.reply_text(text, parse_mode="Markdown")
 
-# Vòng lặp tự động chạy phiên Tài Xỉu ngầm
+# Vòng lặp ngầm Tài Xỉu
 async def auto_taixiu_loop(application):
     global phien_id
     await asyncio.sleep(10)
@@ -334,7 +349,7 @@ async def auto_taixiu_loop(application):
 
 
 # =========================
-# 6. XỬ LÝ NÚT BẤM (CALLBACK) CHO ADMIN
+# 8. XỬ LÝ NÚT BẤM (CALLBACK)
 # =========================
 async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -413,18 +428,18 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 # =========================
-# 7. KHỞI CHẠY HỆ THỐNG
+# 9. KHỞI CHẠY HỆ THỐNG
 # =========================
 def main():
     if not TOKEN:
         raise RuntimeError("Chưa cấu hình BOT_TOKEN.")
 
-    # Chạy Web Server duy trì 24/7 trên luồng riêng
+    # Chạy Web Server 24/7 trên Render
     threading.Thread(target=run_web, daemon=True).start()
 
     app = ApplicationBuilder().token(TOKEN).build()
 
-    # Đăng ký các lệnh hệ thống & ví
+    # Đăng ký các lệnh hệ thống, ví & kiểm tra số dư
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("sd", check_sd))
     app.add_handler(CommandHandler("tk", check_sd))
@@ -435,21 +450,17 @@ def main():
     # Lệnh Admin
     app.add_handler(CommandHandler("taocode", tao_code))
 
-    # Đăng ký các lệnh game Tài Xỉu (chạy được cả trong nhóm chat và chat riêng)
+    # Đăng ký lệnh chơi Tài Xỉu (chạy tốt cả trong nhóm lẫn chat riêng)
     app.add_handler(CommandHandler("tai", dat_cuoc))
     app.add_handler(CommandHandler("xiu", dat_cuoc))
     app.add_handler(CommandHandler("ls", xem_lich_su))
 
-    # Xử lý tin nhắn văn bản đăng ký tên và nút bấm Admin
+    # Xử lý tin nhắn và nút bấm
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
     app.add_handler(CallbackQueryHandler(button_handler))
 
-    # Chạy vòng lặp ngầm Tài Xỉu
-    app.job_queue
-
-    print("🤖 Bot tổng hợp chạy toàn diện (Room + Inbox + Ẩn danh) đã khởi động...")
+    print("🤖 Bot tổng hợp chạy toàn diện (Room + Inbox + Ẩn danh + /sd) đã khởi động...")
     
-    # Khởi chạy vòng lặp ngầm cho group
     async def post_init(application):
         asyncio.create_task(auto_taixiu_loop(application))
         
