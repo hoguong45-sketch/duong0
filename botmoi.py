@@ -23,6 +23,7 @@ from telegram.ext import (
 
 TOKEN = os.getenv("BOT_TOKEN")
 ADMIN_ID = int(os.getenv("ADMIN_ID", "0"))
+CHAT_TARGET_ID = os.getenv("CHANNEL_OR_GROUP_CHAT_ID", "")
 
 cskh_env = os.getenv("CSKH_IDS", "")
 CSKH_IDS = [int(x.strip()) for x in cskh_env.split(",") if x.strip().isdigit()]
@@ -39,7 +40,7 @@ NEWBIE_BONUS = 5_000
 NEWBIE_WAGERING_ROUNDS = 10  
 REF_BONUS = 1_000            
 
-# Danh sách tài khoản ngân hàng nạp (Hệ thống sẽ random ngẫu nhiên khi người chơi nạp)
+# Danh sách tài khoản ngân hàng nạp (Random ngẫu nhiên liên tục)
 DEPOSIT_BANKS = [
     {
         "bank_name": "MSB (Maritime Bank)",
@@ -53,10 +54,10 @@ DEPOSIT_BANKS = [
     }
 ]
 
-# Biến toàn cục quản lý trạng thái Phiên tự động
+# Biến toàn cục quản lý phiên
 current_session_id = 1000
-session_state = "CLOSED"  # "OPENED" (Đang nhận cược), "CLOSING" (Đang quay thưởng)
-session_bets = {}         # Lưu cược của phiên hiện tại: {user_id: {"choice": "T"/"X", "amount": 10000, "name": "..."}}
+session_state = "CLOSED"  # "OPENED" (Nhận cược), "CLOSING" (Khóa cược / Tung xúc xắc)
+session_bets = {}         # {user_id: {"choice": "T"/"X", "amount": 10000, "name": "..."}}
 session_lock = asyncio.Lock()
 
 
@@ -317,27 +318,27 @@ def create_transaction(user_id, tx_type, amount):
 
 
 # =========================================================
-# HỆ THỐNG PHIÊN TỰ ĐỘNG CHẠY LIÊN TỤC (BACKGROUND LOOP)
+# HỆ THỐNG PHIÊN TỰ ĐỘNG (HIỆU ỨNG ICON XÚC XẮC VÀ KHÓA TN)
 # =========================================================
 
 async def get_recent_bridge_history():
     conn = get_db()
     cur = conn.cursor()
-    cur.execute("SELECT result_type, total_score FROM session_history ORDER BY session_id DESC LIMIT 10")
+    cur.execute("SELECT result_type FROM session_history ORDER BY session_id DESC LIMIT 5")
     rows = cur.fetchall()
     conn.close()
     
     if not rows:
-        return "Chưa có dữ liệu"
+        return "🔴 🟢 🔴"
     
     bridge_str = ""
     for r in reversed(rows):
-        res_type, score = r
+        res_type = r[0]
         if res_type == "TÀI":
-            bridge_str += f"🔵({score}) "
+            bridge_str += "🔴 "
         else:
-            bridge_str += f"🔴({score}) "
-    return bridge_str
+            bridge_str += "🟢 "
+    return bridge_str.strip()
 
 
 async def auto_session_loop(application: Application):
@@ -351,7 +352,9 @@ async def auto_session_loop(application: Application):
     if row and row[0]:
         current_session_id = row[0] + 1
     else:
-        current_session_id = 1001
+        current_session_id = 1
+
+    target_chat = int(CHAT_TARGET_ID) if CHAT_TARGET_ID and CHAT_TARGET_ID.isdigit() else None
 
     while True:
         try:
@@ -361,23 +364,55 @@ async def auto_session_loop(application: Application):
 
             bridge_display = await get_recent_bridge_history()
 
-            # 1. BẮT ĐẦU PHIÊN MỚI (Mở cược trong 40 giây)
-            print(f"--- MỞ PHIÊN #{current_session_id} ---")
+            # 1. BẮT ĐẦU PHIÊN MỚI (Mở cược 25 giây)
+            open_text = (
+                f"🔔 PHIÊN #{current_session_id} BẮT ĐẦU!\n"
+                f"📈 Dây cầu gần đây: {bridge_display}\n"
+                f"----------------------------------------\n"
+                f"⏰ Thời gian đặt cược: 25 giây\n"
+                f"👉 Cú pháp: `/tai <số>` hoặc `/xiu <số>`"
+            )
             
-            # Chờ 40 giây cho khách đặt cược
-            await asyncio.sleep(40)
+            if target_chat:
+                try:
+                    await application.bot.send_message(target_chat, open_text, parse_mode="Markdown")
+                except Exception:
+                    pass
 
-            # 2. THÔNG BÁO ĐẾM NGƯỢC 10 GIÂY CUỐI
+            await asyncio.sleep(25)
+
+            # 2. KHÓA CƯỢC (Chuyển sang CLOSING để chặn tin nhắn cược của mọi người)
             async with session_lock:
                 session_state = "CLOSING"
 
-            print(f"--- ĐẾM NGƯỢC 10S PHIÊN #{current_session_id} ---")
-            await asyncio.sleep(10)
+            lock_text = f"🔒 **ĐÃ KHÓA CƯỢC!** Chuẩn bị tung xúc xắc trong **10 giây**..."
+            if target_chat:
+                try:
+                    await application.bot.send_message(target_chat, lock_text, parse_mode="Markdown")
+                except Exception:
+                    pass
 
-            # 3. QUAY THƯỞNG VÀ TỔNG KẾT PHIÊN
-            a = random.randint(1, 6)
-            b = random.randint(1, 6)
-            c = random.randint(1, 6)
+            await asyncio.sleep(4)
+
+            # 3. TẠO HIỆU ỨNG TUNG XÚC XẮC BẰNG ICON TELEGRAM TRỰC TIẾP
+            if target_chat:
+                try:
+                    await application.bot.send_message(target_chat, "🎲 Đang lắc xúc xắc...")
+                    d1 = await application.bot.send_dice(target_chat, emoji="🎲")
+                    await asyncio.sleep(1.2)
+                    d2 = await application.bot.send_dice(target_chat, emoji="🎲")
+                    await asyncio.sleep(1.2)
+                    d3 = await application.bot.send_dice(target_chat, emoji="🎲")
+                    await asyncio.sleep(1.5)
+                    
+                    a = d1.dice.value
+                    b = d2.dice.value
+                    c = d3.dice.value
+                except Exception:
+                    a, b, c = random.randint(1, 6), random.randint(1, 6), random.randint(1, 6)
+            else:
+                a, b, c = random.randint(1, 6), random.randint(1, 6), random.randint(1, 6)
+
             total = a + b + c
             triple = (a == b == c)
 
@@ -386,7 +421,8 @@ async def auto_session_loop(application: Application):
             else:
                 res_type = "TÀI" if total >= 11 else "XỈU"
 
-            dice_str = f"{a} + {b} + {c}"
+            dice_str = f"{a} - {b} - {c}"
+            res_icon = "🔴" if res_type == "TÀI" else "🟢"
 
             conn = get_db()
             cur = conn.cursor()
@@ -397,28 +433,52 @@ async def auto_session_loop(application: Application):
             conn.commit()
             conn.close()
 
+            new_bridge = await get_recent_bridge_history()
+
+            bet_movement = ""
             async with session_lock:
-                for uid, data in session_bets.items():
-                    choice = data["choice"]
-                    bet_amt = data["amount"]
-                    
-                    win = False
-                    if not triple:
-                        if choice == "T" and total >= 11: win = True
-                        elif choice == "X" and total <= 10: win = True
-                        elif choice == "C" and total % 2 == 0: win = True
-                        elif choice == "L" and total % 2 != 0: win = True
+                if not session_bets:
+                    bet_movement = "(Không có lượt cược nào phiên này)"
+                else:
+                    for uid, data in session_bets.items():
+                        choice = data["choice"]
+                        bet_amt = data["amount"]
+                        u_name = data["name"]
+                        
+                        win = False
+                        if not triple:
+                            if choice == "T" and total >= 11: win = True
+                            elif choice == "X" and total <= 10: win = True
 
-                    tx_id = uuid.uuid4().hex[:6].upper()
-                    if win:
-                        reward = int(bet_amt * MULTIPLIER)
-                        change_points(uid, reward)
-                        log_bet_history(uid, tx_id, f"Phiên #{current_session_id}", choice, bet_amt, dice_str, total, "THẮNG", reward)
-                    else:
-                        log_bet_history(uid, tx_id, f"Phiên #{current_session_id}", choice, bet_amt, dice_str, total, "THUA", 0)
+                        tx_id = uuid.uuid4().hex[:6].upper()
+                        if win:
+                            reward = int(bet_amt * MULTIPLIER)
+                            change_points(uid, reward)
+                            log_bet_history(uid, tx_id, f"Phiên #{current_session_id}", "TÀI" if choice=="T" else "XỈU", bet_amt, dice_str, total, "THẮNG", reward)
+                            bet_movement += f"• {u_name}: Cược {bet_amt:,}đ ➔ THẮNG (+{reward:,}đ)\n"
+                        else:
+                            log_bet_history(uid, tx_id, f"Phiên #{current_session_id}", "TÀI" if choice=="T" else "XỈU", bet_amt, dice_str, total, "THUA", 0)
+                            bet_movement += f"• {u_name}: Cược {bet_amt:,}đ ➔ THUA (-{bet_amt:,}đ)\n"
 
-            print(f"Hoàn tất phiên #{current_session_id} | Kết quả: {dice_str} = {total} ({res_type})")
+            result_text = (
+                f"📊 KẾT QUẢ PHIÊN: #{current_session_id}\n"
+                f"----------------------------------------\n"
+                f"🎲 Xúc xắc: {dice_str}\n"
+                f"🔢 Tổng điểm: {total} ({res_icon} {res_type})\n"
+                f"📈 Dây cầu: {new_bridge}\n"
+                f"----------------------------------------\n"
+                f"📝 Biến động cược:\n"
+                f"{bet_movement}"
+            )
+
+            if target_chat:
+                try:
+                    await application.bot.send_message(target_chat, result_text, parse_mode="Markdown")
+                except Exception:
+                    pass
+
             current_session_id += 1
+            await asyncio.sleep(5)
 
         except Exception as e:
             print(f"Lỗi trong vòng lặp phiên tự động: {e}")
@@ -426,27 +486,36 @@ async def auto_session_loop(application: Application):
 
 
 # =========================================================
-# ĐẶT CƯỢC TRONG PHIÊN TỰ ĐỘNG
+# XỬ LÝ ĐẶT CƯỢC (TỰ ĐỘNG CHẶN KHI ĐÃ KHÓA CƯỢC)
 # =========================================================
 
-async def text_bet(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def handle_command_bet(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not update.message or not update.message.text:
         return
 
     text = update.message.text.strip()
     parts = text.split()
-
-    if len(parts) != 2:
+    
+    cmd = parts[0].lower().replace("/", "")
+    if cmd not in ("tai", "xiu", "t", "x", "c", "l"):
         return
 
-    choice = parts[0].upper()
-    if choice not in ("T", "X", "C", "L"):
+    # Kiểm tra trạng thái phiên: nếu đang KHÓA CƯỢC (CLOSING) thì bỏ qua/chặn tin nhắn cược
+    global session_state
+    if session_state != "OPENED":
+        return
+
+    if len(parts) < 2:
+        await update.message.reply_text("❌ Cú pháp không hợp lệ. Ví dụ: `/tai 10000` hoặc `/xiu 10000`", parse_mode="Markdown")
         return
 
     try:
         bet = int(parts[1].replace(",", "").replace(".", ""))
     except ValueError:
+        await update.message.reply_text("❌ Số tiền cược không hợp lệ.")
         return
+
+    choice = "T" if cmd in ("tai", "t") else ("X" if cmd in ("xiu", "x") else ("C" if cmd == "c" else "L"))
 
     user = update.effective_user
     points = get_user(user.id, user.username or "")
@@ -459,10 +528,8 @@ async def text_bet(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(f"❌ Không đủ điểm! Số dư hiện tại: {points:,} điểm")
         return
 
-    global session_state
     async with session_lock:
         if session_state != "OPENED":
-            await update.message.reply_text("⏳ Đang quay thưởng phiên hiện tại, vui lòng đợi phiên tiếp theo mở trong giây lát!")
             return
 
         change_points(user.id, -bet)
@@ -474,7 +541,7 @@ async def text_bet(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "name": user.first_name
         }
 
-    choice_name = {"T": "TÀI", "X": "XỈU", "C": "CHẴN", "L": "LẺ"}.get(choice, choice)
+    choice_name = "TÀI" if choice == "T" else ("XỈU" if choice == "X" else ("CHẴN" if choice == "C" else "LẺ"))
     await update.message.reply_text(
         f"✅ **ĐẶT CƯỢC THÀNH CÔNG!**\n\n"
         f"🔖 Phiên: `#{current_session_id}`\n"
@@ -520,7 +587,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await update.message.reply_text(
         f"""
-🎲 BOT TÀI XỈU PHIÊN CHẠY LIÊN TỤC
+🎲 BOT TÀI XỈU PHIÊN TỰ ĐỘNG
 
 Xin chào {user.first_name}!
 🎁 **Đã nhận quà Tân thủ:** +{NEWBIE_BONUS:,} điểm.
@@ -528,23 +595,21 @@ Xin chào {user.first_name}!
 💰 Số dư: {points:,} điểm
 👥 Bạn bè đã mời: {ref_count} người (Nhận +{REF_BONUS:,} điểm/bạn)
 📈 Tiến độ vòng cược: {w_comp:,} / {w_req:,} điểm
-📊 **Cầu Tài Xỉu gần nhất:**\n{bridge_display}
+📊 **Dây cầu gần đây:** {bridge_display}
 
 🔗 **Link mời bạn bè:**
 `{ref_link}`
 
-🎮 **Cách chơi tự động:**
-Bot tự động mở phiên mỗi 50 giây. Bạn có thể cược trực tiếp:
-• `T [Số điểm]` → Cược TÀI
-• `X [Số điểm]` → Cược XỈU
-• `C [Số điểm]` → Cược CHẴN
-• `L [Số điểm]` → Cược LẺ
+🎮 **Cách chơi:**
+Bot tự động mở phiên liên tục. Cược bằng cú pháp:
+• `/tai [số tiền]` (hoặc `t [số]`)
+• `/xiu [số tiền]` (hoặc `x [số]`)
 
 📌 LỆNH:
-/tk → Xem số dư & thông tin tài khoản
+/tk → Xem số dư tài khoản
 /se → Lấy link giới thiệu
-/nap 10000 → Nạp điểm (Hệ thống random STK ngẫu nhiên)
-/rut [Số tiền] [Ngân hàng] [STK] [Tên] → Rút tiền
+/nap 10000 → Nạp điểm (Random STK ngẫu nhiên liên tục)
+/rut [Số tiền] [NH] [STK] [Tên] → Rút tiền
 /code [Mã] → Nhập giftcode
 /ls → Lịch sử nạp rút
 /lichsucuoc → Lịch sử cược trò chơi
@@ -568,14 +633,14 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 📖 HƯỚNG DẪN CHI TIẾT
 
 🎯 **HỆ THỐNG PHIÊN TỰ ĐỘNG:**
-• Phiên diễn ra liên tục 24/7 (50s/phiên).
-• Cú pháp cược: `T [tiền]`, `X [tiền]`, `C [tiền]`, `L [tiền]`.
+• Phiên diễn ra liên tục 24/7.
+• Cú pháp đặt cược: `/tai <số tiền>` hoặc `/xiu <số tiền>`.
 • Thắng nhận hệ số ×1.97.
 
 💰 **GIAO DỊCH:**
-• /nap [số tiền] (Min nạp 10k, hệ thống tự động đổi ngẫu nhiên STK nạp MSB hoặc MB)
-• /rut [số tiền] [NH] [STK] [Tên] (Min rút 30k, yêu cầu nạp lần đầu 30k & cược x1)
-• /tk xem số dư tài khoản.
+• `/nap [số tiền]` (Min nạp 10k, hệ thống tự động random STK MSB hoặc MB)
+• `/rut [số tiền] [NH] [STK] [Tên]` (Min rút 30k, yêu cầu nạp lần đầu 30k & cược x1)
+• `/tk` xem số dư tài khoản.
 """
     )
 
@@ -632,13 +697,13 @@ async def bet_history(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 # =========================================================
-# NẠP & RÚT (NGẪU NHIÊN NGÂN HÀNG/STK)
+# NẠP & RÚT
 # =========================================================
 
 async def deposit(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     if len(context.args) != 1:
-        await update.message.reply_text("❌ Cú pháp: /nap [số điểm]\nVí dụ: /nap 30000")
+        await update.message.reply_text("❌ Cú pháp: `/nap [số điểm]`\nVí dụ: `/nap 30000`", parse_mode="Markdown")
         return
 
     try:
@@ -652,8 +717,6 @@ async def deposit(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     tx_id = create_transaction(user.id, "DEPOSIT", amount)
-
-    # Lựa chọn ngẫu nhiên 1 trong các tài khoản ngân hàng nạp
     selected_bank = random.choice(DEPOSIT_BANKS)
 
     await update.message.reply_text(
@@ -663,7 +726,7 @@ async def deposit(update: Update, context: ContextTypes.DEFAULT_TYPE):
 🪙 Số điểm: {amount:,} VNĐ
 🆔 Mã giao dịch: `{tx_id}`
 
-🏦 THÔNG TIN CHUYỂN KHOẢN (Hệ thống tự động chọn ngẫu nhiên):
+🏦 THÔNG TIN CHUYỂN KHOẢN (Random ngẫu nhiên):
 • Ngân hàng: **{selected_bank['bank_name']}**
 • Số tài khoản: `{selected_bank['account_number']}`
 • Chủ tài khoản: {selected_bank['account_holder']}
@@ -695,7 +758,7 @@ async def deposit(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def withdraw(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     if len(context.args) < 4:
-        await update.message.reply_text("❌ Cú pháp: /rut [số tiền] [mã NH] [số TK] [Tên TK]\nVí dụ: /rut 30000 MB 0365092606 Nguyen Van A")
+        await update.message.reply_text("❌ Cú pháp: `/rut [số tiền] [mã NH] [số TK] [Tên TK]`\nVí dụ: `/rut 30000 MB 0365092606 Nguyen Van A`", parse_mode="Markdown")
         return
 
     try:
@@ -788,7 +851,7 @@ async def create_promo_code(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     if len(context.args) < 2:
-        await update.message.reply_text("❌ Cú pháp: /taocode [MÃ] [SỐ_ĐIỂM] [LƯỢT]")
+        await update.message.reply_text("❌ Cú pháp: `/taocode [MÃ] [SỐ_ĐIỂM] [LƯỢT]`", parse_mode="Markdown")
         return
 
     code = context.args[0].upper().strip()
@@ -814,7 +877,7 @@ async def create_promo_code(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def use_code(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     if not context.args:
-        await update.message.reply_text("❌ Cú pháp: /code [Mã]")
+        await update.message.reply_text("❌ Cú pháp: `/code [Mã]`", parse_mode="Markdown")
         return
 
     code = context.args[0].upper().strip()
@@ -930,7 +993,7 @@ async def handle_admin_callback(update: Update, context: ContextTypes.DEFAULT_TY
 
 async def post_init(application: Application):
     commands = [
-        ("start", "Khởi động bot"),
+        ("start", "Khởi động bot và chạy phiên"),
         ("tk", "Xem số dư"),
         ("se", "Lấy link giới thiệu"),
         ("nap", "Nạp điểm (Random STK)"),
@@ -942,6 +1005,7 @@ async def post_init(application: Application):
     ]
     await application.bot.set_my_commands(commands)
     
+    # Khởi chạy luồng tự động tung xúc xắc phiên liên tục ngay khi bot bật
     asyncio.create_task(auto_session_loop(application))
 
 
@@ -967,7 +1031,8 @@ def main():
     app.add_handler(CommandHandler("lichsucuoc", bet_history))
     app.add_handler(CommandHandler("taocode", create_promo_code))
 
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, text_bet))
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_command_bet))
+    app.add_handler(CommandHandler(["tai", "xiu", "t", "x", "c", "l"], handle_command_bet))
 
     print("🤖 BOT TÀI XỈU PHIÊN TỰ ĐỘNG ĐANG CHẠY...")
     app.run_polling()
