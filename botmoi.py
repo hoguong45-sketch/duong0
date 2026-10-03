@@ -321,7 +321,7 @@ def create_transaction(user_id, tx_type, amount):
 
 
 # =========================================================
-# HỆ THỐNG PHIÊN TỰ ĐỘNG (HIỆU ỨNG ICON XÚC XẮC & KHÓA TN)
+# HỆ THỐNG PHIÊN TỰ ĐỘNG
 # =========================================================
 
 async def get_recent_bridge_history():
@@ -365,7 +365,6 @@ async def auto_session_loop(application: Application):
 
             bridge_display = await get_recent_bridge_history()
 
-            # 1. BẮT ĐẦU PHIÊN MỚI (Mở cược 25 giây)
             open_text = (
                 f"🔔 PHIÊN #{current_session_id} BẮT ĐẦU!\n"
                 f"📈 Dây cầu gần đây: {bridge_display}\n"
@@ -386,7 +385,6 @@ async def auto_session_loop(application: Application):
 
             await asyncio.sleep(25)
 
-            # 2. KHÓA CƯỢC (Chuyển sang CLOSING để chặn tin nhắn cược của mọi người)
             async with session_lock:
                 session_state = "CLOSING"
 
@@ -399,7 +397,6 @@ async def auto_session_loop(application: Application):
 
             await asyncio.sleep(4)
 
-            # 3. TẠO HIỆU ỨNG TUNG XÚC XẮC BẰNG ICON TELEGRAM TRỰC TIẾP
             a, b, c = random.randint(1, 6), random.randint(1, 6), random.randint(1, 6)
             for chat_id in targets:
                 try:
@@ -490,7 +487,7 @@ async def auto_session_loop(application: Application):
 
 
 # =========================================================
-# XỬ LÝ ĐẶT CƯỢC (TỰ ĐỘNG CHẶN KHI ĐÃ KHÓA CƯỢC)
+# XỬ LÝ ĐẶT CƯỢC
 # =========================================================
 
 async def handle_command_bet(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -506,7 +503,7 @@ async def handle_command_bet(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
     global session_state
     if session_state != "OPENED":
-        return  # Đã khóa cược hoặc đang quay, bỏ qua tin nhắn cược của mọi người
+        return
 
     if len(parts) < 2:
         await update.message.reply_text("❌ Cú pháp không hợp lệ. Ví dụ: `/tai 10000` hoặc `/xiu 10000`", parse_mode="Markdown")
@@ -1011,7 +1008,6 @@ async def post_init(application: Application):
     ]
     await application.bot.set_my_commands(commands)
     
-    # Khởi chạy luồng tự động tung xúc xắc phiên liên tục ngay khi bot bật
     asyncio.create_task(auto_session_loop(application))
 
 
@@ -1045,4 +1041,4 @@ def main():
 
 
 if __name__ == "__main__":
-main()
+    main()
