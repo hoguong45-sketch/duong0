@@ -281,8 +281,9 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return
 
+    # Thay đổi đường dẫn Mini App tại đây
     keyboard = [
-        [InlineKeyboardButton("🎮 Mở Mini App Trải Nghiệm", web_app={"url": "https://" + context.bot.username + ".onrender.com/miniapp"})],
+        [InlineKeyboardButton("🎮 Mở Mini App Trải Nghiệm", web_app={"url": "https://hoguong45-sketch.github.io/Bacarat/"})],
         [InlineKeyboardButton("💬 Liên Hệ CSKH Hỗ Trợ", url="https://t.me/cskhtelevip")]
     ]
 
@@ -355,8 +356,9 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         users_data[user_id]["name"] = text
         users_data[user_id]["step"] = "active"
         
+        # Thay đổi đường dẫn Mini App tại đây
         keyboard = [
-            [InlineKeyboardButton("🎮 Mở Mini App Trải Nghiệm", web_app={"url": "https://" + context.bot.username + ".onrender.com/miniapp"})],
+            [InlineKeyboardButton("🎮 Mở Mini App Trải Nghiệm", web_app={"url": "https://hoguong45-sketch.github.io/Bacarat/"})],
             [InlineKeyboardButton("💬 Liên Hệ CSKH Hỗ Trợ", url="https://t.me/cskhtelevip")]
         ]
         
@@ -777,7 +779,7 @@ async def tao_code(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("⛔ Tính năng này chỉ dành riêng cho Quản Trị Viên (QTV) hoặc Admin!")
         return
     if not context.args or len(context.args) < 3:
-        await update.message.reply_text("⚠️️ Dùng: `/taocode [MÃ] [số_tiền] [số_lượng_nhập]`", parse_mode="Markdown")
+        await update.message.reply_text("⚠ Dùng: `/taocode [MÃ] [số_tiền] [số_lượng_nhập]`", parse_mode="Markdown")
         return
     code_name = context.args[0].strip().upper()
     try:
