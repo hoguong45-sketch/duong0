@@ -1,4 +1,3 @@
-
 import os
 import json
 import logging
@@ -6,7 +5,7 @@ import random
 import asyncio
 import threading
 from datetime import datetime, timedelta
-from flask import Flask
+from flask import Flask, request, jsonify, render_template_string
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import (
     ApplicationBuilder,
@@ -18,13 +17,161 @@ from telegram.ext import (
 )
 
 # =========================
-# 1. WEB SERVER DUY TRÌ 24/7 (RENDER)
+# 1. WEB SERVER & MINI APP API (FLASK)
 # =========================
 web_app = Flask(__name__)
 
+# Giao diện Mini App Frontend (HTML/JS tích hợp Telegram WebApp SDK)
+MINI_APP_HTML = """
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mini App Tài Xỉu & Chẵn Lẻ VIP</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background: #0f172a; color: #f8fafc; margin: 0; padding: 15px; }
+        .card { background: #1e293b; border-radius: 12px; padding: 15px; margin-bottom: 15px; box-shadow: 0 4px 6px rgba(0,0,0,0.3); }
+        h2, h3 { margin-top: 0; color: #38bdf8; }
+        .balance { font-size: 24px; font-weight: bold; color: #4ade80; }
+        button { background: #38bdf8; color: #0f172a; border: none; padding: 10px 15px; border-radius: 8px; font-weight: bold; cursor: pointer; width: 100%; margin-top: 5px; }
+        button:active { background: #0284c7; }
+        input, select { width: 100%; padding: 10px; margin: 5px 0 10px 0; border-radius: 8px; border: 1px solid #475569; background: #0f172a; color: #fff; box-sizing: border-box; }
+        .history-item { font-size: 13px; border-bottom: 1px solid #334155; padding: 6px 0; }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <h2>👤 Tài Khoản Thành Viên</h2>
+        <p>Xin chào, <span id="username" style="font-weight:bold;">Đang tải...</span></p>
+        <p>Mã ID: <span id="custom_id" style="color: #cbd5e1;">---</span></p>
+        <p>Số dư ví:</p>
+        <div class="balance" id="balance">0 điểm</div>
+    </div>
+
+    <div class="card">
+        <h3>⚡ Cược Nhanh Mini App</h3>
+        <label>Cửa cược:</label>
+        <select id="bet_choice">
+            <option value="tai">TÀI (⚫)</option>
+            <option value="xiu">XỈU (⚪)</option>
+            <option value="chan">CHẴN (⚪)</option>
+            <option value="le">LẺ (⚫)</option>
+        </select>
+        <label>Số tiền cược (Min 5,000):</label>
+        <input type="number" id="bet_amount" value="5000" min="5000">
+        <button onclick="placeBet()">ĐẶT CƯỢC NGAY</button>
+    </div>
+
+    <div class="card">
+        <h3>📜 Lịch Sử Hoạt Động Gần Đây</h3>
+        <div id="history-list">Đang tải lịch sử...</div>
+    </div>
+
+    <script>
+        const tg = window.Telegram.WebApp;
+        tg.expand();
+        const userId = tg.initDataUnsafe?.user?.id || 8013947246; // Fallback test ID nếu mở ngoài trình duyệt
+
+        function loadUserData() {
+            fetch(`/api/user?id=${userId}`)
+                .then(res => res.json())
+                .then(data => {
+                    if(data.success) {
+                        document.getElementById('username').innerText = data.name;
+                        document.getElementById('custom_id').innerText = data.custom_id;
+                        document.getElementById('balance').innerText = data.balance.toLocaleString() + " điểm";
+                        
+                        let histHtml = "";
+                        data.history.slice(-5).reverse().forEach(h => {
+                            histHtml += `<div class="history-item">${h}</div>`;
+                        });
+                        document.getElementById('history-list').innerText = histHtml || "Chưa có lịch sử.";
+                    } else {
+                        alert("Vui lòng gõ /start với Bot Telegram trước!");
+                    }
+                });
+        }
+
+        function placeBet() {
+            const choice = document.getElementById('bet_choice').value;
+            const amount = parseInt(document.getElementById('bet_amount').value);
+            
+            fetch('/api/bet', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ user_id: userId, choice: choice, amount: amount })
+            })
+            .then(res => res.json())
+            .then(data => {
+                alert(data.message);
+                loadUserData();
+            });
+        }
+
+        loadUserData();
+        setInterval(loadUserData, 5000); // Tự động làm mới số dư mỗi 5 giây
+    </script>
+</body>
+</html>
+"""
+
 @web_app.route('/')
 def home():
-    return "🤖 Bot Tài Xỉu & Chẵn Lẻ VIP đang hoạt động 24/7!"
+    return "🤖 Bot Tài Xỉu & Chẵn Lẻ VIP kết hợp Mini App đang hoạt động 24/7!"
+
+@web_app.route('/miniapp')
+def mini_app():
+    return render_template_string(MINI_APP_HTML)
+
+@web_app.route('/api/user', methods=['GET'])
+def api_get_user():
+    try:
+        user_id = int(request.args.get('id'))
+    except:
+        return jsonify({"success": False, "message": "Invalid ID"})
+    
+    if user_id in users_data:
+        u = users_data[user_id]
+        return jsonify({
+            "success": True,
+            "name": u["name"],
+            "custom_id": u["custom_id"],
+            "balance": u["balance"],
+            "history": u["history_action"]
+        })
+    return jsonify({"success": False})
+
+@web_app.route('/api/bet', methods=['POST'])
+def api_post_bet():
+    data = request.json
+    user_id = data.get("user_id")
+    choice = data.get("choice")
+    amount = int(data.get("amount", 0))
+
+    if user_id not in users_data or users_data[user_id].get("step") != "active":
+        return jsonify({"success": False, "message": "Tài khoản chưa được kích hoạt qua Bot!"})
+    
+    if amount < 5000:
+        return jsonify({"success": False, "message": "Cược tối thiểu 5,000 điểm!"})
+    
+    u = users_data[user_id]
+    if u["balance"] < amount:
+        return jsonify({"success": False, "message": "Số dư ví không đủ!"})
+
+    u["balance"] -= amount
+    u["total_wagered"] = u.get("total_wagered", 0.0) + amount
+    weekly_wager_stats[user_id] = weekly_wager_stats.get(user_id, 0.0) + amount
+    
+    earned_cashback = amount * 0.008
+    u["cashback_fund"] += earned_cashback
+    current_bets[choice][user_id] = current_bets[choice].get(user_id, 0) + amount
+    
+    choice_name = {"tai": "TÀI (⚫)", "xiu": "XỈU (⚪)", "chan": "CHẴN (⚪)", "le": "LẺ (⚫)"}.get(choice, choice)
+    u["history_action"].append(f"[{datetime.now().strftime('%d/%m %H:%M')}] MiniApp Cược {amount:,} vào {choice_name}")
+
+    return jsonify({"success": True, "message": f"Đặt thành công {amount:,} vào {choice_name}!"})
 
 def run_web():
     port = int(os.getenv("PORT", 10000))
@@ -135,6 +282,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     keyboard = [
+        [InlineKeyboardButton("🎮 Mở Mini App Trải Nghiệm", web_app={"url": "https://" + context.bot.username + ".onrender.com/miniapp"})],
         [InlineKeyboardButton("💬 Liên Hệ CSKH Hỗ Trợ", url="https://t.me/cskhtelevip")]
     ]
 
@@ -207,7 +355,10 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         users_data[user_id]["name"] = text
         users_data[user_id]["step"] = "active"
         
-        keyboard = [[InlineKeyboardButton("💬 Liên Hệ CSKH Hỗ Trợ", url="https://t.me/cskhtelevip")]]
+        keyboard = [
+            [InlineKeyboardButton("🎮 Mở Mini App Trải Nghiệm", web_app={"url": "https://" + context.bot.username + ".onrender.com/miniapp"})],
+            [InlineKeyboardButton("💬 Liên Hệ CSKH Hỗ Trợ", url="https://t.me/cskhtelevip")]
+        ]
         
         await update.message.reply_text(
             f"✅ **ĐĂNG KÝ VÀ KHỞI TẠO TÀI KHOẢN THÀNH CÔNG!**\n\n"
@@ -626,7 +777,7 @@ async def tao_code(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("⛔ Tính năng này chỉ dành riêng cho Quản Trị Viên (QTV) hoặc Admin!")
         return
     if not context.args or len(context.args) < 3:
-        await update.message.reply_text("⚠️ Dùng: `/taocode [MÃ] [số_tiền] [số_lượng_nhập]`", parse_mode="Markdown")
+        await update.message.reply_text("⚠️️ Dùng: `/taocode [MÃ] [số_tiền] [số_lượng_nhập]`", parse_mode="Markdown")
         return
     code_name = context.args[0].strip().upper()
     try:
@@ -767,7 +918,6 @@ async def dat_cuoc(update: Update, context: ContextTypes.DEFAULT_TYPE):
     u["total_wagered"] = u.get("total_wagered", 0.0) + amount
     weekly_wager_stats[user_id] = weekly_wager_stats.get(user_id, 0.0) + amount
 
-    # Hoàn trả 0.8% trực tiếp vào quỹ hoàn trả khi đặt cược (Ví dụ: đặt 100k cộng 800 điểm hoàn trả)
     earned_cashback = amount * 0.008
     u["cashback_fund"] += earned_cashback
 
@@ -819,7 +969,6 @@ async def auto_taixiu_loop(application):
 
             current_bets = {"tai": {}, "xiu": {}, "chan": {}, "le": {}}
 
-            # Tạo tỷ lệ ngẫu nhiên Tài / Xỉu
             ratio_pool = [(60, 40), (55, 45), (65, 35), (50, 50), (70, 30), (40, 60), (45, 55)]
             tai_p, xiu_p = random.choice(ratio_pool)
 
@@ -913,7 +1062,6 @@ async def auto_taixiu_loop(application):
                 total_reward_paid += payout
 
             total_round_bets = total_tai + total_xiu + total_chan + total_le
-            # Cộng thêm tiền vào hũ (Jackpot) tương ứng với tổng tiền cược trong phiên
             jackpot_pool += total_round_bets * 0.02
 
             is_jackpot = (d1 == 1 and d2 == 1 and d3 == 1) or (d1 == 6 and d2 == 6 and d3 == 6)
@@ -1071,7 +1219,7 @@ def main():
     app.add_handler(CommandHandler("topmoi", top_moi))
     app.add_handler(CommandHandler("rutcode", rut_code_gioi_thieu))
     app.add_handler(CommandHandler("ht", nhan_hoantra))
-    app.add_handler(CommandHandler("hoantra", nhan_hoantra)) # Hỗ trợ cả lệnh /hoantra
+    app.add_handler(CommandHandler("hoantra", nhan_hoantra))
     app.add_handler(CommandHandler("nap", menu_nap))
     app.add_handler(CommandHandler("rut", menu_rut))
     app.add_handler(CommandHandler("code", nhap_code))
