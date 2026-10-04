@@ -500,7 +500,7 @@ async def menu_nap(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"👤 Chủ TK: *{bank['chủ tài khoản']}*\n"
         f"💰 Số tiền: `{amount:,}` VNĐ\n"
         f"📝 Nội dung CK: `NAP {u['name']} {u['custom_id']}`\n\n"
-        f"⚠️ Chuyển khoản xong bấm nút bên dưới báo duyệt!"
+        f"⚠️️ Chuyển khoản xong bấm nút bên dưới báo duyệt!"
     )
     keyboard = [[InlineKeyboardButton("✅ Đã Chuyển Khoản, Báo Duyệt", callback_data=f"nap_click_{order_id}")]]
     await update.message.reply_text(nap_text, parse_mode="Markdown", reply_markup=InlineKeyboardMarkup(keyboard))
@@ -744,7 +744,7 @@ async def dat_cuoc(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     if not context.args:
         cmd = update.message.text.split()[0].lower()
-        await update.message.reply_text(f"⚠️ Dùng: `{cmd} [số_tiền]` (Min: 5,000)", parse_mode="Markdown")
+        await update.message.reply_text(f"⚠️️ Dùng: `{cmd} [số_tiền]` (Min: 5,000)", parse_mode="Markdown")
         return
     try:
         amount = int(context.args[0])
@@ -796,7 +796,7 @@ async def xem_lich_su(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 # =========================
-# 9. VÒNG LẶP TỰ ĐỘNG, TỶ LỆ 1x97, NỔ HŨ & TỶ LỆ PHIÊN SAU
+# 9. VÒNG LẶP TỰ ĐỘNG, TỶ LỆ 1x97, NỔ HŨ & BOT DỰ ĐOÁN
 # =========================
 async def auto_taixiu_loop(application):
     global phien_id, current_bets, jackpot_pool, weekly_wager_stats
@@ -817,7 +817,7 @@ async def auto_taixiu_loop(application):
 
             current_bets = {"tai": {}, "xiu": {}, "chan": {}, "le": {}}
 
-            # Tạo tỷ lệ dự đoán Tài / Xỉu ngẫu nhiên cho phiên mới
+            # Tạo tỷ lệ ngẫu nhiên Tài / Xỉu
             ratio_pool = [(60, 40), (55, 45), (65, 35), (50, 50), (70, 30), (40, 60), (45, 55)]
             tai_p, xiu_p = random.choice(ratio_pool)
 
@@ -827,8 +827,10 @@ async def auto_taixiu_loop(application):
                     chat_id=GROUP_CHAT_ID,
                     text=(
                         f"📊 **PHIÊN #{phien_id}**\n\n"
+                        f"📈 **BOT DỰ ĐOÁN**\n"
+                        f"⚫ Tài: `{tai_p}%`\n"
+                        f"⚪ Xỉu: `{xiu_p}%`\n\n"
                         f"📈 Lịch sử: {history_str}\n"
-                        f"🤖 **Bot dự đoán tỷ lệ phiên sau:** Tài: `{tai_p}%` — Xỉu: `{xiu_p}%`\n"
                         f"💰 **Quỹ Hũ (Jackpot):** `{jackpot_pool:,.0f}` điểm\n"
                         f"⏰ Đặt cược trong 40 giây...\n"
                         f"⚠ **Min cược: 5,000 điểm** (Tỷ lệ ăn: **1 ăn 1.97**, Hoàn trả 0.8%)\n\n"
@@ -1052,7 +1054,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # =========================
 # 11. KHỞI CHẠY HỆ THỐNG
 # =========================
-main():
+def main():
     if not TOKEN:
         raise RuntimeError("Chưa cấu hình BOT_TOKEN.")
 
@@ -1069,7 +1071,7 @@ main():
     app.add_handler(CommandHandler("nap", menu_nap))
     app.add_handler(CommandHandler("rut", menu_rut))
     app.add_handler(CommandHandler("code", nhap_code))
-    app.add_handler(CommandHandler("", user_menu_help)) 
+    app.add_handler(CommandHandler("menu", user_menu_help)) 
     
     app.add_handler(CommandHandler("taocode", tao_code))
     app.add_handler(CommandHandler("themmod", them_mod))
