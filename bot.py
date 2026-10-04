@@ -1,3 +1,4 @@
+
 import os
 import json
 import logging
@@ -127,7 +128,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "• `/sd` - Kiểm tra ví | `/ls` - Xem lịch sử\n"
             "• `/linkmoi` - Lấy link mời bạn | `/topmoi` - Xem BXH mời\n"
             "• `/top tuan` - Xem Bảng Xếp Hạng Cược Tuần\n"
-            "• `/ht` - Nhận tiền hoàn trả cược (0.8%)\n"
+            "• `/ht` (hoặc `/hoantra`) - Nhận tiền hoàn trả cược (0.8%)\n"
             "• `/code [MÃ]` - Nhập mã code thưởng",
             parse_mode="Markdown"
         )
@@ -415,7 +416,7 @@ async def user_menu_help(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "• `/rut` - Xem danh sách ngân hàng rút tiền\n"
             "• `/rut [số_tiền] [STK] [Mã_NH] [Tên_chủ_thẻ]` - Tạo lệnh rút\n"
             "• `/sd` - Kiểm tra số dư ví\n"
-            "• `/ht` - Nhận tiền hoàn trả cược (0.8%)\n"
+            "• `/ht` (hoặc `/hoantra`) - Nhận tiền hoàn trả cược (0.8%)\n"
             "• `/code TANTHU` - Nhận code tân thủ (5,000 điểm, x10 vòng cược)\n\n"
             "👥 **Tiện Ích & Giới Thiệu:**\n"
             "• `/linkmoi` - Lấy link giới thiệu\n"
@@ -500,7 +501,7 @@ async def menu_nap(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"👤 Chủ TK: *{bank['chủ tài khoản']}*\n"
         f"💰 Số tiền: `{amount:,}` VNĐ\n"
         f"📝 Nội dung CK: `NAP {u['name']} {u['custom_id']}`\n\n"
-        f"⚠️️ Chuyển khoản xong bấm nút bên dưới báo duyệt!"
+        f"⚠️ Chuyển khoản xong bấm nút bên dưới báo duyệt!"
     )
     keyboard = [[InlineKeyboardButton("✅ Đã Chuyển Khoản, Báo Duyệt", callback_data=f"nap_click_{order_id}")]]
     await update.message.reply_text(nap_text, parse_mode="Markdown", reply_markup=InlineKeyboardMarkup(keyboard))
@@ -744,7 +745,7 @@ async def dat_cuoc(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     if not context.args:
         cmd = update.message.text.split()[0].lower()
-        await update.message.reply_text(f"⚠️️ Dùng: `{cmd} [số_tiền]` (Min: 5,000)", parse_mode="Markdown")
+        await update.message.reply_text(f"⚠️ Dùng: `{cmd} [số_tiền]` (Min: 5,000)", parse_mode="Markdown")
         return
     try:
         amount = int(context.args[0])
@@ -766,6 +767,7 @@ async def dat_cuoc(update: Update, context: ContextTypes.DEFAULT_TYPE):
     u["total_wagered"] = u.get("total_wagered", 0.0) + amount
     weekly_wager_stats[user_id] = weekly_wager_stats.get(user_id, 0.0) + amount
 
+    # Hoàn trả 0.8% trực tiếp vào quỹ hoàn trả khi đặt cược (Ví dụ: đặt 100k cộng 800 điểm hoàn trả)
     earned_cashback = amount * 0.008
     u["cashback_fund"] += earned_cashback
 
@@ -786,7 +788,7 @@ async def dat_cuoc(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     current_bets[key][user_id] = current_bets[key].get(user_id, 0) + amount
     u["history_action"].append(f"[{datetime.now().strftime('%d/%m %H:%M')}] Cược {amount:,} vào {choice}")
-    await update.message.reply_text(f"🎲 Đặt thành công **{amount:,}** vào **{choice}**! (Tích lũy `+{earned_cashback:,.1f}` hoàn trả).", parse_mode="Markdown")
+    await update.message.reply_text(f"🎲 Đặt thành công **{amount:,}** vào **{choice}**! (Tích lũy `+{earned_cashback:,.1f}` hoàn trả 0.8%).", parse_mode="Markdown")
 
 async def xem_lich_su(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not history_phien:
@@ -911,6 +913,7 @@ async def auto_taixiu_loop(application):
                 total_reward_paid += payout
 
             total_round_bets = total_tai + total_xiu + total_chan + total_le
+            # Cộng thêm tiền vào hũ (Jackpot) tương ứng với tổng tiền cược trong phiên
             jackpot_pool += total_round_bets * 0.02
 
             is_jackpot = (d1 == 1 and d2 == 1 and d3 == 1) or (d1 == 6 and d2 == 6 and d3 == 6)
@@ -1068,6 +1071,7 @@ def main():
     app.add_handler(CommandHandler("topmoi", top_moi))
     app.add_handler(CommandHandler("rutcode", rut_code_gioi_thieu))
     app.add_handler(CommandHandler("ht", nhan_hoantra))
+    app.add_handler(CommandHandler("hoantra", nhan_hoantra)) # Hỗ trợ cả lệnh /hoantra
     app.add_handler(CommandHandler("nap", menu_nap))
     app.add_handler(CommandHandler("rut", menu_rut))
     app.add_handler(CommandHandler("code", nhap_code))
