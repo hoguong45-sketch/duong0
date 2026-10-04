@@ -46,9 +46,12 @@ logging.basicConfig(
 )
 
 users_data = {}
-gift_codes = {"VIP2026": 50000, "TET2026": 100000}
+gift_codes = {"VIP2026": 50000, "TET2026": 100000, "TANTHU": 5000}
+used_tanthu_users = set() # Quản lý mã tân thủ dùng 1 lần/tk
+
 history_phien = [] 
 phien_id = 1
+jackpot_pool = 100000.0  # Quỹ Hũ khởi tạo ban đầu
 
 current_bets = {
     "tai": {},  
@@ -70,13 +73,12 @@ def is_cskh(user_id):
 
 
 # =========================
-# 3. XỬ LÝ LỆNH START & MENU RIÊNG TƯ (KHÔNG HIỆN TRONG NHÓM)
+# 3. XỬ LÝ LỆNH START & MENU RIÊNG TƯ
 # =========================
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     user_id = user.id
 
-    # Nếu gọi lệnh /start trong Nhóm chat chung -> Chỉ hướng dẫn cơ bản, TUYỆT ĐỐI KHÔNG HIỆN MENU QUẢN TRỊ
     if update.message.chat.type in ["group", "supergroup"]:
         await update.message.reply_text(
             "🎲 **HỆ THỐNG TÀI XỈU & CHẴN LẺ VIP**\n\n"
@@ -85,22 +87,19 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "• `/chan [số_tiền]` | `/le [số_tiền]`\n"
             "• `/sd` - Kiểm tra ví | `/ls` - Xem lịch sử\n"
             "• `/linkmoi` - Lấy link mời bạn | `/topmoi` - Xem BXH\n"
-            "• `/hoantra` - Nhận tiền hoàn trả cược (0.8%)",
+            "• `/ht` - Nhận tiền hoàn trả cược (0.8%)\n"
+            "• `/code [MÃ]` - Nhập mã code thưởng",
             parse_mode="Markdown"
         )
         return
 
-    # Khung chat riêng (Private Chat): Xây dựng menu tương ứng theo đúng vai trò của từng người
     keyboard = [
         [InlineKeyboardButton("💬 Liên Hệ CSKH Hỗ Trợ", url="https://t.me/cskhtelevip")]
     ]
 
-    # Chỉ hiển thị bảng điều khiển QTV nếu ĐÚNG LÀ QTV hoặc Admin tối cao
     if is_admin(user_id):
         keyboard.insert(0, [InlineKeyboardButton("🛠 [QTV] Tạo Code Thưởng (/taocode)", callback_data="admin_help_code")])
         keyboard.insert(1, [InlineKeyboardButton("👥 [QTV] Thêm/Xóa Mod/CSKH", callback_data="admin_help_staff")])
-
-    # Chỉ hiển thị bảng điều khiển CSKH nếu ĐÚNG LÀ CSKH (và không phải Admin để tránh rối)
     elif user_id in cskh_staffs:
         keyboard.insert(0, [InlineKeyboardButton("🔍 [CSKH] Kiểm tra ID (/checkid)", callback_data="cskh_help_check")])
 
@@ -114,6 +113,8 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "cashback_fund": 0.0,
             "invited_count": 0,
             "referred_by": None,
+            "total_deposited": 0.0,
+            "total_wagered": 0.0,
             "history_action": []
         }
 
@@ -140,7 +141,12 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         users_data[user_id]["ref_link"] = ref_link
 
         await update.message.reply_text(
-            f"👋 Chào mừng bạn đến với hệ thống giao dịch tự động!\n"
+            f"🎁 **CHÀO MỪNG ĐẾN VỚI HỆ THỐNG GAME TÀI XỈU - CHẴN LẺ VIP!**\n"
+            f"━━━━━━━━━━━━━━━━━━━━━━\n"
+            f"💥 **Ưu đãi Tân Thủ đặc biệt:** Nhập ngay lệnh `/code TANTHU` để nhận ngay **5,000 điểm** trải nghiệm miễn phí (Mỗi tài khoản 1 lần)!\n"
+            f"💎 Tỷ lệ ăn cực cao: **1 ăn 1.97**\n"
+            f"💰 Min nạp: `10,000` | Min rút: `30,000` (Yêu cầu nạp và hoàn thành x1 vòng cược lần đầu tiên để rút tiền).\n"
+            f"━━━━━━━━━━━━━━━━━━━━━━\n"
             f"🆔 ID định danh riêng của bạn: `{users_data[user_id]['custom_id']}`\n\n"
             f"⚠️ **BẮT BUỘC:** Vui lòng nhập **Họ và Tên trùng với Tài Khoản Ngân Hàng**:",
             parse_mode="Markdown",
@@ -169,10 +175,10 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"✅ Đăng ký tài khoản thành công!\n"
             f"📌 Tên chủ thẻ: **{text}**\n"
             f"🆔 ID của bạn: `{users_data[user_id]['custom_id']}`\n\n"
+            f"💡 Gõ `/code TANTHU` để nhận 5,000 điểm tân thủ!\n"
             f"Sử dụng các lệnh:\n"
             f"• `/sd` - Kiểm tra số dư\n"
-            f"• `/linkmoi` - Lấy link giới thiệu\n"
-            f"• `/hoantra` - Nhận hoàn trả\n"
+            f"• `/ht` - Nhận hoàn trả\n"
             f"• `/nap [số_tiền]` | `/rut [số_tiền] [STK] [Ngân hàng] [Chủ thẻ]`",
             parse_mode="Markdown",
             reply_markup=InlineKeyboardMarkup(keyboard)
@@ -193,22 +199,23 @@ async def send_main_menu(update, u, reply_markup, user_id):
         f"👤 Tài khoản: **{u['name']}**\n"
         f"🆔 ID cá nhân: `{u['custom_id']}`\n"
         f"💰 Số dư ví: `{u['balance']:,.0f}` điểm\n"
-        f"🎁 Quỹ hoàn trả: `{u['cashback_fund']:,.0f}` điểm (Dùng `/hoantra`)\n"
+        f"🎁 Quỹ hoàn trả: `{u['cashback_fund']:,.0f}` điểm (Dùng `/ht`)\n"
         f"👥 Đã mời: `{u['invited_count']}` người\n\n"
         f"📋 Menu tính năng chính:\n"
         f"• `/sd` - Kiểm tra số dư\n"
         f"• `/linkmoi` - Link mời bạn bè\n"
         f"• `/topmoi` - BXH mời bạn\n"
-        f"• `/hoantra` - Nhận hoàn trả 0.8%\n"
-        f"• `/nap [số_tiền]` - Nạp điểm\n"
-        f"• `/rut [số_tiền] [STK] [Ngân_hàng] [Chủ_thẻ]` - Rút điểm",
+        f"• `/ht` - Nhận hoàn trả 0.8%\n"
+        f"• `/code TANTHU` - Nhận code tân thủ\n"
+        f"• `/nap [số_tiền]` - Nạp điểm (Min 10k)\n"
+        f"• `/rut [số_tiền] [STK] [Ngân_hàng] [Chủ_thẻ]` - Rút điểm (Min 30k)",
         parse_mode="Markdown",
         reply_markup=reply_markup
     )
 
 
 # =========================
-# 4. MỜI BẠN & HOÀN TRẢ
+# 4. MỜI BẠN & HOÀN TRẢ (/ht)
 # =========================
 async def link_moi(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
@@ -248,13 +255,13 @@ async def nhan_hoantra(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 # =========================
-# 5. KIỂM TRA SỐ DƯ
+# 5. KIỂM TRA SỐ DƯ & DANH SÁCH LỆNH NGƯỜI CHƠI (/)
 # =========================
 async def check_sd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     user_id = user.id
     if user_id not in users_data or users_data[user_id].get("step") != "active":
-        await update.message.reply_text("⚠️ Bạn chưa đăng ký tài khoản! Hãy nhắn tin riêng cho Bot gõ `/start`.", parse_mode="Markdown")
+        await update.message.reply_text("⚠️️ Bạn chưa đăng ký tài khoản! Hãy nhắn tin riêng cho Bot gõ `/start`.", parse_mode="Markdown")
         return
     u = users_data[user_id]
     await update.message.reply_text(
@@ -265,12 +272,33 @@ async def check_sd(update: Update, context: ContextTypes.DEFAULT_TYPE):
         parse_mode="Markdown"
     )
 
+async def user_menu_help(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    # Lệnh / hiển thị danh sách lệnh dành riêng cho người chơi (loại bỏ hoàn toàn lệnh QTV/CSKH)
+    await update.message.reply_text(
+        "📋 **DANH SÁCH LỆNH HỆ THỐNG DÀNH CHO NGƯỜI CHƠI:**\n\n"
+        "🎲 **Lệnh Cược (Min 5,000):**\n"
+        "• `/tai [số_tiền]` - Đặt cửa Tài\n"
+        "• `/xiu [số_tiền]` - Đặt cửa Xỉu\n"
+        "• `/chan [số_tiền]` - Đặt cửa Chẵn\n"
+        "• `/le [số_tiền]` - Đặt cửa Lẻ\n\n"
+        "💰 **Lệnh Giao Dịch & Tài Chính:**\n"
+        "• `/nap [số_tiền]` - Nạp điểm (Min 10,000)\n"
+        "• `/rut [số_tiền] [STK] [Ngân_hàng] [Chủ_thẻ]` - Rút điểm (Min 30,000)\n"
+        "• `/sd` (hoặc `/tk`) - Kiểm tra số dư ví\n"
+        "• `/ht` - Nhận tiền hoàn trả cược (0.8%)\n"
+        "• `/code [MÃ]` - Nhập mã code thưởng (Nhập `TANTHU` nhận ngay 5k)\n\n"
+        "👥 **Lệnh Tiện Ích & Giới Thiệu:**\n"
+        "• `/linkmoi` - Lấy link giới thiệu bạn bè\n"
+        "• `/topmoi` - Xem bảng xếp hạng mời bạn\n"
+        "• `/ls` - Xem lịch sử phiên cược gần đây",
+        parse_mode="Markdown"
+    )
+
 
 # =========================
-# 6. NẠP, RÚT & NHẬP CODE
+# 6. NẠP, RÚT & NHẬP CODE (ĐIỀU KIỆN RÚT X1 VÒNG CƯỢC)
 # =========================
 async def gui_thong_bao_admin(context: ContextTypes.DEFAULT_TYPE, message_text: str):
-    # Chỉ gửi thông báo duyệt nạp/rút đến Admin tối cao và các QTV phụ (Loại bỏ CSKH để bảo mật)
     targets = {MASTER_ADMIN_ID} | sub_admins
     for adm_id in targets:
         try:
@@ -284,15 +312,15 @@ async def menu_nap(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("⚠️ Vui lòng gõ `/start` ở tin nhắn riêng trước!")
         return
     if not context.args:
-        await update.message.reply_text("⚠️ Dùng: `/nap [số_tiền]` (Min: 30,000)", parse_mode="Markdown")
+        await update.message.reply_text("⚠️ Dùng: `/nap [số_tiền]` (Min: 10,000)", parse_mode="Markdown")
         return
     try:
         amount = int(context.args[0])
     except ValueError:
         await update.message.reply_text("⚠️ Số tiền không hợp lệ!")
         return
-    if amount < 30000:
-        await update.message.reply_text("❌ Nạp tối thiểu **30,000** điểm!", parse_mode="Markdown")
+    if amount < 10000:
+        await update.message.reply_text("❌ Nạp tối thiểu **10,000** điểm!", parse_mode="Markdown")
         return
 
     u = users_data[user_id]
@@ -321,14 +349,32 @@ async def menu_rut(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except ValueError:
         await update.message.reply_text("⚠️ Số tiền không hợp lệ!")
         return
-    if amount < 70000:
-        await update.message.reply_text("❌ Rút tối thiểu **70,000** điểm!", parse_mode="Markdown")
+    
+    # Kiểm tra điều kiện rút: Min rút 30,000
+    if amount < 30000:
+        await update.message.reply_text("❌ Rút tối thiểu **30,000** điểm!", parse_mode="Markdown")
+        return
+
+    u = users_data[user_id]
+
+    # Kiểm tra điều kiện bắt buộc: Phải nạp tiền và hoàn thành x1 vòng cược lần đầu
+    if u.get("total_deposited", 0.0) <= 0:
+        await update.message.reply_text("❌ Bạn phải có lịch sử nạp tiền tối thiểu một lần mới được phép rút tiền!", parse_mode="Markdown")
+        return
+    if u.get("total_wagered", 0.0) < u.get("total_deposited", 0.0):
+        con_thieu = u.get("total_deposited", 0.0) - u.get("total_wagered", 0.0)
+        await update.message.reply_text(
+            f"❌ **Chưa đủ điều kiện rút tiền!**\n"
+            f"• Bạn cần hoàn thành **x1 vòng cược** tương ứng với số tiền nạp.\n"
+            f"• Tổng nạp: `{u.get('total_deposited', 0.0):,.0f}` | Đã cược: `{u.get('total_wagered', 0.0):,.0f}`\n"
+            f"• Cần cược thêm: `{con_thieu:,.0f}` điểm nữa.",
+            parse_mode="Markdown"
+        )
         return
 
     stk, ngan_hang, chu_the = context.args[1], context.args[2], " ".join(context.args[3:])
-    u = users_data[user_id]
     if u["balance"] < amount:
-        await update.message.reply_text("❌ Số dư không đủ!")
+        await update.message.reply_text("❌ Số dư ví không đủ để rút!", parse_mode="Markdown")
         return
 
     u["history_action"].append(f"[{datetime.now().strftime('%d/%m %H:%M')}] Yêu cầu rút: -{amount:,}đ")
@@ -349,6 +395,19 @@ async def nhap_code(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("⚠ Dùng: `/code [MÃ]`", parse_mode="Markdown")
         return
     code = context.args[0].strip().upper()
+
+    # Xử lý riêng mã tân thủ TANTHU (mỗi tài khoản 1 lần)
+    if code == "TANTHU":
+        if user_id in used_tanthu_users:
+            await update.message.reply_text("❌ Bạn đã nhận mã code tân thủ `TANTHU` này rồi!", parse_mode="Markdown")
+            return
+        reward = 5000
+        users_data[user_id]["balance"] += reward
+        used_tanthu_users.add(user_id)
+        users_data[user_id]["history_action"].append(f"[{datetime.now().strftime('%d/%m %H:%M')}] Nhận Code TANTHU: +{reward:,}đ")
+        await update.message.reply_text(f"🎉 Chúc mừng bạn nhận thành công Code Tân Thủ! Cộng thêm `{reward:,}` điểm vào ví.", parse_mode="Markdown")
+        return
+
     if code in gift_codes:
         reward = gift_codes[code]
         users_data[user_id]["balance"] += reward
@@ -356,11 +415,11 @@ async def nhap_code(update: Update, context: ContextTypes.DEFAULT_TYPE):
         users_data[user_id]["history_action"].append(f"[{datetime.now().strftime('%d/%m %H:%M')}] Nhận Code {code}: +{reward:,}đ")
         await update.message.reply_text(f"🎉 Nhận mã thành công! Cộng thêm `{reward:,}` điểm.", parse_mode="Markdown")
     else:
-        await update.message.reply_text("❌ Mã code không tồn tại hoặc đã được dùng!")
+        await update.message.reply_text("❌ Mã code không tồn tại, đã được dùng hoặc đã hết hạn!")
 
 
 # =========================
-# 7. CÔNG CỤ QTV & CSKH (CHỈ DÙNG ID RIÊNG ĐỂ CHECK)
+# 7. CÔNG CỤ QTV & CSKH
 # =========================
 async def tao_code(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
@@ -406,7 +465,7 @@ async def xoa_cskh(update: Update, context: ContextTypes.DEFAULT_TYPE):
             cskh_staffs.remove(staff_id)
             await update.message.reply_text(f"✅ Đã thu hồi quyền CSKH của ID: `{staff_id}`")
         else:
-            await update.message.reply_text("⚠️️ ID không có trong danh sách CSKH!")
+            await update.message.reply_text("⚠️ ID không có trong danh sách CSKH!")
     except ValueError:
         await update.message.reply_text("⚠️ ID không hợp lệ!")
 
@@ -448,12 +507,12 @@ async def check_id(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"🔍 **THÔNG TIN TÀI KHOẢN KHÁCH HÀNG**\n"
         f"• Tên: **{target_data.get('name')}** | ID riêng: `{target_data['custom_id']}`\n"
         f"• Số dư ví: `{target_data['balance']:,.0f}` | Hoàn trả: `{target_data['cashback_fund']:,.0f}`\n"
+        f"• Đã nạp: `{target_data.get('total_deposited', 0):,.0f}` | Đã cược: `{target_data.get('total_wagered', 0):,.0f}`\n"
         f"📜 **Lịch sử hoạt động gần đây:**\n{history_snippet}",
         parse_mode="Markdown"
     )
 
 async def sua_tt(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    # Đã khóa hoàn toàn quyền sửa thông tin/duyệt nạp rút của CSKH, chỉ QTV/Admin mới dùng được lệnh này
     if not is_admin(update.effective_user.id):
         await update.message.reply_text("⛔ Bạn không có quyền quản trị tối cao để thực hiện thao tác này!")
         return
@@ -513,12 +572,14 @@ async def dat_cuoc(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     u = users_data[user_id]
     if u["balance"] < amount:
-        await update.message.reply_text("❌ Số dư không đủ!")
+        await update.message.reply_text("❌ Số dư ví không đủ để đặt cược!", parse_mode="Markdown")
         return
 
     command = update.message.text.split()[0].lower()
     u["balance"] -= amount
     
+    # Tích lũy khối lượng cược để xét điều kiện rút tiền x1 vòng cược và hoàn trả 0.8%
+    u["total_wagered"] = u.get("total_wagered", 0.0) + amount
     earned_cashback = amount * 0.008
     u["cashback_fund"] += earned_cashback
 
@@ -532,6 +593,7 @@ async def dat_cuoc(update: Update, context: ContextTypes.DEFAULT_TYPE):
         choice, key = "LẺ (⚫)", "le"
     else:
         u["balance"] += amount
+        u["total_wagered"] -= amount
         u["cashback_fund"] -= earned_cashback
         return
 
@@ -547,14 +609,19 @@ async def xem_lich_su(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 # =========================
-# 9. VÒNG LẶP TỰ ĐỘNG & KHỚP KẾT QUẢ XÚC XẮC THỰC TẾ
+# 9. VÒNG LẶP TỰ ĐỘNG, TỶ LỆ 1x97 & TÍNH NĂNG NỔ HŨ (JACKPOT)
 # =========================
 async def auto_taixiu_loop(application):
-    global phien_id, current_bets
+    global phien_id, current_bets, jackpot_pool
     await asyncio.sleep(5)
     while True:
         try:
             current_bets = {"tai": {}, "xiu": {}, "chan": {}, "le": {}}
+
+            total_tai = sum(current_bets["tai"].values())
+            total_xiu = sum(current_bets["xiu"].values())
+            total_chan = sum(current_bets["chan"].values())
+            total_le = sum(current_bets["le"].values())
 
             if GROUP_CHAT_ID:
                 history_str = " ".join(history_phien[-10:]) if history_phien else "Chưa có"
@@ -563,8 +630,9 @@ async def auto_taixiu_loop(application):
                     text=(
                         f"📊 **PHIÊN #{phien_id}**\n\n"
                         f"📈 Lịch sử: {history_str}\n"
+                        f"💰 **Quỹ Hũ (Jackpot):** `{jackpot_pool:,.0f}` điểm\n"
                         f"⏰ Đặt cược trong 40 giây...\n"
-                        f"⚠ **Min cược: 5,000 điểm** (Hoàn trả 0.8%)\n\n"
+                        f"⚠ **Min cược: 5,000 điểm** (Tỷ lệ ăn: **1 ăn 1.97**, Hoàn trả 0.8%)\n\n"
                         f"👉 Cú pháp: `/tai`, `/xiu`, `/chan`, `/le [số_tiền]`"
                     ),
                     parse_mode="Markdown"
@@ -624,22 +692,31 @@ async def auto_taixiu_loop(application):
             winners_count = 0
             total_reward_paid = 0
 
+            # Trả thưởng Tài / Xỉu theo tỷ lệ 1 ăn 1.97
             winning_tx_key = "tai" if tong >= 11 else "xiu"
             for uid, amount in current_bets[winning_tx_key].items():
-                payout = amount * 2 
+                payout = amount + (amount * 0.97)
                 if uid in users_data:
                     users_data[uid]["balance"] += payout
-                    users_data[uid]["history_action"].append(f"[{datetime.now().strftime('%d/%m %H:%M')}] Thắng #{phien_id}: +{payout:,}đ")
+                    users_data[uid]["history_action"].append(f"[{datetime.now().strftime('%d/%m %H:%M')}] Thắng #{phien_id}: +{payout:,.0f}đ")
                 winners_count += 1
                 total_reward_paid += payout
 
+            # Trả thưởng Chẵn / Lẻ theo tỷ lệ 1 ăn 1.97
             winning_cl_key = "chan" if tong % 2 == 0 else "le"
             for uid, amount in current_bets[winning_cl_key].items():
-                payout = amount * 2
+                payout = amount + (amount * 0.97)
                 if uid in users_data:
                     users_data[uid]["balance"] += payout
                 winners_count += 1
                 total_reward_paid += payout
+
+            # Trừ 1 phần nhỏ tiền cược tổng cộng để nuôi quỹ Hũ (Jackpot) tăng trưởng dần
+            total_round_bets = total_tai + total_xiu + total_chan + total_le
+            jackpot_pool += total_round_bets * 0.02 # 2% tổng tiền cược góp vào hũ
+
+            # KIỂM TRA NỔ HŨ: Nếu ra 3 con 1 (1-1-1) hoặc 3 con 6 (6-6-6)
+            is_jackpot = (d1 == 1 and d2 == 1 and d3 == 1) or (d1 == 6 and d2 == 6 and d3 == 6)
 
             if GROUP_CHAT_ID:
                 await application.bot.send_message(
@@ -648,10 +725,59 @@ async def auto_taixiu_loop(application):
                         f"🎉 **KẾT QUẢ PHIÊN #{phien_id}**\n\n"
                         f"🎲 Xúc xắc: `{d1} - {d2} - {d3}` (Tổng: **{tong}**)\n"
                         f"🏆 Kết quả: **{ket_qua_tx}** | **{ket_qua_cl}**\n\n"
-                        f"👥 Thắng: `{winners_count}` người | Thưởng: `{total_reward_paid:,}` điểm"
+                        f"👥 Thắng: `{winners_count}` người | Thưởng: `{total_reward_paid:,.0f}` điểm"
                     ),
                     parse_mode="Markdown"
                 )
+
+            # XỬ LÝ KHI NỔ HŨ
+            if is_jackpot and total_round_bets > 0:
+                current_jackpot_value = jackpot_pool
+                jackpot_pool = 100000.0 # Reset hũ về mức khởi điểm
+
+                # Gom toàn bộ người chơi có tham gia cược thắng/thua trong phiên này để chia hũ theo tỷ lệ tiền cược
+                all_participants = {}
+                for key_bet in ["tai", "xiu", "chan", "le"]:
+                    for uid_p, amt_p in current_bets[key_bet].items():
+                        all_participants[uid_p] = all_participants.get(uid_p, 0) + amt_p
+
+                total_pool_bets_sum = sum(all_participants.values())
+                jackpot_results_list = []
+
+                if total_pool_bets_sum > 0:
+                    for uid_p, amt_p in all_participants.items():
+                        share_ratio = amt_p / total_pool_bets_sum
+                        user_jp_bonus = current_jackpot_value * share_ratio
+                        if uid_p in users_data:
+                            users_data[uid_p]["balance"] += user_jp_bonus
+                            users_data[uid_p]["history_action"].append(f"[{datetime.now().strftime('%d/%m %H:%M')}] Nổ Hũ #{phien_id}: +{user_jp_bonus:,.0f}đ")
+                            name_u = users_data[uid_p].get("name", "Thành viên")
+                            jackpot_results_list.append({"name": name_u, "amount": user_jp_bonus, "bet": amt_p})
+
+                # Sắp xếp top người nhận hũ theo số tiền nhận được nhiều nhất
+                jackpot_results_list = sorted(jackpot_results_list, key=lambda x: x["amount"], reverse=True)
+                top_10_jp = jackpot_results_list[:10]
+
+                top_jp_text = "🏆 **TOP 10 CAO THỦ NHẬN THƯỞNG NỔ HŨ:**\n"
+                for idx, jp_item in enumerate(top_10_jp):
+                    top_jp_text += f"{idx+1}. **{jp_item['name']}** — Nhận: `{jp_item['amount']:,.0f}` điểm (Cược: `{jp_item['bet']:,}`)\n"
+
+                if GROUP_CHAT_ID:
+                    await application.bot.send_message(
+                        chat_id=GROUP_CHAT_ID,
+                        text=(
+                            f"🚨🎰 **BÙM! NỔ HŨ CỰC LỚN (JACKPOT) Ở PHIÊN #{phien_id}!** 🎰🚨\n\n"
+                            f"✨ Xúc xắc đặc biệt: `{d1} - {d2} - {d3}`\n"
+                            f"💰 Tổng giá trị Hũ nổ: **{current_jackpot_value:,.0f}** điểm!\n"
+                            f"(Tiền thưởng được chia theo tỷ lệ cược: ai đặt to ăn to, đặt ít ăn ít).\n\n"
+                            f"{top_jp_text}\n"
+                            f"⏳ *Hệ thống tạm dừng 10 giây để mọi người theo dõi bảng vinh danh...*"
+                        ),
+                        parse_mode="Markdown"
+                    )
+                # Đợi đúng 10 giây theo yêu cầu để mọi người xem top nổ hũ
+                await asyncio.sleep(10)
+
             phien_id += 1
         except Exception as e:
             logging.error(f"Lỗi vòng lặp phiên: {e}")
@@ -684,7 +810,6 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             [InlineKeyboardButton(f"✅ Duyệt +{amount:,}", callback_data=f"nap_yes_{target_id}_{amount}")],
             [InlineKeyboardButton("❌ Từ chối", callback_data=f"nap_no_{target_id}")]
         ]
-        # Chỉ gửi thông báo nạp cho QTV/Admin, tuyệt đối không gửi cho CSKH
         targets = {MASTER_ADMIN_ID} | sub_admins
         for adm in targets:
             try:
@@ -694,22 +819,24 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await query.edit_message_text(text="✅ Đã gửi yêu cầu nạp cho Quản trị viên hệ thống duyệt!")
 
     elif data.startswith("nap_yes_"):
-        if not is_admin(user_id):  # CSKH không có quyền bấm nút duyệt này
+        if not is_admin(user_id):
             await query.answer("⛔ Bạn không có quyền duyệt nạp tiền!", show_alert=True)
             return
         parts = data.split("_")
         target_id, amount = int(parts[2]), int(parts[3])
         if target_id in users_data:
             users_data[target_id]["balance"] += amount
+            # Ghi nhận tổng tiền nạp để tính điều kiện rút x1 vòng cược
+            users_data[target_id]["total_deposited"] = users_data[target_id].get("total_deposited", 0.0) + amount
             users_data[target_id]["history_action"].append(f"[{datetime.now().strftime('%d/%m %H:%M')}] Nạp: +{amount:,}đ")
         await query.edit_message_text(text=f"✅ Đã duyệt cộng `{amount:,}` điểm!")
         try:
-            await context.bot.send_message(chat_id=target_id, text=f"🎉 Nạp tiền thành công! Đã cộng `{amount:,}` điểm.", parse_mode="Markdown")
+            await context.bot.send_message(chat_id=target_id, text=f"🎉 Nạp tiền thành công! Đã cộng `{amount:,}` điểm vào ví.", parse_mode="Markdown")
         except:
             pass
 
     elif data.startswith("nap_no_"):
-        if not is_admin(user_id):  # CSKH không có quyền từ chối nạp tiền
+        if not is_admin(user_id):
             await query.answer("⛔ Bạn không có quyền từ chối nạp tiền!", show_alert=True)
             return
         target_id = int(data.split("_")[2])
@@ -736,10 +863,11 @@ def main():
     app.add_handler(CommandHandler(["sd", "tk"], check_sd))
     app.add_handler(CommandHandler("linkmoi", link_moi))
     app.add_handler(CommandHandler("topmoi", top_moi))
-    app.add_handler(CommandHandler("hoantra", nhan_hoantra))
+    app.add_handler(CommandHandler("ht", nhan_hoantra))
     app.add_handler(CommandHandler("nap", menu_nap))
     app.add_handler(CommandHandler("rut", menu_rut))
     app.add_handler(CommandHandler("code", nhap_code))
+    app.add_handler(CommandHandler("", user_menu_help)) # Hỗ trợ sự kiện gõ phím / menu lệnh người chơi
     
     # QTV & CSKH
     app.add_handler(CommandHandler("taocode", tao_code))
