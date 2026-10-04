@@ -35,7 +35,7 @@ def run_web():
 # =========================
 TOKEN = os.getenv("BOT_TOKEN")  
 MASTER_ADMIN_ID = 8013947246  # ID Telegram của Admin tối cao
-GROUP_CHAT_ID = -1003932050774 # ID Nhóm đã cấu hình trên ảnh
+GROUP_CHAT_ID = -1003932050774 # ID Nhóm 
 
 sub_admins = set()       # QTV phụ
 cskh_staffs = set()      # Nhân viên CSKH
@@ -253,8 +253,7 @@ async def send_main_menu(update, u, reply_markup, user_id):
         f"• `/ht` - Nhận hoàn trả 0.8%\n"
         f"• `/code TANTHU` - Nhận code tân thủ (5,000 điểm)\n"
         f"• `/nap [số_tiền]` - Nạp điểm (Min 40k)\n"
-        f"• `/rut` - Xem danh sách mã ngân hàng rút tiền\n"
-        f"• `/rut [số_tiền] [STK] [Ngân_hàng] [Chủ_thẻ]` - Tạo lệnh rút",
+        f"• `/rut` - Xem danh sách mã ngân hàng rút tiền",
         parse_mode="Markdown",
         reply_markup=reply_markup
     )
@@ -525,7 +524,7 @@ async def menu_rut(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         amount = int(context.args[0])
     except ValueError:
-        await update.message.reply_text("⚠️️ Số tiền không hợp lệ!")
+        await update.message.reply_text("⚠ Số tiền không hợp lệ!")
         return
     
     if amount < 30000:
@@ -690,7 +689,7 @@ async def check_id(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("⛔ Bạn không có quyền sử dụng tính năng này!")
         return
     if not context.args:
-        await update.message.reply_text("⚠️ Dùng lệnh bằng ID riêng của người chơi: `/checkid [ID_riêng]`", parse_mode="Markdown")
+        await update.message.reply_text("⚠ Dùng lệnh bằng ID riêng của người chơi: `/checkid [ID_riêng]`", parse_mode="Markdown")
         return
     
     query_key = context.args[0].strip().upper()
@@ -797,7 +796,7 @@ async def xem_lich_su(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 # =========================
-# 9. VÒNG LẶP TỰ ĐỘNG, TỶ LỆ 1x97, NỔ HŨ & GỢI Ý TÀI/XỈU
+# 9. VÒNG LẶP TỰ ĐỘNG, TỶ LỆ 1x97, NỔ HŨ & TỶ LỆ PHIÊN SAU
 # =========================
 async def auto_taixiu_loop(application):
     global phien_id, current_bets, jackpot_pool, weekly_wager_stats
@@ -818,7 +817,7 @@ async def auto_taixiu_loop(application):
 
             current_bets = {"tai": {}, "xiu": {}, "chan": {}, "le": {}}
 
-            # Tỷ lệ dự đoán Tài / Xỉu sinh ngẫu nhiên trước mỗi phiên ở nhóm
+            # Tạo tỷ lệ dự đoán Tài / Xỉu ngẫu nhiên cho phiên mới
             ratio_pool = [(60, 40), (55, 45), (65, 35), (50, 50), (70, 30), (40, 60), (45, 55)]
             tai_p, xiu_p = random.choice(ratio_pool)
 
@@ -829,7 +828,7 @@ async def auto_taixiu_loop(application):
                     text=(
                         f"📊 **PHIÊN #{phien_id}**\n\n"
                         f"📈 Lịch sử: {history_str}\n"
-                        f"🤖 **Bot dự đoán phân tích:** Tài : `{tai_p}%` — Xỉu : `{xiu_p}%`\n"
+                        f"🤖 **Bot dự đoán tỷ lệ phiên sau:** Tài: `{tai_p}%` — Xỉu: `{xiu_p}%`\n"
                         f"💰 **Quỹ Hũ (Jackpot):** `{jackpot_pool:,.0f}` điểm\n"
                         f"⏰ Đặt cược trong 40 giây...\n"
                         f"⚠ **Min cược: 5,000 điểm** (Tỷ lệ ăn: **1 ăn 1.97**, Hoàn trả 0.8%)\n\n"
@@ -1053,7 +1052,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # =========================
 # 11. KHỞI CHẠY HỆ THỐNG
 # =========================
-def main():
+main():
     if not TOKEN:
         raise RuntimeError("Chưa cấu hình BOT_TOKEN.")
 
