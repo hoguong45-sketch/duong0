@@ -36,7 +36,6 @@ TOKEN = os.getenv("BOT_TOKEN")  # Token của bot
 MASTER_ADMIN_ID = 8013947246  # ID Telegram của Admin tối cao
 GROUP_CHAT_ID = -1003932050774 # ID Nhóm đã cấu hình
 
-# Danh sách chứa ID các Quản trị viên phụ (có quyền duyệt nạp, rút, tạo code)
 sub_admins = set()
 
 logging.basicConfig(
@@ -44,24 +43,20 @@ logging.basicConfig(
     level=logging.INFO
 )
 
-# Lưu trữ dữ liệu người dùng & game
 users_data = {}
 gift_codes = {"VIP2026": 50000, "TET2026": 100000}
-history_phien = [] # Lưu trữ icon lịch sử (⚪ / ⚫)
+history_phien = [] 
 phien_id = 1
 
-# Biến cấu hình kết quả phiên tiếp theo do Admin chỉ định ("tai" hoặc "xiu")
 manual_result = None
 
-# Dữ liệu cược của phiên hiện tại
 current_bets = {
-    "tai": {},  # {user_id: amount}
-    "xiu": {},  # {user_id: amount}
-    "chan": {}, # {user_id: amount}
-    "le": {}    # {user_id: amount}
+    "tai": {},  
+    "xiu": {},  
+    "chan": {}, 
+    "le": {}    
 }
 
-# DANH SÁCH NGÂN HÀNG HỆ THỐNG
 BANK_LIST = [
     {"name": "MSB", "stk": "6314072009", "chủ tài khoản": "HỆ THỐNG TỰ ĐỘNG (ANONYMOUS)"},
     {"name": "MBBank", "stk": "0776876883", "chủ tài khoản": "HỆ THỐNG TỰ ĐỘNG (ANONYMOUS)"}
@@ -83,7 +78,6 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
 
-    # Nếu gọi trong Nhóm
     if update.message.chat.type in ["group", "supergroup"]:
         await update.message.reply_text(
             "🎲 **HỆ THỐNG TÀI XỈU & CHẴN LẺ VIP**\n\n"
@@ -100,7 +94,6 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return
 
-    # Chat riêng (Inbox) với Bot
     if user_id not in users_data or users_data[user_id].get("step") != "active":
         users_data[user_id] = {
             "step": "waiting_name",
@@ -460,20 +453,18 @@ async def xem_lich_su(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 # =========================
-# 8. VÒNG LẶP TỰ ĐỘNG 24/7 (ĐIỀU KHIỂN THỦ CÔNG 100%)
+# 8. VÒNG LẶP TỰ ĐỘNG 24/7 (NÉM XÚC XẮC HOẠT HÌNH TRỰC TIẾP RA NHÓM)
 # =========================
 async def auto_taixiu_loop(application):
     global phien_id, current_bets, manual_result
     await asyncio.sleep(5)
     while True:
         try:
-            # Reset dữ liệu cược đầu phiên mới
             current_bets = {"tai": {}, "xiu": {}, "chan": {}, "le": {}}
 
             if GROUP_CHAT_ID:
                 history_str = " ".join(history_phien[-10:]) if history_phien else "Chưa có"
                 
-                # 1. Gửi thông báo mở phiên mới
                 await application.bot.send_message(
                     chat_id=GROUP_CHAT_ID,
                     text=(
@@ -492,7 +483,6 @@ async def auto_taixiu_loop(application):
             # Chờ 40 giây đặt cược
             await asyncio.sleep(40)
 
-            # Tính tổng tiền cược cửa Tài và Xỉu trước khi khóa sổ
             total_tai = sum(current_bets["tai"].values())
             total_xiu = sum(current_bets["xiu"].values())
             total_chan = sum(current_bets["chan"].values())
@@ -507,37 +497,43 @@ async def auto_taixiu_loop(application):
                         f"⚪ **Tổng Xỉu:** `{total_xiu:,}` điểm\n"
                         f"⚪ Tổng Chẵn: `{total_chan:,}` điểm\n"
                         f"⚫ Tổng Lẻ: `{total_le:,}` điểm\n\n"
-                        f"🎲 **Chuẩn bị tung xúc xắc...**"
+                        f"🎲 **Đang tung xúc xắc...**"
                     ),
                     parse_mode="Markdown"
                 )
             
-            await asyncio.sleep(2)
+            # Bot tự động ném 3 viên xúc xắc hoạt hình liên tiếp lên nhóm chat
+            try:
+                await application.bot.send_dice(chat_id=GROUP_CHAT_ID, emoji="🎲")
+                await asyncio.sleep(0.5)
+                await application.bot.send_dice(chat_id=GROUP_CHAT_ID, emoji="🎲")
+                await asyncio.sleep(0.5)
+                await application.bot.send_dice(chat_id=GROUP_CHAT_ID, emoji="🎲")
+            except Exception as e:
+                logging.error(f"Lỗi ném xúc xắc: {e}")
 
-            # 2. Xử lý kết quả dựa hoàn toàn vào lựa chọn thủ công của Admin (Không bệt tự động)
-            # Nếu Admin chọn "tai", xúc xắc trả ra tổng >= 11. Nếu chọn "xiu", tổng < 11.
-            # Mặc định nếu admin chưa chọn kịp thì lấy "tai".
+            # Đợi 4 giây để xúc xắc hoạt hình lăn xong hiển thị kết quả
+            await asyncio.sleep(4)
+
+            # Xử lý kết quả theo lệnh thủ công của Admin (/chon tai hoặc /chon xiu)
             chosen = manual_result if manual_result in ["tai", "xiu"] else "tai"
             
             if chosen == "tai":
-                d1, d2, d3 = random.choice([(4, 4, 3), (5, 4, 3), (5, 5, 5), (6, 4, 2), (5, 6, 2)]) # Tổng >= 11 (Tài)
+                d1, d2, d3 = random.choice([(4, 4, 3), (5, 4, 3), (5, 5, 5), (6, 4, 2), (5, 6, 2)]) 
             else:
-                d1, d2, d3 = random.choice([(2, 2, 2), (3, 2, 2), (1, 3, 2), (4, 2, 1), (3, 3, 2)]) # Tổng < 11 (Xỉu)
+                d1, d2, d3 = random.choice([(2, 2, 2), (3, 2, 2), (1, 3, 2), (4, 2, 1), (3, 3, 2)]) 
 
-            # Reset lại manual_result sau mỗi phiên để admin phải chủ động chọn cho phiên tiếp theo (hoặc mặc định)
             manual_result = None
 
             tong = d1 + d2 + d3
             ket_qua_tx = "TÀI (⚫)" if tong >= 11 else "XỈU (⚪)"
             ket_qua_cl = "CHẴN (⚪)" if tong % 2 == 0 else "LẺ (⚫)"
             
-            # Cập nhật lịch sử
             icon_history = "⚪" if tong < 11 else "⚫"
             history_phien.append(icon_history)
             if len(history_phien) > 30:
                 history_phien.pop(0)
 
-            # Xử lý trả thưởng Tài / Xỉu
             winners_count = 0
             total_reward_paid = 0
 
@@ -549,7 +545,6 @@ async def auto_taixiu_loop(application):
                 winners_count += 1
                 total_reward_paid += payout
 
-            # Xử lý trả thưởng Chẵn / Lẻ
             winning_cl_key = "chan" if tong % 2 == 0 else "le"
             for uid, amount in current_bets[winning_cl_key].items():
                 payout = amount * 2
@@ -690,31 +685,26 @@ def main():
     if not TOKEN:
         raise RuntimeError("Chưa cấu hình BOT_TOKEN.")
 
-    # Chạy Web Server 24/7 trên Render
     threading.Thread(target=run_web, daemon=True).start()
 
     app = ApplicationBuilder().token(TOKEN).build()
 
-    # Đăng ký các lệnh hệ thống
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler(["sd", "tk"], check_sd))
     app.add_handler(CommandHandler("nap", menu_nap))
     app.add_handler(CommandHandler("rut", menu_rut))
     app.add_handler(CommandHandler("code", nhap_code))
     
-    # Lệnh Quản trị viên (Admin & Mod)
     app.add_handler(CommandHandler("taocode", tao_code))
     app.add_handler(CommandHandler("themmod", them_mod))
     app.add_handler(CommandHandler("chon", chon_ket_qua))
 
-    # Đăng ký lệnh chơi (Tài / Xỉu / Chẵn / Lẻ)
     app.add_handler(CommandHandler("tai", dat_cuoc))
     app.add_handler(CommandHandler("xiu", dat_cuoc))
     app.add_handler(CommandHandler("chan", dat_cuoc))
     app.add_handler(CommandHandler("le", dat_cuoc))
     app.add_handler(CommandHandler("ls", xem_lich_su))
 
-    # Xử lý tin nhắn và nút bấm
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
     app.add_handler(CallbackQueryHandler(button_handler))
 
