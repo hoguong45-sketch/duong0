@@ -35,7 +35,7 @@ def run_web():
 # =========================
 TOKEN = os.getenv("BOT_TOKEN")  
 MASTER_ADMIN_ID = 8013947246  # ID Telegram của Admin tối cao
-GROUP_CHAT_ID = -1003932050774 # ID Nhóm đã cấu hình
+GROUP_CHAT_ID = -1003932050774 # ID Nhóm đã cấu hình trên ảnh
 
 sub_admins = set()       # QTV phụ
 cskh_staffs = set()      # Nhân viên CSKH
@@ -184,13 +184,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(
             f"🎁 **CHÀO MỪNG ĐẾN VỚI HỆ THỐNG GAME TÀI XỈU - CHẴN LẺ VIP!**\n"
             f"━━━━━━━━━━━━━━━━━━━━━━\n"
-            f"💥 **Ưu đãi Tân Thủ đặc biệt:** Nhập ngay lệnh `/code TANTHU` để nhận ngay **5,000 điểm** trải nghiệm miễn phí (Yêu cầu x10 vòng cược).\n"
-            f"👥 **Mời bạn bè:** Mời đủ bạn bè tích lũy quỹ mời từ `10,000` điểm trở lên có thể dùng lệnh `/rutcode` để nhận mã code ngẫu nhiên trị giá `10,000` điểm (1 lượt nhập).\n"
-            f"💎 Tỷ lệ ăn cực cao: **1 ăn 1.97**\n"
-            f"💰 Min nạp: `40,000` | Min rút: `30,000` (Yêu cầu nạp tối thiểu 40k và hoàn thành x1 vòng cược đầu tiên).\n"
-            f"━━━━━━━━━━━━━━━━━━━━━━\n"
-            f"🆔 ID định danh riêng của bạn: `{users_data[user_id]['custom_id']}`\n\n"
-            f"⚠️ **BẮT BUỘC:** Vui lòng nhập **Họ và Tên trùng với Tài Khoản Ngân Hàng**:",
+            f"💡 Vui lòng nhập **Họ và Tên trùng với Tài Khoản Ngân Hàng** để bắt đầu:",
             parse_mode="Markdown",
             reply_markup=reply_markup
         )
@@ -214,14 +208,15 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         
         keyboard = [[InlineKeyboardButton("💬 Liên Hệ CSKH Hỗ Trợ", url="https://t.me/cskhtelevip")]]
         
-        # Thêm thông báo hạng tài khoản và thông báo game về code TANTHU giá trị 5k sau khi nhập tên
         await update.message.reply_text(
             f"✅ **ĐĂNG KÝ VÀ KHỞI TẠO TÀI KHOẢN THÀNH CÔNG!**\n\n"
             f"👑 **Hạng tài khoản:** Thành viên Tân Thủ\n"
             f"📌 Tên chủ thẻ: **{text}**\n"
             f"🆔 ID của bạn: `{users_data[user_id]['custom_id']}`\n\n"
-            f"🎁 **THÔNG BÁO GAME & ƯU ĐÃI TÂN THỦ:**\n"
-            f"• Bạn nhận ngay quyền sử dụng mã code đặc quyền: `/code TANTHU` trị giá **5,000 điểm** (Yêu cầu x10 vòng cược để rút).\n"
+            f"🎮 **GIỚI THIỆU TRÒ CHƠI & ƯU ĐÃI TÂN THỦ:**\n"
+            f"• Sảnh Tài Xỉu & Chẵn Lẻ siêu tốc hoạt động 24/7.\n"
+            f"• Tỷ lệ ăn cực cao: **1 ăn 1.97** | Hoàn trả tự động **0.8%**.\n"
+            f"• Nhập ngay mã code khởi đầu: `/code TANTHU` để nhận ngay **5,000 điểm** trải nghiệm miễn phí (Yêu cầu x10 vòng cược).\n"
             f"• Mời bạn bè nhận quỹ thưởng, tích lũy đủ 10,000 điểm gọi lệnh `/rutcode` để đổi mã code ngẫu nhiên trị giá 10,000 điểm (1 lượt nhập).\n\n"
             f"💡 Sử dụng các lệnh:\n"
             f"• `/sd` - Kiểm tra số dư\n"
@@ -292,18 +287,16 @@ async def top_moi(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def rut_code_gioi_thieu(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     if user_id not in users_data or users_data[user_id].get("step") != "active":
-        await update.message.reply_text("⚠️ Vui lòng gõ `/start` trước!")
+        await update.message.reply_text("⚠ Vui lòng gõ `/start` trước!")
         return
 
     u = users_data[user_id]
     ref_bal = u.get("ref_balance", 0.0)
     
-    # Kiểm tra quỹ mời bạn đủ từ 10,000 điểm trở lên
     if ref_bal < 10000:
         await update.message.reply_text(f"❌ Quỹ mời bạn hiện tại là `{ref_bal:,.0f}` điểm. Cần đạt tối thiểu `10,000` điểm mới được rút thành mã code!", parse_mode="Markdown")
         return
 
-    # Người chơi thường khi mời đủ 10 ng để rút code thì chỉ đc 1 code ngẫu nhiên do bot tạo với giá trị 10k và 1 lượt nhập thôi
     code_val = 10000.0
     max_uses = 1
     random_code_name = f"REF{random.randint(100000, 999999)}"
@@ -311,7 +304,6 @@ async def rut_code_gioi_thieu(update: Update, context: ContextTypes.DEFAULT_TYPE
     gift_codes[random_code_name] = code_val
     gift_code_limits[random_code_name] = max_uses
     
-    # Trừ 10,000 điểm khỏi quỹ mời bạn của người chơi
     u["ref_balance"] -= 10000.0
     u["history_action"].append(f"[{datetime.now().strftime('%d/%m %H:%M')}] Đổi code mời bạn: {random_code_name} (Trị giá 10k, 1 lượt)")
     
@@ -533,7 +525,7 @@ async def menu_rut(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         amount = int(context.args[0])
     except ValueError:
-        await update.message.reply_text("⚠️ Số tiền không hợp lệ!")
+        await update.message.reply_text("⚠️️ Số tiền không hợp lệ!")
         return
     
     if amount < 30000:
@@ -626,11 +618,10 @@ async def nhap_code(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 # =========================
-# 7. CÔNG CỤ QTV & CSKH (CHỈ QTV/ADMIN ĐƯỢC CHỈNH LƯƠNG NHẬP / TAO CODE)
+# 7. CÔNG CỤ QTV & CSKH
 # =========================
 async def tao_code(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
-    # Chỉ QTV hoặc Admin mới chỉnh đc lượng nhập của code / tạo code
     if not is_admin(user_id):
         await update.message.reply_text("⛔ Tính năng này chỉ dành riêng cho Quản Trị Viên (QTV) hoặc Admin!")
         return
@@ -806,7 +797,7 @@ async def xem_lich_su(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 # =========================
-# 9. VÒNG LẶP TỰ ĐỘNG, TỶ LỆ 1x97, NỔ HŨ & TỈ LỆ TÀI : XỈU TRONG PHÒNG
+# 9. VÒNG LẶP TỰ ĐỘNG, TỶ LỆ 1x97, NỔ HŨ & GỢI Ý TÀI/XỈU
 # =========================
 async def auto_taixiu_loop(application):
     global phien_id, current_bets, jackpot_pool, weekly_wager_stats
@@ -827,13 +818,9 @@ async def auto_taixiu_loop(application):
 
             current_bets = {"tai": {}, "xiu": {}, "chan": {}, "le": {}}
 
-            # Bot trong room trước khi phiên mới sẽ đưa tay kiểu tài : 60% xỉu : 40% (linh hoạt theo yêu cầu)
-            tai_percent = 60
-            xiu_percent = 40
-            if len(history_phien) >= 2:
-                # Random nhẹ tỷ lệ xoay vòng cho sinh động nhưng vẫn đúng định dạng yêu cầu
-                choices_ratio = [(60, 40), (55, 45), (65, 35), (50, 50)]
-                tai_percent, xiu_percent = random.choice(choices_ratio)
+            # Tỷ lệ dự đoán Tài / Xỉu sinh ngẫu nhiên trước mỗi phiên ở nhóm
+            ratio_pool = [(60, 40), (55, 45), (65, 35), (50, 50), (70, 30), (40, 60), (45, 55)]
+            tai_p, xiu_p = random.choice(ratio_pool)
 
             if GROUP_CHAT_ID:
                 history_str = " ".join(history_phien[-10:]) if history_phien else "Chưa có"
@@ -842,7 +829,7 @@ async def auto_taixiu_loop(application):
                     text=(
                         f"📊 **PHIÊN #{phien_id}**\n\n"
                         f"📈 Lịch sử: {history_str}\n"
-                        f"🤖 **Gợi ý tay trước phiên mới:** tài : {tai_percent}% — xỉu : {xiu_percent}%\n\n"
+                        f"🤖 **Bot dự đoán phân tích:** Tài : `{tai_p}%` — Xỉu : `{xiu_p}%`\n"
                         f"💰 **Quỹ Hũ (Jackpot):** `{jackpot_pool:,.0f}` điểm\n"
                         f"⏰ Đặt cược trong 40 giây...\n"
                         f"⚠ **Min cược: 5,000 điểm** (Tỷ lệ ăn: **1 ăn 1.97**, Hoàn trả 0.8%)\n\n"
@@ -1102,7 +1089,7 @@ def main():
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
     app.add_handler(CallbackQueryHandler(button_handler))
 
-    print("🤖 Bot Tài Xỉu & Chẵn Lẻ VIP đã khởi động thành công với toàn bộ các tính năng mới bổ sung...")
+    print("🤖 Bot Tài Xỉu & Chẵn Lẻ VIP đã khởi động thành công...")
     
     async def post_init(application):
         asyncio.create_task(auto_taixiu_loop(application))
