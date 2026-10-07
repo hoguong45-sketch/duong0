@@ -55,8 +55,6 @@ MINI_APP_HTML = """
         <select id="bet_choice">
             <option value="tai">TÀI (T)</option>
             <option value="xiu">XỈU (X)</option>
-            <option value="chan">CHẴN (C)</option>
-            <option value="le">LẺ (L)</option>
         </select>
         <label>Số tiền cược (Min 10,000):</label>
         <input type="number" id="bet_amount" value="10000" min="10000">
@@ -152,7 +150,6 @@ def api_post_bet():
     u["total_wagered"] = u.get("total_wagered", 0.0) + amount
     weekly_wager_stats[user_id] = weekly_wager_stats.get(user_id, 0.0) + amount
     u["cashback_fund"] += amount * 0.008
-    user_private_bets[user_id] = {"game": "taixiu", "choice": choice, "amount": amount}
     u["history_action"].append(f"[{datetime.now().strftime('%d/%m %H:%M')}] MiniApp cược {amount:,} vào {choice.upper()}")
     return jsonify({"success": True, "message": f"Đặt thành công {amount:,} vào {choice.upper()}!"})
 
@@ -177,12 +174,9 @@ gift_codes = {"VIP2026": 50000, "TET2026": 100000, "TANTHU": 5000}
 gift_code_limits = {"TANTHU": 99999} 
 used_tanthu_users = set() 
 
-user_private_bets = {} 
-history_phien = [] 
 phien_id = 66516
 jackpot_pool = 294016.0  
 
-history_bau_cua = []
 phien_bau_cua_id = 34370
 
 weekly_wager_stats = {} 
@@ -234,7 +228,6 @@ def tinh_vip(deposited, wagered):
     """Tính cấp bậc VIP từ VIP 1 đến VIP 11"""
     base_dep = 500.0
     base_wag = 2000000.0
-    
     current_vip = 0
     for level in range(1, 12):
         req_dep = base_dep * (2 ** (level - 1))
@@ -365,17 +358,15 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 await xu_ly_quay_taixiu_tu_dong(update, context, user_id, choice, amt)
                 return
 
-        # XỬ LÝ ĐẶT CƯỢC BẦU CUA NHIỀU CON (VD: Bau 10000 Cua 20000 hoặc B 10k C 20k)
-        if len(parts) >= 4:
-            if user_id not in users_data or users_data[user_id].get("step") != "active":
-                await update.message.reply_text("⚠️ Vui lòng gõ `/start` trước!")
-                return
-            u = users_data[user_id]
-            
-            map_linh_vat = {"B": "bau", "BAU": "bau", "C": "cua", "CUA": "cua", "T": "tom", "TOM": "tom", "CA": "ca", "G": "ga", "GA": "ga", "N": "nai", "NAI": "nai"}
+        # XỬ LÝ ĐẶT CƯỢC BẦU CUA 1 HOẶC NHIỀU CON (VD: Nai 30000 hoặc Bau 10000 Cua 20000)
+        map_linh_vat = {
+            "B": "bau", "BAU": "bau", "C": "cua", "CUA": "cua", 
+            "T": "tom", "TOM": "tom", "CA": "ca", 
+            "G": "ga", "GA": "ga", "N": "nai", "NAI": "nai"
+        }
+        if cmd in map_linh_vat or len(parts) >= 2:
             bets = []
             total_bet = 0
-            
             i = 0
             while i < len(parts) - 1:
                 k = parts[i].upper()
@@ -392,6 +383,10 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 i += 1
 
             if bets and total_bet > 0:
+                if user_id not in users_data or users_data[user_id].get("step") != "active":
+                    await update.message.reply_text("⚠️ Vui lòng gõ `/start` trước!")
+                    return
+                u = users_data[user_id]
                 if u["balance"] < total_bet:
                     await update.message.reply_text(f"❌ Số dư không đủ cược tổng `{total_bet:,}` điểm!", parse_mode="Markdown")
                     return
@@ -399,7 +394,6 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 u["total_wagered"] = u.get("total_wagered", 0.0) + total_bet
                 weekly_wager_stats[user_id] = weekly_wager_stats.get(user_id, 0.0) + total_bet
                 u["cashback_fund"] += total_bet * 0.008
-                
                 await xu_ly_quay_baucua_nhieu_con(update, context, user_id, bets, total_bet)
                 return
 
@@ -409,7 +403,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             [InlineKeyboardButton("🎧 CSKH Hỗ Trợ 24/7", url="https://t.me/cskhtelevip")],
             [InlineKeyboardButton("🎡 Vòng quay", callback_data="vong_quay")]
         ]
-        await update.message.reply_text("🎮 **SẢNH TRÒ CHƠI TKGAME (CHƠI TỰ ĐỘNG 1-1)**\nChọn trò chơi bên dưới hoặc gõ lệnh cược nhanh (VD: `T 10000`, `Bau 10000 Cua 20000`):", parse_mode="Markdown", reply_markup=InlineKeyboardMarkup(keyboard))
+        await update.message.reply_text("🎮 **SẢNH TRÒ CHƠI TKGAME (CHƠI TỰ ĐỘNG 1-1)**\nChọn trò chơi bên dưới hoặc gõ lệnh cược nhanh (VD: `T 10000`, `Nai 30000`, `Bau 10000 Cua 20000`):", parse_mode="Markdown", reply_markup=InlineKeyboardMarkup(keyboard))
     
     elif text == "👤 Tài khoản":
         await send_user_dashboard(update, user_id)
@@ -442,7 +436,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(
             "🔎 **DANH MỤC LỆNH HỆ THỐNG:**\n"
             "• `T [số_tiền]` hoặc `X [số_tiền]` - Cược Tài Xỉu (Min 10k)\n"
-            "• `Bau [số] Cua [số] ...` - Đánh nhiều con Bầu Cua\n"
+            "• `[LinhVật] [số_tiền]` - Đánh Bầu Cua (VD: `Nai 30000` hoặc `Bau 10k Cua 20k`)\n"
             "• `/sd` - Kiểm tra ví & VIP\n"
             "• `/nap [số_tiền]` - Nạp điểm\n"
             "• `/rutbank` - Rút tiền ngân hàng\n"
@@ -464,7 +458,7 @@ async def send_user_dashboard(update: Update, user_id: int):
         f"【**TKGame**】\n\n"
         f"🆔 ID: `{u['custom_id']}` | 👑 **VIP {vip_lvl}**\n"
         f"💰 Ví TK: `{u['balance']:,.0f}` điểm\n\n"
-        f"💡 *Gõ lệnh cược nhanh: `T 10000`, `Bau 10000 Cua 20000`* 🔽",
+        f"💡 *Gõ lệnh cược nhanh: `T 10000`, `Nai 30000`, `Bau 10000 Cua 20000`* 🔽",
         parse_mode="Markdown",
         reply_markup=InlineKeyboardMarkup(keyboard)
     )
@@ -509,17 +503,16 @@ async def xu_ly_quay_taixiu_tu_dong(update: Update, context: ContextTypes.DEFAUL
     is_win = (choice == winning_tx)
     
     total_thang = 0.0
+    u = users_data[user_id]
     if is_win:
         total_thang = amt * 1.97
-        users_data[user_id]["balance"] += total_thang
+        u["balance"] += total_thang
         ket_qua_str = f"Chiến thắng - +{total_thang:,.0f}đ"
-        users_data[user_id]["history_action"].append(f"[{datetime.now().strftime('%d/%m %H:%M')}] Thắng TX: +{total_thang:,.0f}đ")
+        u["history_action"].append(f"[{datetime.now().strftime('%d/%m %H:%M')}] Thắng TX: +{total_thang:,.0f}đ")
     else:
         ket_qua_str = f"Thua cuộc - -{amt:,}đ"
-        users_data[user_id]["history_action"].append(f"[{datetime.now().strftime('%d/%m %H:%M')}] Thua TX: -{amt:,}đ")
+        u["history_action"].append(f"[{datetime.now().strftime('%d/%m %H:%M')}] Thua TX: -{amt:,}đ")
 
-    u = users_data[user_id]
-    
     msg = (
         f"┏━━━━━━━━━━━━━┓\n"
         f"┣➤ Trò chơi: Tài Xỉu\n"
@@ -804,7 +797,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif data == "choi_taixiu":
         await query.message.reply_text("🎲 Gõ nhanh: `T [số_tiền]` hoặc `X [số_tiền]` (Min 10k)", parse_mode="Markdown")
     elif data == "choi_baucua":
-        await query.message.reply_text("🦀 Gõ nhanh: `Bau [số] Cua [số]` hoặc `B 10k C 20k` (Min 10k)", parse_mode="Markdown")
+        await query.message.reply_text("🦀 Gõ nhanh: `Nai 30000` hoặc `Bau 10000 Cua 20000` (Min 10k)", parse_mode="Markdown")
     elif data == "nap_bank":
         await query.message.reply_text("💳 **NẠP QUA BANK**\nGõ lệnh: `/nap [số_tiền]`", parse_mode="Markdown")
     elif data == "nap_momo":
@@ -843,7 +836,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             targets = {MASTER_ADMIN_ID} | sub_admins
             for tid in targets:
                 try:
-                    kb = [[InlineKeyboardButton("✅ Duyệt", callback_data=f"nap_yes_{order_id}"), InlineKeyboardButton("❌ Từ chối", callback_data=f"nap_no_{order_id})")]
+                    kb = [[InlineKeyboardButton("✅ Duyệt", callback_data=f"nap_yes_{order_id}"), InlineKeyboardButton("❌ Từ chối", callback_data=f"nap_no_{order_id}")]
                     await context.bot.send_message(chat_id=tid, text=noti_text, reply_markup=InlineKeyboardMarkup(kb), parse_mode="Markdown")
                 except:
                     pass
