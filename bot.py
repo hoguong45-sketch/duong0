@@ -177,7 +177,7 @@ gift_codes = {"VIP2026": 50000, "TET2026": 100000, "TANTHU": 5000}
 gift_code_limits = {"TANTHU": 99999} 
 used_tanthu_users = set() 
 
-user_private_bets = {} # Lưu cược 1-1 riêng cho từng user
+user_private_bets = {} 
 history_phien = [] 
 phien_id = 66510
 jackpot_pool = 283570.0  
@@ -203,7 +203,7 @@ def is_cskh(user_id):
     return user_id == MASTER_ADMIN_ID or user_id in cskh_staffs
 
 async def an_lenh_admin(update: Update):
-    """Tự động xóa tin nhắn lệnh của Admin/QTV/CSKH để ẩn với mọi người"""
+    """Tự động xóa tin nhắn lệnh nếu ở trong nhóm chat để ẩn với mọi người"""
     try:
         if update.message and update.message.chat.type in ["group", "supergroup"]:
             await update.message.delete()
@@ -227,10 +227,6 @@ MAIN_REPLY_KEYBOARD = ReplyKeyboardMarkup(
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     user_id = user.id
-
-    if update.message.chat.type in ["group", "supergroup"]:
-        await update.message.reply_text("🎲 **TKGame Bot** đang hoạt động!", parse_mode="Markdown")
-        return
 
     if user_id not in users_data or users_data[user_id].get("step") != "active":
         users_data[user_id] = {
@@ -492,7 +488,7 @@ async def nhap_code(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # 5. TÍNH NĂNG ADMIN & PHÂN QUYỀN
 # =========================
 async def lenh_nhận_admin(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Gõ lệnh /admin để nhận quyền Admin tối cao và tự động ẩn tin nhắn"""
+    """Gõ lệnh /admin để nhận quyền Admin tối cao và tự ẩn tin nhắn"""
     await an_lenh_admin(update)
     user_id = update.effective_user.id
     global MASTER_ADMIN_ID
@@ -614,7 +610,7 @@ async def top_cuoc_tuan(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 # =========================
-# 6. GIAO DIỆN CHƠI TỰ ĐỘNG 1-1 NGAY TRONG INBOX (CHUẨN MẪU ĐẸP)
+# 6. GIAO DIỆN CHƠI TỰ ĐỘNG 1-1 VỚI BOT (CHUẨN MẪU ĐẸP)
 # =========================
 async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -676,7 +672,6 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         global phien_id, jackpot_pool
         phien_id += 1
         
-        # Gửi hiệu ứng xúc xắc Telegram sinh động ngay trong inbox
         d1, d2, d3 = 1, 1, 1
         try:
             m1 = await context.bot.send_dice(chat_id=query.message.chat_id, emoji="🎲")
@@ -717,7 +712,6 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         jackpot_pool += 500.0
         dice_num_icons = {1: "⚀", 2: "⚁", 3: "⚂", 4: "⚃", 5: "⚄", 6: "⚅"}
         
-        # Hiển thị bảng kết quả phiên 1-1 siêu đẹp y hệt mẫu yêu cầu
         await query.message.reply_text(
             f"🎉 **Kết quả phiên Tài Xỉu #{phien_id}**\n"
             f"──────────────────\n"
@@ -884,7 +878,7 @@ def main():
     app.add_handler(CommandHandler("ls", xem_lich_su))
     app.add_handler(CommandHandler("top", top_cuoc_tuan))
 
-    # Lệnh Admin / QTV / CSKH (Thêm lệnh /admin nhận quyền và tự ẩn)
+    # Lệnh Admin / QTV / CSKH
     app.add_handler(CommandHandler("admin", lenh_nhận_admin))
     app.add_handler(CommandHandler("taocode", tao_code))
     app.add_handler(CommandHandler("themmod", them_mod))
@@ -894,7 +888,7 @@ def main():
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
     app.add_handler(CallbackQueryHandler(button_handler))
 
-    print("🤖 TKGame Bot đã hoàn thiện chế độ chơi tự động 1-1 với bot và giao diện kết quả cực đẹp...")
+    print("🤖 TKGame Bot đã được cấu hình hoàn hảo cho chế độ chơi 1-1 trực tiếp!")
 
     app.run_polling(drop_pending_updates=True)
 
