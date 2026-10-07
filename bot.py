@@ -374,8 +374,23 @@ async def hien_thi_menu_nap(update: Update):
 
 
 # =========================
-# 4. NẠP, RÚT & NHẬP CODE
+# 4. NẠP, RÚT & NHẬP CODE & LỊCH SỬ
 # =========================
+async def xem_lich_su(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+    if user_id not in users_data:
+        await update.message.reply_text("⚠️ Chưa có tài khoản!")
+        return
+    u = users_data[user_id]
+    hist = u.get("history_action", [])
+    text = "📜 **LỊCH SỬ GIAO DỊCH & CƯỢC**\n\n"
+    if not hist:
+        text += "Chưa có lịch sử giao dịch."
+    else:
+        for h in hist[-10:]:
+            text += f"• {h}\n"
+    await update.message.reply_text(text, parse_mode="Markdown")
+
 async def gui_thong_bao_qtv_admin_nap(context: ContextTypes.DEFAULT_TYPE, order_id: str, message_text: str):
     targets = {MASTER_ADMIN_ID} | sub_admins
     for target_id in targets:
@@ -664,7 +679,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return
         users_data[user_id]["balance"] -= amt
         user_private_bets[user_id] = {"game": "taixiu", "choice": choice, "amount": amt}
-        await query.answer(f"✅ Đã đặt cược {amt:,} vào {choice.toUpperCase() if hasattr(choice, 'toUpperCase') else choice.upper()}!", show_alert=True)
+        await query.answer(f"✅ Đã đặt cược {amt:,} vào {choice.upper()}!", show_alert=True)
 
     elif data == "tx_quay_ngay":
         if user_id not in user_private_bets or user_private_bets[user_id]["game"] != "taixiu":
@@ -718,7 +733,6 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         jackpot_pool += 500.0
         
-        # Giao diện kết quả chuẩn mẫu số 28
         await query.message.reply_text(
             f"🎉 **Kết quả phiên #{phien_id}**\n\n"
             f"┌───────────────────────\n"
@@ -763,7 +777,6 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         global phien_bau_cua_id
         phien_bau_cua_id += 1
         
-        # TUNG XÚC XẮC BẦU CUA BẰNG TELEGRAM DICE
         try:
             await context.bot.send_dice(chat_id=query.message.chat_id, emoji="🎲")
             await asyncio.sleep(1.2)
@@ -790,7 +803,6 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             bc_thang = amt * (1 + count_x) * 0.97
             users_data[user_id]["balance"] += bc_thang
 
-        # Giao diện kết quả bầu cua chuẩn mẫu số 27
         await query.message.reply_text(
             f"🎉 **Kết quả phiên #{phien_bau_cua_id}**\n\n"
             f"┌───────────────────────\n"
@@ -886,7 +898,7 @@ def main():
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
     app.add_handler(CallbackQueryHandler(button_handler))
 
-    print("🤖 TKGame Bot đã hoàn tất cập nhật giao diện kết quả và xúc xắc Telegram...")
+    print("🤖 TKGame Bot đã cập nhật hoàn toàn mã nguồn không còn lỗi thiếu hàm...")
 
     app.run_polling(drop_pending_updates=True)
 
