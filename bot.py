@@ -168,8 +168,8 @@ TOKEN = os.getenv("BOT_TOKEN")
 MASTER_ADMIN_ID = 8013947246  
 GROUP_CHAT_ID = -1003932050774 
 
-sub_admins = set()       # QTV phụ
-cskh_staffs = set()      # Nhân viên CSKH
+sub_admins = set()       # Quản Trị Viên (QTV)
+cskh_staffs = set()      # Nhân Viên CSKH
 
 logging.basicConfig(format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO)
 
@@ -205,15 +205,14 @@ def is_master_admin(user_id):
 def is_cskh(user_id):
     return user_id == MASTER_ADMIN_ID or user_id in cskh_staffs
 
-# Hàm tự động xóa tin nhắn lệnh của Admin/QTV để ẩn với người chơi khác
 async def an_lenh_admin(update: Update):
+    """Tự động xóa tin nhắn lệnh của Admin/QTV/CSKH để ẩn với mọi người"""
     try:
         if update.message and update.message.chat.type in ["group", "supergroup"]:
             await update.message.delete()
     except Exception as e:
         logging.error(f"Không thể xóa tin nhắn lệnh: {e}")
 
-# Thanh Menu Cố Định (Reply Keyboard) dưới khung chat
 MAIN_REPLY_KEYBOARD = ReplyKeyboardMarkup(
     [
         [KeyboardButton("🎮 Game"), KeyboardButton("👤 Tài khoản")],
@@ -258,7 +257,6 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "history_action": []
         }
 
-        # Xử lý giới thiệu bạn bè (Thưởng 3.000 điểm)
         if context.args and context.args[0].startswith("ref_"):
             try:
                 ref_id = int(context.args[0].replace("ref_", ""))
@@ -277,7 +275,6 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
             except Exception as e:
                 logging.error(f"Lỗi xử lý ref: {e}")
 
-        # Gửi ảnh giới thiệu game uy tín chất lượng đẹp kèm thông tin
         welcome_img_url = "https://images.unsplash.com/photo-1518609878373-06d740f60d8b?q=80&w=1000&auto=format&fit=crop"
         intro_text = (
             "🌟 **CHÀO MỪNG ĐẾN VỚI TKGAME - SẢNH GIẢI TRÍ ĐỈNH CAO UY TÍN HÀNG ĐẦU** 🌟\n\n"
@@ -503,7 +500,7 @@ async def nhap_code(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 # =========================
-# 5. TÍNH NĂNG ADMIN & QUẢN LÝ (ẨN LỆNH)
+# 5. TÍNH NĂNG ADMIN & QUẢN LÝ (PHÂN QUYỀN RÕ RÀNG & ẨN LỆNH)
 # =========================
 async def tao_code(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await an_lenh_admin(update)
@@ -531,7 +528,7 @@ async def them_mod(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         mod_id = int(context.args[0])
         sub_admins.add(mod_id)
-        await update.message.reply_text(f"✅ Đã cấp quyền QTV cho ID: `{mod_id}`")
+        await update.message.reply_text(f"✅ Đã cấp quyền **Quản Trị Viên (QTV)** cho ID: `{mod_id}`")
     except ValueError:
         pass
 
@@ -544,13 +541,14 @@ async def them_cskh(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         staff_id = int(context.args[0])
         cskh_staffs.add(staff_id)
-        await update.message.reply_text(f"✅ Đã cấp quyền CSKH cho ID: `{staff_id}`")
+        await update.message.reply_text(f"✅ Đã cấp quyền **Nhân Viên CSKH** cho ID: `{staff_id}`")
     except ValueError:
         pass
 
 async def check_id(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await an_lenh_admin(update)
-    if not is_cskh(update.effective_user.id):
+    user_id = update.effective_user.id
+    if not is_cskh(user_id):
         return
     if not context.args:
         return
@@ -573,11 +571,23 @@ async def check_id(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def check_sd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
+    
+    # Hiển thị rõ ràng chức vụ trong hệ thống cho Admin, QTV, CSKH
+    role_title = "Thành viên Tiêu Chuẩn"
+    if user_id == MASTER_ADMIN_ID:
+        role_title = "👑 Admin Tối Cao"
+    elif user_id in sub_admins:
+        role_title = "🛡 Quản Trị Viên (QTV)"
+    elif user_id in cskh_staffs:
+        role_title = "🎧 Nhân Viên CSKH"
+
     if user_id not in users_data or users_data[user_id].get("step") != "active":
-        await update.message.reply_text("⚠ Bạn chưa đăng ký tài khoản! Gõ `/start`.")
+        await update.message.reply_text(f"👑 Cấp bậc hệ thống của bạn: **{role_title}**\n⚠ Bạn chưa đăng ký tài khoản chơi game! Gõ `/start`.")
         return
+        
     u = users_data[user_id]
     await update.message.reply_text(
+        f"🏷 Chức vụ: **{role_title}**\n"
         f"👑 Tên: **{u['name']}** | ID: `{u['custom_id']}`\n"
         f"💰 Ví TK: `{u['balance']:,.0f}` điểm\n"
         f"🎁 Hoàn trả: `{u['cashback_fund']:,.0f}` điểm (Dùng `/ht`)",
@@ -679,7 +689,7 @@ async def xem_lich_su(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 # =========================
-# 7. VÒNG LẶP TỰ ĐỘNG: TÀI XỈU & BẦU CUA
+# 7. VÒNG LẶP TỰ ĐỘNG GAME (CHUẨN MẪU GIAO DIỆN & XÚC XẮC TELE)
 # =========================
 async def auto_taixiu_loop(application):
     global phien_id, current_bets, jackpot_pool, phien_bau_cua_id, bau_cua_bets
@@ -687,24 +697,23 @@ async def auto_taixiu_loop(application):
     
     while True:
         try:
-            # --- VÒNG CHƠI TÀI XỈU ---
+            # --- TÀI XỈU ---
             current_bets = {"tai": {}, "xiu": {}, "chan": {}, "le": {}}
 
             if GROUP_CHAT_ID:
                 hist_icons = " ".join(history_phien[-10:]) if history_phien else "Chưa có"
                 keyboard_nhom = [
-                    [InlineKeyboardButton("🔴 Cược Tài 5k", callback_data="bet_tai_5000"), InlineKeyboardButton("🔵 Cược Xỉu 5k", callback_data="bet_xiu_5000")],
                     [InlineKeyboardButton("📥 Nạp tiền", url=f"https://t.me/{application.bot.username}?start=nap"), InlineKeyboardButton("💳 Rút tiền", url=f"https://t.me/{application.bot.username}?start=rut")]
                 ]
                 await application.bot.send_message(
                     chat_id=GROUP_CHAT_ID,
                     text=(
-                        f"🎲 **GAME TÀI XỈU TRỰC TIẾP · Phiên #{phien_id}**\n"
-                        f"💵 Min 1.000 · Max/ng 10.000.000\n\n"
+                        f"🎲 **Bắt đầu nhận cược · Phiên #{phien_id}**\n"
+                        f"💵 Min 1.000 · Max/ng 10.000.000 · Max/cửa 50.000.000\n\n"
                         f"🔥 **CỬA CƯỢC**\n"
                         f"🔴 Tài T | 🔵 Xỉu X\n"
                         f"⚪ Chẵn C | ⚫ Lẻ L\n\n"
-                        f"✅ **Cách cược:** Gõ `T 5000` hoặc bấm nút bên dưới!\n\n"
+                        f"✅ **Cách cược:** `T 5000` hoặc `/tai 5000`\n\n"
                         f"📜 Lịch sử gần đây: {hist_icons}"
                     ),
                     parse_mode="Markdown",
@@ -712,11 +721,6 @@ async def auto_taixiu_loop(application):
                 )
 
             await asyncio.sleep(30)
-
-            total_tai = sum(current_bets["tai"].values())
-            total_xiu = sum(current_bets["xiu"].values())
-            total_chan = sum(current_bets["chan"].values())
-            total_le = sum(current_bets["le"].values())
 
             d1, d2, d3 = 1, 1, 1
             try:
@@ -734,7 +738,8 @@ async def auto_taixiu_loop(application):
             await asyncio.sleep(1)
 
             tong = d1 + d2 + d3
-            ket_qua_tx = "Xỉu" if tong <= 10 else "Tài"
+            is_bao = (d1 == d2 == d3)
+            ket_qua_tx = "Bão" if is_bao else ("Tài" if tong >= 11 else "Xỉu")
             ket_qua_cl = "Chẵn" if tong % 2 == 0 else "Lẻ"
             
             history_phien.append("🔴" if tong >= 11 else "⚪")
@@ -767,22 +772,24 @@ async def auto_taixiu_loop(application):
             for uid, amt in current_bets[losing_cl].items():
                 total_thua += amt
 
-            jackpot_pool += (total_tai + total_xiu + total_chan + total_le) * 0.01
+            jackpot_pool += 1500.0
 
             if GROUP_CHAT_ID:
-                dice_icons = {1: "⚀", 2: "⚁", 3: "⚂", 4: "⚃", 5: "⚄", 6: "⚅"}
+                dice_num_icons = {1: "⚀", 2: "⚁", 3: "⚂", 4: "⚃", 5: "⚄", 6: "⚅"}
                 await application.bot.send_message(
                     chat_id=GROUP_CHAT_ID,
                     text=(
-                        f"🧧 **Kết quả Tài Xỉu phiên #{phien_id}**\n"
+                        f"🎉 **Kết quả phiên #{phien_id}**\n"
                         f"──────────────────\n"
-                        f"|  {dice_icons.get(d1, '⚀')}  {dice_icons.get(d2, '⚀')}  {dice_icons.get(d3, '⚀')}\n"
-                        f"|  Tổng điểm: **{tong}**\n"
-                        f"|  Tài/Xỉu: **{ket_qua_tx}**\n"
-                        f"|  Chẵn/Lẻ: **{ket_qua_cl}**\n"
+                        f"|  {dice_num_icons.get(d1, '⚀')}  🏆\n"
+                        f"|  {dice_num_icons.get(d2, '⚀')}  🏆\n"
+                        f"|  {dice_num_icons.get(d3, '⚀')}  🏆\n"
+                        f"|  🧮 Tổng điểm: **{tong}**\n"
+                        f"|  🔵 Tài/Xỉu: **{ket_qua_tx}** {'· 🐟 Bão' if is_bao else ''}\n"
+                        f"|  ⚫ Chẵn/Lẻ: **{ket_qua_cl}**\n"
                         f"──────────────────\n"
-                        f"|  🌿 Tổng thắng: `{total_thang:,.0f}`\n"
-                        f"|  🍂 Tổng thua: `{total_thua:,.0f}`\n"
+                        f"|  💵 Tổng thắng: `{total_thang:,.0f}`\n"
+                        f"|  💸 Tổng thua: `{total_thua:,.0f}`\n"
                         f"|  💰 Cộng hũ: `+0`\n"
                         f"|  🎁 Hũ hiện tại: `{jackpot_pool:,.0f}`\n"
                         f"──────────────────\n"
@@ -793,29 +800,24 @@ async def auto_taixiu_loop(application):
                 )
             phien_id += 1
 
-            # --- VÒNG CHƠI BẦU CUA ---
+            # --- BẦU CUA ---
             bau_cua_bets = {"bau": {}, "cua": {}, "tom": {}, "ca": {}, "ga": {}, "nai": {}}
             linh_vat_list = [("Bầu 🎃", "🎃"), ("Cua 🦀", "🦀"), ("Tôm 🦐", "🦐"), ("Cá 🐟", "🐟"), ("Gà 🐓", "🐓"), ("Nai 🦌", "🦌")]
             
             if GROUP_CHAT_ID:
                 hist_bc = " ".join(history_bau_cua[-7:]) if history_bau_cua else "Chưa có"
-                keyboard_bc = [
-                    [InlineKeyboardButton("🎃 Cược Bầu 5k", callback_data="bet_bau_5000"), InlineKeyboardButton("🦀 Cược Cua 5k", callback_data="bet_cua_5000")],
-                    [InlineKeyboardButton("🦐 Cược Tôm 5k", callback_data="bet_tom_5000"), InlineKeyboardButton("🐟 Cược Cá 5k", callback_data="bet_ca_5000")]
-                ]
                 await application.bot.send_message(
                     chat_id=GROUP_CHAT_ID,
                     text=(
-                        f"🦀 **GAME BẦU CUA TRỰC TIẾP · Phiên #{phien_bau_cua_id}**\n"
-                        f"💵 Min 1.000 · Max/ng 10.000.000\n\n"
-                        f"🔥 **CỬA CƯỢC:**\n"
+                        f"🎲 **Bắt đầu nhận cược Bầu Cua · Phiên #{phien_bau_cua_id}**\n"
+                        f"💵 Min 1.000 · Max/ng 10.000.000 · Max/cửa 50.000.000\n\n"
+                        f"🔥 **CỬA CƯỢC**\n"
                         f"• 🎃 Bầu B | 🦀 Cua C | 🦐 Tôm T\n"
                         f"• 🐟 Cá A | 🐓 Gà G | 🦌 Nai N\n\n"
-                        f"✅ **Cách cược:** Gõ `Bau 5000` hoặc bấm nút bên dưới!\n\n"
+                        f"✅ **Cách cược:** `Bau 5000` hoặc `Tom 10000`\n\n"
                         f"📜 7 phiên gần nhất: {hist_bc}"
                     ),
-                    parse_mode="Markdown",
-                    reply_markup=InlineKeyboardMarkup(keyboard_bc)
+                    parse_mode="Markdown"
                 )
 
             await asyncio.sleep(30)
@@ -852,7 +854,7 @@ async def auto_taixiu_loop(application):
                 await application.bot.send_message(
                     chat_id=GROUP_CHAT_ID,
                     text=(
-                        f"🦀 **Kết quả Bầu Cua phiên #{phien_bau_cua_id}**\n"
+                        f"🦀 **Kết quả phiên Bầu Cua #{phien_bau_cua_id}**\n"
                         f"──────────────────\n"
                         f"|  🎲 {bc1[0]}\n"
                         f"|  🎲 {bc2[0]}\n"
@@ -888,18 +890,6 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await query.message.reply_text("🎲 **HƯỚNG DẪN TÀI XỈU:**\nGõ trực tiếp trong nhóm: `T 5000` (Tài) hoặc `X 5000` (Xỉu).", parse_mode="Markdown")
     elif data == "choi_baucua":
         await query.message.reply_text("🦀 **HƯỚNG DẪN BẦU CUA:**\nGõ trực tiếp trong nhóm: `Bau 5000` hoặc `Tom 5000`.", parse_mode="Markdown")
-    elif data.startswith("bet_tai_") or data.startswith("bet_xiu_") or data.startswith("bet_bau_") or data.startswith("bet_cua_") or data.startswith("bet_tom_") or data.startswith("bet_ca_"):
-        parts = data.split("_")
-        choice_key, amt = parts[1], int(parts[2])
-        if user_id not in users_data or users_data[user_id]["balance"] < amt:
-            await query.answer("❌ Số dư ví không đủ hoặc chưa đăng ký tài khoản!", show_alert=True)
-            return
-        users_data[user_id]["balance"] -= amt
-        if choice_key in ["tai", "xiu"]:
-            current_bets[choice_key][user_id] = current_bets[choice_key].get(user_id, 0) + amt
-        else:
-            bau_cua_bets[choice_key][user_id] = bau_cua_bets[choice_key].get(user_id, 0) + amt
-        await query.answer(f"✅ Đặt cược thành công {amt:,} vào {choice_key.upper()}!", show_alert=True)
     elif data.startswith("nap_yes_"):
         if not is_admin(user_id):
             await query.answer("⛔ Bạn không có quyền duyệt đơn!", show_alert=True)
@@ -907,7 +897,6 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         order_id = data.replace("nap_yes_", "")
         if order_id in pending_orders:
             order = pending_orders[order_id]
-            # Kiểm tra nếu đơn đã được xử lý trước đó bởi QTV/Admin khác thì chặn ngay
             if order.get("admin_status") == "processed":
                 await query.answer("⚠ Đơn này đã được xử lý bởi Quản trị viên khác trước đó!", show_alert=True)
                 await query.edit_message_text(text=f"🔒 Đơn #{order_id} đã được khóa (Đã duyệt trước đó).")
@@ -953,7 +942,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             info = pending_orders[order_id]
             noti_text = f"🔔 **DUYỆT NẠP TIỀN CHO KHÁCH**\nKhách: **{info['name']}** (`{info['custom_id']}`)\nSố tiền: `{info['amount']:,}`"
             await gui_thong_bao_qtv_admin_nap(context, order_id, noti_text)
-            await query.message.reply_text("✅ Đã gửi yêu cầu nạp tới hệ thống Quản trị viên xét duyệt!")
+            await query.message.reply_text("✅ Đã ghi nhận báo chuyển khoản. Admin sẽ duyệt trong ít phút!")
 
 
 # =========================
@@ -977,20 +966,20 @@ def main():
     app.add_handler(CommandHandler("ls", xem_lich_su))
     app.add_handler(CommandHandler("top", top_cuoc_tuan))
 
-    # Lệnh Admin / QTV / CSKH (Có tính năng tự xóa tin nhắn để ẩn với thành viên khác)
+    # Lệnh Admin / QTV / CSKH (Ẩn lệnh tự xóa)
     app.add_handler(CommandHandler("taocode", tao_code))
     app.add_handler(CommandHandler("themmod", them_mod))
     app.add_handler(CommandHandler("themcskh", them_cskh))
     app.add_handler(CommandHandler("checkid", check_id))
 
-    # Cược nhanh Tài Xỉu & Bầu Cua
+    # Cược nhanh
     app.add_handler(CommandHandler(["tai", "xiu", "chan", "le", "t", "x", "c", "l", "bau", "cua", "tom", "ca", "ga", "nai", "b", "g", "n"], dat_cuoc_nhanh))
     app.add_handler(MessageHandler(filters.Regex(r"^[a-zA-Zа-яА-ЯёЁà-ỹÀ-Ỹ]\s+\d+"), dat_cuoc_nhanh))
 
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
     app.add_handler(CallbackQueryHandler(button_handler))
 
-    print("🤖 TKGame Bot đã cập nhật thành công các tính năng nâng cao (Ẩn lệnh, Cam kết uy tín, Khóa đơn trùng)...")
+    print("🤖 TKGame Bot đã cập nhật hoàn tất các yêu cầu giao diện và phân quyền cấp bậc...")
 
     async def post_init(application):
         asyncio.create_task(auto_taixiu_loop(application))
