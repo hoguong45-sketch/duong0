@@ -179,7 +179,7 @@ users_data = {}
 referral_counts = {} 
 gift_codes = {"VIP2026": 50000, "TET2026": 100000, "TANTHU": 5000}
 gift_code_limits = {"TANTHU": 99999} 
-used_tanthu_users = set() 
+used_code_users = set() # Quản lý người dùng đã dùng giftcode nào
 
 phien_id = 31180
 jackpot_pool = 294016.0  
@@ -349,6 +349,74 @@ async def add_cskh_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(f"✅ Đã thêm CSKH **{name_str}** (ID: `{new_cskh}`) thành công!", parse_mode="Markdown")
     except:
         await update.message.reply_text("⚠️ ID không hợp lệ!")
+
+# =========================
+# TÍNH NĂNG TẠO GIFTCODE RIÊNG CHO ADMIN & NHẬP CODE
+# =========================
+async def admin_tao_code_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await an_lenh_admin(update)
+    user_id = update.effective_user.id
+    if not is_admin(user_id):
+        return
+    
+    if len(context.args) < 3:
+        await update.message.reply_text("⚠️ Cú pháp Admin: `/taocode [MÃ] [số_tiền] [số_lượt]`", parse_mode="Markdown")
+        return
+    
+    code_name = context.args[0].upper()
+    try:
+        amount = float(context.args[1])
+        limit_uses = int(context.args[2])
+    except ValueError:
+        await update.message.reply_text("⚠️ Số tiền hoặc số lượt không hợp lệ!")
+        return
+
+    gift_codes[code_name] = amount
+    gift_code_limits[code_name] = limit_uses
+    
+    await update.message.reply_text(
+        f"🎁 **TẠO GIFTCODE THÀNH CÔNG**\n\n"
+        f"• Mã: `{code_name}`\n"
+        f"• Giá trị: `{amount:,.0f}` điểm\n"
+        f"• Số lượt dùng: `{limit_uses}` lượt",
+        parse_mode="Markdown"
+    )
+
+async def user_nhap_code_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+    if user_id not in users_data or users_data[user_id].get("step") != "active":
+        await update.message.reply_text("⚠️ Vui lòng gõ `/start` và đăng ký tài khoản trước!")
+        return
+
+    if not context.args:
+        await update.message.reply_text("⚠️ Cú pháp: `/nhapcode [MÃ_CODE]`", parse_mode="Markdown")
+        return
+
+    code_name = context.args[0].upper()
+    if code_name not in gift_codes:
+        await update.message.reply_text("❌ Mã quà tặng không tồn tại hoặc đã hết hạn!", parse_mode="Markdown")
+        return
+
+    user_code_key = f"{user_id}_{code_name}"
+    if user_code_key in used_code_users:
+        await update.message.reply_text("❌ Bạn đã sử dụng mã quà tặng này rồi!", parse_mode="Markdown")
+        return
+
+    current_uses = gift_code_limits.get(code_name, 0)
+    if current_uses <= 0:
+        await update.message.reply_text("❌ Mã quà tặng này đã hết lượt sử dụng!", parse_mode="Markdown")
+        return
+
+    reward_amt = gift_codes[code_name]
+    gift_code_limits[code_name] = current_uses - 1
+    used_code_users.add(user_code_key)
+
+    u = users_data[user_id]
+    u["balance"] += reward_amt
+    u["history_action"].append(f"[{datetime.now().strftime('%d/%m %H:%M')}] Nhập giftcode {code_name}: +{reward_amt:,.0f}đ")
+
+    await update.message.reply_text(f"🎉 Chúc mừng! Bạn đã nhận thành công `+{reward_amt:,.0f}` điểm từ mã `{code_name}`!", parse_mode="Markdown")
+
 
 async def admin_panel_users(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
@@ -556,6 +624,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if is_admin(user_id):
             admin_commands_text = (
                 "🔎 **DANH MỤC LỆNH ADMIN & QTV:**\n"
+                "• `/taocode [MÃ] [tiền] [lượt]` - Tạo Giftcode riêng Admin\n"
                 "• `/themqtv [ID]` - Thêm QTV hệ thống\n"
                 "• `/themcskh [ID]` - Thêm nhân viên CSKH\n"
                 "• `/danhsachacc` - Quản lý toàn bộ acc (Thay đổi tên, tiền)\n"
@@ -567,6 +636,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         else:
             await update.message.reply_text(
                 "🔎 **DANH MỤC LỆNH:**\n"
+                "• `/nhapcode [MÃ]` - Nhận quà từ Giftcode\n"
                 "• `T [số]` hoặc `X [số]` - Cược Tài/Xỉu (Min 10k)\n"
                 "• `C [số]` hoặc `L [số]` - Cược Chẵn/Lẻ (Min 10k)\n"
                 "• `Con [số]` hoặc `Cai [số]` hoặc `Hoa [số]` - Cược Baccarat (Min 10k)\n"
@@ -667,7 +737,6 @@ async def xu_ly_quay_baccarat(update: Update, context: ContextTypes.DEFAULT_TYPE
 
     dice_emojis = {1: "⚀", 2: "⚁", 3: "⚂", 4: "⚃", 5: "⚄", 6: "⚅"}
 
-    # 1. Tung xúc xắc cho Con (Player) với thông báo trực quan giống ảnh mẫu[span_3](start_span)[span_3](end_span)[span_4](start_span)[span_4](end_span)[span_5](start_span)[span_5](end_span)
     await context.bot.send_message(chat_id=chat_id, text=f"🎲 Phiên #{phien_baccarat_id} — Đang đổ 🔵 Con......", parse_mode="Markdown")
     try:
         m1 = await context.bot.send_dice(chat_id=chat_id, emoji="🎲")
@@ -681,7 +750,6 @@ async def xu_ly_quay_baccarat(update: Update, context: ContextTypes.DEFAULT_TYPE
     except:
         con_d1, con_d2, con_d3 = random.randint(1,6), random.randint(1,6), random.randint(1,6)
 
-    # 2. Tung xúc xắc cho Cái (Banker) với thông báo trực quan giống ảnh mẫu[span_6](start_span)[span_6](end_span)[span_7](start_span)[span_7](end_span)[span_8](start_span)[span_8](end_span)
     await context.bot.send_message(chat_id=chat_id, text=f"🎲 Phiên #{phien_baccarat_id} — Đang đổ 🔴 Cái......", parse_mode="Markdown")
     try:
         m4 = await context.bot.send_dice(chat_id=chat_id, emoji="🎲")
@@ -1304,6 +1372,8 @@ def main():
     app.add_handler(CommandHandler("themqtv", add_qtv_command))
     app.add_handler(CommandHandler("themcskh", add_cskh_command))
     app.add_handler(CommandHandler("danhsachacc", admin_panel_users))
+    app.add_handler(CommandHandler("taocode", admin_tao_code_command))
+    app.add_handler(CommandHandler("nhapcode", user_nhap_code_command))
     app.add_handler(CommandHandler(["sd", "tk"], send_user_dashboard))
     app.add_handler(CommandHandler("nap", menu_nap))
     app.add_handler(CommandHandler("rutbank", menu_rut_bank))
@@ -1319,7 +1389,7 @@ def main():
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, combined_message_handler))
     app.add_handler(CallbackQueryHandler(button_handler))
 
-    print("🤖 TKGame Bot đã cập nhật hoàn tất: Giao diện tung xúc xắc Baccarat theo đúng mẫu yêu cầu...")
+    print("🤖 TKGame Bot đã cập nhật hoàn tất: Thêm tính năng tạo giftcode độc quyền cho Admin...")
 
     app.run_polling(drop_pending_updates=True)
 
