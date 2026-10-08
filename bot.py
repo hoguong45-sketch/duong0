@@ -183,7 +183,7 @@ used_tanthu_users = set()
 
 phien_id = 31180
 jackpot_pool = 294016.0  
-phien_baccarat_id = 8820
+phien_baccarat_id = 46120
 
 weekly_wager_stats = {} 
 pending_orders = {}
@@ -667,6 +667,8 @@ async def xu_ly_quay_baccarat(update: Update, context: ContextTypes.DEFAULT_TYPE
 
     dice_emojis = {1: "⚀", 2: "⚁", 3: "⚂", 4: "⚃", 5: "⚄", 6: "⚅"}
 
+    # 1. Tung xúc xắc cho Con (Player) với thông báo trực quan giống ảnh mẫu[span_3](start_span)[span_3](end_span)[span_4](start_span)[span_4](end_span)[span_5](start_span)[span_5](end_span)
+    await context.bot.send_message(chat_id=chat_id, text=f"🎲 Phiên #{phien_baccarat_id} — Đang đổ 🔵 Con......", parse_mode="Markdown")
     try:
         m1 = await context.bot.send_dice(chat_id=chat_id, emoji="🎲")
         con_d1 = m1.dice.value
@@ -676,7 +678,12 @@ async def xu_ly_quay_baccarat(update: Update, context: ContextTypes.DEFAULT_TYPE
         await asyncio.sleep(0.3)
         m3 = await context.bot.send_dice(chat_id=chat_id, emoji="🎲")
         con_d3 = m3.dice.value
-        await asyncio.sleep(0.3)
+    except:
+        con_d1, con_d2, con_d3 = random.randint(1,6), random.randint(1,6), random.randint(1,6)
+
+    # 2. Tung xúc xắc cho Cái (Banker) với thông báo trực quan giống ảnh mẫu[span_6](start_span)[span_6](end_span)[span_7](start_span)[span_7](end_span)[span_8](start_span)[span_8](end_span)
+    await context.bot.send_message(chat_id=chat_id, text=f"🎲 Phiên #{phien_baccarat_id} — Đang đổ 🔴 Cái......", parse_mode="Markdown")
+    try:
         m4 = await context.bot.send_dice(chat_id=chat_id, emoji="🎲")
         cai_d1 = m4.dice.value
         await asyncio.sleep(0.3)
@@ -686,7 +693,6 @@ async def xu_ly_quay_baccarat(update: Update, context: ContextTypes.DEFAULT_TYPE
         m6 = await context.bot.send_dice(chat_id=chat_id, emoji="🎲")
         cai_d3 = m6.dice.value
     except:
-        con_d1, con_d2, con_d3 = random.randint(1,6), random.randint(1,6), random.randint(1,6)
         cai_d1, cai_d2, cai_d3 = random.randint(1,6), random.randint(1,6), random.randint(1,6)
 
     con_sum = con_d1 + con_d2 + con_d3
@@ -726,13 +732,13 @@ async def xu_ly_quay_baccarat(update: Update, context: ContextTypes.DEFAULT_TYPE
             u["history_action"].append(f"[{datetime.now().strftime('%d/%m %H:%M')}] Thua Baccarat {choice.upper()}: -{amt:,}đ")
 
     con_icons_str = f"{dice_emojis[con_d1]} {dice_emojis[con_d2]} {dice_emojis[con_d3]}"
+    cai_icons_str = f"{dice_emojis[cai_d1]} {dice_emojis[cai_d2]} {dice_emojis[cai_d3]}"
 
     msg = (
-        f"🃏 **BACCARAT XÚC XẮC - PHIÊN #{phien_baccarat_id}**\n"
+        f"🎉 **Kết quả phiên #{phien_baccarat_id}**\n"
         f"━━━━━━━━━━━━━━━━━━━\n"
-        f"🔵 Con (Player): {con_icons_str} ➔ **{con_score} điểm** (Tổng: {con_sum})\n"
-        f"🔴 Cái (Banker lần 1): {dice_emojis[cai_d1]} {dice_emojis[cai_d2]} (Tổng: {cai_d1+cai_d2})\n"
-        f"🔴 Cái (Banker lần 2): {dice_emojis[cai_d3]} ➔ **{cai_score} điểm** (Tổng Cái: {cai_sum})\n"
+        f"🔵 Con {con_icons_str} ➔ `{con_score}`\n"
+        f"🔴 Cái {cai_icons_str} ➔ `{cai_score}`\n"
         f"━━━━━━━━━━━━━━━━━━━\n"
         f"📌 Cửa đặt: **{choice.upper()}** ({amt:,}đ)\n"
         f"🔢 Mã GD: `{ma_gd}`\n"
@@ -1196,7 +1202,6 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 except:
                     pass
             
-            # Xoá hoàn toàn ảnh hướng dẫn nạp và thay thế bằng văn bản xác nhận đã gửi đơn cho Admin/QTV
             try:
                 await query.message.delete()
             except:
@@ -1243,7 +1248,6 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 )
             except:
                 pass
-            # Cập nhật và xóa bỏ toàn bộ nút bấm ở phía Admin để tránh bấm lại nhiều lần
             await query.edit_message_text(text=f"✅ **Đã xử lý (Duyệt nạp #{order_id})**", reply_markup=None)
     elif data.startswith("nap_no_"):
         if not is_cskh(user_id): return
@@ -1254,7 +1258,6 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 await query.answer("⚠️ Đơn này đã được xử lý trước đó!", show_alert=True)
                 return
             order["admin_status"] = "processed"
-            # Cập nhật và xóa bỏ toàn bộ nút bấm ở phía Admin để tránh bấm lại nhiều lần
             await query.edit_message_text(text=f"❌ **Đã xử lý (Từ chối đơn #{order_id})**", reply_markup=None)
 
 async def handle_admin_edit_input(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -1316,7 +1319,7 @@ def main():
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, combined_message_handler))
     app.add_handler(CallbackQueryHandler(button_handler))
 
-    print("🤖 TKGame Bot đã cập nhật hoàn tất: Xoá bảng nạp khi xác nhận, thông báo đã gửi đơn và khóa nút duyệt của Admin...")
+    print("🤖 TKGame Bot đã cập nhật hoàn tất: Giao diện tung xúc xắc Baccarat theo đúng mẫu yêu cầu...")
 
     app.run_polling(drop_pending_updates=True)
 
