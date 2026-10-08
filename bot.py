@@ -667,7 +667,6 @@ async def xu_ly_quay_baccarat(update: Update, context: ContextTypes.DEFAULT_TYPE
 
     dice_emojis = {1: "⚀", 2: "⚁", 3: "⚂", 4: "⚃", 5: "⚄", 6: "⚅"}
 
-    # Tung 3 xúc xắc cho Con (Player) và 3 cho Cái (Banker) qua Telegram Dice API chân thực
     try:
         m1 = await context.bot.send_dice(chat_id=chat_id, emoji="🎲")
         con_d1 = m1.dice.value
@@ -733,7 +732,8 @@ async def xu_ly_quay_baccarat(update: Update, context: ContextTypes.DEFAULT_TYPE
         f"🃏 **BACCARAT XÚC XẮC - PHIÊN #{phien_baccarat_id}**\n"
         f"━━━━━━━━━━━━━━━━━━━\n"
         f"🔵 Con (Player): {con_icons_str} ➔ **{con_score} điểm** (Tổng: {con_sum})\n"
-        f"🔴 Cái (Banker): {cai_icons_str} ➔ **{cai_score} điểm** (Tổng: {cai_sum})\n"
+        f"🔴 Cái (Banker lần 1): {dice_emojis[cai_d1]} {dice_emojis[cai_d2]} (Tổng: {cai_d1+cai_d2})\n"
+        f"🔴 Cái (Banker lần 2): {dice_emojis[cai_d3]} ➔ **{cai_score} điểm** (Tổng Cái: {cai_sum})\n"
         f"━━━━━━━━━━━━━━━━━━━\n"
         f"📌 Cửa đặt: **{choice.upper()}** ({amt:,}đ)\n"
         f"🔢 Mã GD: `{ma_gd}`\n"
@@ -1196,8 +1196,8 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     await context.bot.send_message(chat_id=tid, text=noti_text, reply_markup=InlineKeyboardMarkup(kb), parse_mode="Markdown")
                 except:
                     pass
-            # Xoá bảng hướng dẫn nạp và hiện thông báo đã gửi đơn chờ QTV/Admin xử lý theo yêu cầu
-            await query.edit_message_text(text=f"✅ **Đã gửi đơn, chờ QTV hoặc Admin xử lý. (Mã đơn: #{order_id})**", parse_mode="Markdown")
+            # Cập nhật tin nhắn hướng dẫn nạp thành thông báo đã gửi đơn cho admin hoặc qtv
+            await query.edit_message_text(text=f"✅ Đã gửi đơn cho Admin hoặc QTV xử lý (Mã đơn: #{order_id})", parse_mode="Markdown")
     elif data.startswith("nap_yes_"):
         if not is_cskh(user_id): return
         order_id = data.replace("nap_yes_", "")
@@ -1299,7 +1299,7 @@ def main():
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, combined_message_handler))
     app.add_handler(CallbackQueryHandler(button_handler))
 
-    print("🤖 TKGame Bot đã cập nhật hoàn tất: Ẩn bảng nạp khi xác nhận chuyển khoản và fix chuẩn điểm Baccarat...")
+    print("🤖 TKGame Bot đã cập nhật hoàn tất: Ẩn bảng nạp khi xác nhận và định dạng rõ lần tung của Cái trong Baccarat...")
 
     app.run_polling(drop_pending_updates=True)
 
