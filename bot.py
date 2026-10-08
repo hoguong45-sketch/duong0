@@ -190,33 +190,11 @@ BANK_LIST_TEXT = (
     "✅ Techcombank => `TCB`\n"
     "✅ MB Bank => `MB`\n"
     "✅ Agribank => `AGR`\n"
-    "✅ TienPhong Bank => `TPB`\n"
-    "✅ SHB bank => `SHB`\n"
     "✅ ACB => `ACB`\n"
-    "✅ Maritime Bank => `MSB`\n"
-    "✅ VIB => `VIB`\n"
     "✅ Sacombank => `STB`\n"
-    "✅ VP Bank => `VPB`\n"
-    "✅ SeaBank => `SEAB`\n"
-    "✅ Shinhan bank Việt Nam => `SHBVN`\n"
-    "✅ Eximbank => `EIB`\n"
-    "✅ KienLong Bank => `KLB`\n"
-    "✅ Dong A Bank => `DAB`\n"
-    "✅ HD Bank => `HDB`\n"
-    "✅ LienVietPostBank => `LPB`\n"
-    "✅ VietBank => `VBB`\n"
-    "✅ ABBANK => `ABB`\n"
-    "✅ PG Bank => `PGB`\n"
-    "✅ PVComBank => `PVC`\n"
-    "✅ Bac A Bank => `BAB`\n"
-    "✅ Sai Gon Commercial Bank => `SCB`\n"
-    "✅ BanVietBank => `VCCB`\n"
-    "✅ Saigonbank => `SGB`\n"
-    "✅ Bao Viet Bank => `BVB`\n"
-    "✅ Orient Commercial Bank => `OCB`\n\n"
+    "✅ VP Bank => `VPB`\n\n"
     "💡 **Cú pháp rút tiền ngân hàng:**\n"
-    "`/rutbank [Số_tiền] [Mã_NH] [STK] [Tên_chủ_khoản]`\n"
-    "*(Ví dụ: `/rutbank 50000 VCB 0776876883 NGUYEN VAN A`)*"
+    "`/rutbank [Số_tiền] [Mã_NH] [STK] [Tên_chủ_khoản]`"
 )
 
 SYSTEM_BANK_LIST = [
@@ -400,7 +378,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             [InlineKeyboardButton("🎧 CSKH Hỗ Trợ 24/7", url="https://t.me/cskhtelevip")],
             [InlineKeyboardButton("🎡 Vòng quay", callback_data="vong_quay")]
         ]
-        await update.message.reply_text("🎮 **SẢNH TRÒ CHƠI TKGAME (CHƠI TỰ ĐỘNG 1-1)**\nChọn trò chơi bên dưới hoặc gõ lệnh cược nhanh (VD: `T 10000`, `Nai 30000`, `Bau 10000 Cua 20000`):", parse_mode="Markdown", reply_markup=InlineKeyboardMarkup(keyboard))
+        await update.message.reply_text("🎮 **SẢNH TRÒ CHƠI TKGAME (CHƠI TỰ ĐỘNG 1-1)**\nChọn trò chơi bên dưới hoặc gõ lệnh cược nhanh:", parse_mode="Markdown", reply_markup=InlineKeyboardMarkup(keyboard))
     
     elif text == "👤 Tài khoản":
         await send_user_dashboard(update, user_id)
@@ -432,13 +410,11 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif text == "🔎 Lệnh":
         await update.message.reply_text(
             "🔎 **DANH MỤC LỆNH HỆ THỐNG:**\n"
-            "• `T [số_tiền]` hoặc `X [số_tiền]` - Cược Tài Xỉu (Min 10k)\n"
-            "• `[LinhVật] [số_tiền]` - Đánh Bầu Cua (VD: `Nai 30000` hoặc `Bau 10k Cua 20k`)\n"
+            "• `T [số]` hoặc `X [số]` - Cược Tài Xỉu (Min 10k)\n"
+            "• `B [số]` hoặc `Bau [số] Cua [số]` - Đánh Bầu Cua (Min 10k)\n"
             "• `/sd` - Kiểm tra ví & VIP\n"
             "• `/nap [số_tiền]` - Nạp điểm\n"
-            "• `/rutbank` - Rút tiền ngân hàng\n"
-            "• `/code [MÃ]` - Nhập mã thưởng\n"
-            "• `/ht` - Nhận hoàn trả 0.8%",
+            "• `/rutbank` - Rút tiền ngân hàng",
             parse_mode="Markdown"
         )
 
@@ -455,7 +431,7 @@ async def send_user_dashboard(update: Update, user_id: int):
         f"【**TKGame**】\n\n"
         f"🆔 ID: `{u['custom_id']}` | 👑 **VIP {vip_lvl}**\n"
         f"💰 Ví TK: `{u['balance']:,.0f}` điểm\n\n"
-        f"💡 *Gõ lệnh cược nhanh: `T 10000`, `Nai 30000`, `Bau 10000 Cua 20000`* 🔽",
+        f"💡 *Gõ lệnh cược nhanh: `T 50000`, `B 30000`, `Cua 20000`* 🔽",
         parse_mode="Markdown",
         reply_markup=InlineKeyboardMarkup(keyboard)
     )
@@ -474,7 +450,7 @@ async def hien_thi_menu_nap(update: Update):
 
 
 # =========================
-# 4. HỆ THỐNG KẾT QUẢ ĐÚNG CHUẨN KHUNG MẪU & XÚC XẮC TELEGRAM
+# 4. HỆ THỐNG KẾT QUẢ ĐÚNG CHUẨN KHUNG MẪU & TUNG 3 VI XÚC XẮC
 # =========================
 async def xu_ly_quay_taixiu_tu_dong(update: Update, context: ContextTypes.DEFAULT_TYPE, user_id: int, choice: str, amt: int):
     chat_id = update.effective_chat.id
@@ -482,6 +458,7 @@ async def xu_ly_quay_taixiu_tu_dong(update: Update, context: ContextTypes.DEFAUL
     phien_id += 1
     ma_gd = random.randint(100000, 999999)
 
+    # Tung 3 viên xúc xắc Telegram liên tiếp
     try:
         m1 = await context.bot.send_dice(chat_id=chat_id, emoji="🎲")
         d1 = m1.dice.value
@@ -494,7 +471,7 @@ async def xu_ly_quay_taixiu_tu_dong(update: Update, context: ContextTypes.DEFAUL
     except:
         d1, d2, d3 = random.randint(1,6), random.randint(1,6), random.randint(1,6)
 
-    await asyncio.sleep(0.8)
+    await asyncio.sleep(0.6)
     tong = d1 + d2 + d3
     winning_tx = "tai" if tong >= 11 else "xiu"
     is_win = (choice == winning_tx)
@@ -531,24 +508,40 @@ async def xu_ly_quay_baucua_nhieu_con(update: Update, context: ContextTypes.DEFA
     phien_bau_cua_id += 1
     ma_gd = random.randint(100000, 999999)
 
+    # Tung đúng 3 viên xúc xắc Telegram cho Bầu Cua
     try:
-        await context.bot.send_dice(chat_id=chat_id, emoji="🎲")
-        await asyncio.sleep(1.2)
+        m1 = await context.bot.send_dice(chat_id=chat_id, emoji="🎲")
+        r1_val = m1.dice.value
+        await asyncio.sleep(0.4)
+        m2 = await context.bot.send_dice(chat_id=chat_id, emoji="🎲")
+        r2_val = m2.dice.value
+        await asyncio.sleep(0.4)
+        m3 = await context.bot.send_dice(chat_id=chat_id, emoji="🎲")
+        r3_val = m3.dice.value
     except:
-        pass
+        r1_val, r2_val, r3_val = random.randint(1,6), random.randint(1,6), random.randint(1,6)
 
-    linh_vat_map = {
-        "bau": ("Bầu", "🎃"), "cua": ("Cua", "🦀"), "tom": ("Tôm", "🦐"),
-        "ca": ("Cá", "🐟"), "ga": ("Gà", "🐓"), "nai": ("Nai", "🦌")
+    # Quy đổi mặt xúc xắc (1-6) sang linh vật bầu cua chuẩn mẫu
+    dice_to_linhvat = {
+        1: ("bau", "Bầu", "⚀"),
+        2: ("cua", "Cua", "⚁"),
+        3: ("tom", "Tôm", "⚂"),
+        4: ("ca", "Cá", "⚃"),
+        5: ("ga", "Gà", "⚄"),
+        6: ("nai", "Nai", "⚅")
     }
-    keys = list(linh_vat_map.keys())
-    r1, r2, r3 = random.choices(keys, k=3)
-    drawn = [r1, r2, r3]
+
+    lv1 = dice_to_linhvat[r1_val]
+    lv2 = dice_to_linhvat[r2_val]
+    lv3 = dice_to_linhvat[r3_val]
+
+    drawn_keys = [lv1[0], lv2[0], lv3[0]]
+    hien_thi_ket_qua = f"{lv1[2]} {lv2[2]} {lv3[2]}"
 
     tong_thuong = 0.0
     chi_tiet_cua = []
     for c_key, c_amt in bets:
-        count = drawn.count(c_key)
+        count = drawn_keys.count(c_key)
         chi_tiet_cua.append(f"{c_key.upper()} ({c_amt:,}đ)")
         if count > 0:
             tong_thuong += c_amt * (1 + count) * 0.97
@@ -565,7 +558,7 @@ async def xu_ly_quay_baucua_nhieu_con(update: Update, context: ContextTypes.DEFA
     msg = (
         f"┏━━━━━━━━━━━━━┓\n"
         f"┣➤ Trò chơi: Bầu Cua\n"
-        f"┣➤ Kết quả: {linh_vat_map[r1][1]} {linh_vat_map[r2][1]} {linh_vat_map[r3][1]}\n"
+        f"┣➤ Kết quả: {hien_thi_ket_qua}\n"
         f"┣➤ Cửa đặt : {', '.join(chi_tiet_cua)}\n"
         f"┣➤ Mã giao dịch: {ma_gd}\n"
         f"┣➤ Tổng cược: {total_bet:,.0f}đ\n"
@@ -792,9 +785,24 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if data in ["menu_chinh", "tai_khoan"]:
         await send_user_dashboard(query, user_id)
     elif data == "choi_taixiu":
-        await query.message.reply_text("🎲 Gõ nhanh: `T [số_tiền]` hoặc `X [số_tiền]` (Min 10k)", parse_mode="Markdown")
+        tx_info = (
+            "🔥 **CỬA CƯỢC TÀI XỈU**\n"
+            "🔴 Tài T | 🔵 Xỉu X\n"
+            "⚪ Chẵn C | ⚫ Lẻ L\n\n"
+            "🎲 **HƯỚNG DẪN CƯỢC NHANH:**\n"
+            "Gõ trực tiếp vào chat: `T 50000` hoặc `X 30000` (Min 10k)"
+        )
+        await query.message.reply_text(tx_info, parse_mode="Markdown")
     elif data == "choi_baucua":
-        await query.message.reply_text("🦀 Gõ nhanh: `Nai 30000` hoặc `Bau 10000 Cua 20000` (Min 10k)", parse_mode="Markdown")
+        bc_info = (
+            "🔥 **CỬA CƯỢC BẦU CUA**\n"
+            "⚀ Bầu B | ⚁ Cua C\n"
+            "⚂ Tôm T | ⚃ Cá A\n"
+            "⚄ Gà G | ⚅ Nai N\n\n"
+            "🎲 **HƯỚNG DẪN CƯỢC NHANH:**\n"
+            "Gõ trực tiếp vào chat: `B 30000` hoặc `Nai 30000` hoặc kết hợp nhiều con: `Bau 10000 Cua 20000` (Min 10k)"
+        )
+        await query.message.reply_text(bc_info, parse_mode="Markdown")
     elif data == "nap_bank":
         await query.message.reply_text("💳 **NẠP QUA BANK**\nGõ lệnh: `/nap [số_tiền]`", parse_mode="Markdown")
     elif data == "nap_momo":
@@ -874,7 +882,7 @@ def main():
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
     app.add_handler(CallbackQueryHandler(button_handler))
 
-    print("🤖 TKGame Bot đã sửa lỗi cú pháp thành công và sẵn sàng chạy Live...")
+    print("🤖 TKGame Bot đã hoàn tất giao diện cược chi tiết và xúc xắc bầu cua chuẩn mặt...")
 
     app.run_polling(drop_pending_updates=True)
 
