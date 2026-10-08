@@ -262,12 +262,14 @@ async def an_lenh_admin(update: Update):
     except Exception as e:
         logging.error(f"Không thể xóa tin nhắn lệnh: {e}")
 
+# Đã thêm mục "🔄 Hoàn trả" vào menu bàn phím chính cho tất cả mọi người
 MAIN_REPLY_KEYBOARD = ReplyKeyboardMarkup(
     [
         [KeyboardButton("🎮 Game"), KeyboardButton("👤 Tài khoản")],
         [KeyboardButton("💰 Nạp"), KeyboardButton("💳 Rút")],
         [KeyboardButton("🎧 CSKH"), KeyboardButton("🏆 BXH")],
-        [KeyboardButton("👑 VIP"), KeyboardButton("🌸 Giới thiệu bạn bè")]
+        [KeyboardButton("👑 VIP"), KeyboardButton("🔄 Hoàn trả")],
+        [KeyboardButton("🌸 Giới thiệu bạn bè")]
     ],
     resize_keyboard=True
 )
@@ -458,9 +460,6 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     parts = text.split()
     
-    # ---------------------------------------------------------
-    # BẮT CƯỢC BẦU CUA (Hỗ trợ chữ hoa / chữ thường linh hoạt)
-    # ---------------------------------------------------------
     map_linh_vat = {
         "BAU": "bau", "BẦU": "bau",
         "CUA": "cua",
@@ -470,7 +469,6 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "NAI": "nai"
     }
     
-    # Kiểm tra xem chuỗi có chứa từ khóa Bầu Cua hay không
     has_baucua_keyword = any(p.upper() in map_linh_vat for p in parts)
     if has_baucua_keyword:
         bets = []
@@ -518,9 +516,6 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await xu_ly_quay_baucua_nhieu_con(update, context, user_id, bets, total_bet)
             return
 
-    # ---------------------------------------------------------
-    # CÁC LỆNH CƯỢC KHÁC
-    # ---------------------------------------------------------
     if len(parts) >= 2:
         cmd = parts[0].upper()
         try:
@@ -632,6 +627,20 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     elif text == "🎧 CSKH":
         await update.message.reply_text("🎧 Hỗ trợ khách hàng 24/7: https://t.me/cskhtelevip", parse_mode="Markdown")
+
+    elif text == "🔄 Hoàn trả":
+        if user_id not in users_data or users_data[user_id].get("step") != "active":
+            await update.message.reply_text("⚠️ Vui lòng gõ `/start` trước!")
+            return
+        u = users_data[user_id]
+        fund = u.get("cashback_fund", 0.0)
+        if fund <= 0:
+            await update.message.reply_text("❌ Quỹ hoàn trả của bạn hiện đang trống (`0 điểm`). Hãy tham gia đặt cược thêm để tích lũy hoàn trả!", parse_mode="Markdown")
+            return
+        u["balance"] += fund
+        u["history_action"].append(f"[{datetime.now().strftime('%d/%m %H:%M')}] Nhận hoàn trả cược: +{fund:,.0f}đ")
+        u["cashback_fund"] = 0.0
+        await update.message.reply_text(f"🎉 Bạn đã nhận thành công `+{fund:,.0f}` điểm hoàn trả vào ví chính!", parse_mode="Markdown")
 
     elif text == "🌸 Giới thiệu bạn bè":
         bot_username = context.bot.username
@@ -1129,6 +1138,22 @@ async def menu_rut_bank(update: Update, context: ContextTypes.DEFAULT_TYPE):
     u["history_action"].append(f"[{datetime.now().strftime('%d/%m %H:%M')}] Rút BANK {amount:,} về {bank_code} ({stk})")
     await update.message.reply_text(f"✅ Gửi yêu cầu rút BANK `{amount:,}` về `{bank_code}` thành công!", parse_mode="Markdown")
 
+    # Gửi thông báo chi tiết số tiền, ngân hàng, tên người rút về cho Admin/QTV
+    admin_notif = (
+        f"🚨 **CÓ YÊU CẦU RÚT TIỀN (BANK)**\n\n"
+        f"• Khách hàng: **{u.get('name')}** (ID: `{u['custom_id']}`, Tele ID: `{user_id}`)\n"
+        f"• Số tiền rút: `{amount:,.0f}` điểm\n"
+        f"• Ngân hàng: `{bank_code}`\n"
+        f"• Số tài khoản: `{stk}`\n"
+        f"• Tên chủ tài khoản: **{chủ_tk}**"
+    )
+    targets = {MASTER_ADMIN_ID} | sub_admins | cskh_staffs
+    for tid in targets:
+        try:
+            await context.bot.send_message(chat_id=tid, text=admin_notif, parse_mode="Markdown")
+        except:
+            pass
+
 async def menu_rut_momo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     if user_id not in users_data or users_data[user_id].get("step") != "active":
@@ -1159,6 +1184,20 @@ async def menu_rut_momo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     u["balance"] -= amount
     u["history_action"].append(f"[{datetime.now().strftime('%d/%m %H:%M')}] Rút MOMO {amount:,} về {momo_number}")
     await update.message.reply_text(f"✅ Gửi yêu cầu rút MOMO `{amount:,}` về số `{momo_number}` thành công!", parse_mode="Markdown")
+
+    # Gửi thông báo chi tiết Momo về cho Admin/QTV
+    admin_notif = (
+        f"🚨 **CÓ YÊU CẦU RÚT TIỀN (MOMO)**\n\n"
+        f"• Khách hàng: **{u.get('name')}** (ID: `{u['custom_id']}`, Tele ID: `{user_id}`)\n"
+        f"• Số tiền rút: `{amount:,.0f}` điểm\n"
+        f"• Ví Momo / SĐT: `{momo_number}`"
+    )
+    targets = {MASTER_ADMIN_ID} | sub_admins | cskh_staffs
+    for tid in targets:
+        try:
+            await context.bot.send_message(chat_id=tid, text=admin_notif, parse_mode="Markdown")
+        except:
+            pass
 
 async def check_user_by_admin(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await an_lenh_admin(update)
@@ -1421,7 +1460,7 @@ def main():
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, combined_message_handler))
     app.add_handler(CallbackQueryHandler(button_handler))
 
-    print("🤖 TKGame Bot đã được kiểm tra và vá lỗi Bầu Cua hoàn chỉnh...")
+    print("🤖 TKGame Bot đã cập nhật hoàn tất tính năng thông báo rút chi tiết và nút Hoàn trả...")
 
     app.run_polling(drop_pending_updates=True)
 
