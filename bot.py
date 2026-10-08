@@ -387,7 +387,6 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         except ValueError:
             amt = 0
 
-        # Lệnh Baccarat Xúc Xắc: Con [số], Cai [số], Hoa [số]
         if cmd in ["CON", "CAI", "HOA"] and amt >= 10000:
             if user_id not in users_data or users_data[user_id].get("step") != "active":
                 await update.message.reply_text("⚠️ Vui lòng gõ `/start` và đăng ký tài khoản trước!")
@@ -580,7 +579,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def send_user_dashboard(update: Update, user_id: int):
     u = users_data[user_id]
     vip_lvl = tinh_vip(u.get("total_deposited", 0.0), u.get("total_wagered", 0.0))
-    cashback_rate = 0.8 + (vip_lvl * 0.2) # Hoàn trả cơ bản 0.8% tăng theo VIP
+    cashback_rate = 0.8 + (vip_lvl * 0.2)
     
     admin_tag = ""
     if is_master_admin(user_id):
@@ -666,13 +665,31 @@ async def xu_ly_quay_baccarat(update: Update, context: ContextTypes.DEFAULT_TYPE
     phien_baccarat_id += 1
     ma_gd = random.randint(100000, 999999)
 
-    dice_icons = {1: "⚀", 2: "⚁", 3: "⚂", 4: "⚃", 5: "⚄", 6: "⚅"}
+    dice_emojis = {1: "⚀", 2: "⚁", 3: "⚂", 4: "⚃", 5: "⚄", 6: "⚅"}
 
-    # Tung 3 xúc xắc cho Con (Player) và 3 cho Cái (Banker)
-    con_d1, con_d2, con_d3 = random.randint(1,6), random.randint(1,6), random.randint(1,6)
-    cai_d1, cai_d2, cai_d3 = random.randint(1,6), random.randint(1,6), random.randint(1,6)
+    # Tung 3 xúc xắc cho Con (Player) và 3 cho Cái (Banker) qua Telegram Dice API chân thực
+    try:
+        m1 = await context.bot.send_dice(chat_id=chat_id, emoji="🎲")
+        con_d1 = m1.dice.value
+        await asyncio.sleep(0.3)
+        m2 = await context.bot.send_dice(chat_id=chat_id, emoji="🎲")
+        con_d2 = m2.dice.value
+        await asyncio.sleep(0.3)
+        m3 = await context.bot.send_dice(chat_id=chat_id, emoji="🎲")
+        con_d3 = m3.dice.value
+        await asyncio.sleep(0.3)
+        m4 = await context.bot.send_dice(chat_id=chat_id, emoji="🎲")
+        cai_d1 = m4.dice.value
+        await asyncio.sleep(0.3)
+        m5 = await context.bot.send_dice(chat_id=chat_id, emoji="🎲")
+        cai_d2 = m5.dice.value
+        await asyncio.sleep(0.3)
+        m6 = await context.bot.send_dice(chat_id=chat_id, emoji="🎲")
+        cai_d3 = m6.dice.value
+    except:
+        con_d1, con_d2, con_d3 = random.randint(1,6), random.randint(1,6), random.randint(1,6)
+        cai_d1, cai_d2, cai_d3 = random.randint(1,6), random.randint(1,6), random.randint(1,6)
 
-    # Tính điểm Baccarat (Lấy hàng đơn vị của tổng 3 viên)
     con_sum = con_d1 + con_d2 + con_d3
     cai_sum = cai_d1 + cai_d2 + cai_d3
     con_score = con_sum % 10
@@ -700,7 +717,6 @@ async def xu_ly_quay_baccarat(update: Update, context: ContextTypes.DEFAULT_TYPE
         ket_qua_str = f"Chiến thắng - +{total_thang:,.0f}đ"
         u["history_action"].append(f"[{datetime.now().strftime('%d/%m %H:%M')}] Thắng Baccarat {choice.upper()}: +{total_thang:,.0f}đ")
     else:
-        # Nếu cược Con hoặc Cái mà kết quả Hoà (Tie) thì hoàn tiền cược gốc
         if winning_side == "hoa" and choice in ["con", "cai"]:
             total_thang = amt
             u["balance"] += total_thang
@@ -710,14 +726,14 @@ async def xu_ly_quay_baccarat(update: Update, context: ContextTypes.DEFAULT_TYPE
             ket_qua_str = f"Thua cuộc - -{amt:,}đ"
             u["history_action"].append(f"[{datetime.now().strftime('%d/%m %H:%M')}] Thua Baccarat {choice.upper()}: -{amt:,}đ")
 
-    con_icons_str = f"{dice_icons[con_d1]} {dice_icons[con_d2]} {dice_icons[con_d3]}"
-    cai_icons_str = f"{dice_icons[cai_d1]} {dice_icons[cai_d2]} {dice_icons[cai_d3]}"
+    con_icons_str = f"{dice_emojis[con_d1]} {dice_emojis[con_d2]} {dice_emojis[con_d3]}"
+    cai_icons_str = f"{dice_emojis[cai_d1]} {dice_emojis[cai_d2]} {dice_emojis[cai_d3]}"
 
     msg = (
         f"🃏 **BACCARAT XÚC XẮC - PHIÊN #{phien_baccarat_id}**\n"
         f"━━━━━━━━━━━━━━━━━━━\n"
-        f"🔵 **Con (Player):** {con_icons_str} ➔ **{con_score} điểm** (Tổng: {con_sum})\n"
-        f"🔴 **Cái (Banker):** {cai_icons_str} ➔ **{cai_score} điểm** (Tổng: {cai_sum})\n"
+        f"🔵 Con (Player): {con_icons_str} ➔ **{con_score} điểm** (Tổng: {con_sum})\n"
+        f"🔴 Cái (Banker): {cai_icons_str} ➔ **{cai_score} điểm** (Tổng: {cai_sum})\n"
         f"━━━━━━━━━━━━━━━━━━━\n"
         f"📌 Cửa đặt: **{choice.upper()}** ({amt:,}đ)\n"
         f"🔢 Mã GD: `{ma_gd}`\n"
@@ -1180,7 +1196,8 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     await context.bot.send_message(chat_id=tid, text=noti_text, reply_markup=InlineKeyboardMarkup(kb), parse_mode="Markdown")
                 except:
                     pass
-            await query.edit_message_text(text=f"✅ Đã chọn phương thức! Vui lòng chuyển khoản với nội dung: `{info['note_code']}`", parse_mode="Markdown")
+            # Xoá bảng hướng dẫn nạp và hiện thông báo đã gửi đơn chờ QTV/Admin xử lý theo yêu cầu
+            await query.edit_message_text(text=f"✅ **Đã gửi đơn, chờ QTV hoặc Admin xử lý. (Mã đơn: #{order_id})**", parse_mode="Markdown")
     elif data.startswith("nap_yes_"):
         if not is_cskh(user_id): return
         order_id = data.replace("nap_yes_", "")
@@ -1282,7 +1299,7 @@ def main():
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, combined_message_handler))
     app.add_handler(CallbackQueryHandler(button_handler))
 
-    print("🤖 TKGame Bot đã cập nhật hoàn tất Baccarat Xúc Xắc, tỷ lệ hoàn trả 0.8%, giao diện sắc nét chi tiết...")
+    print("🤖 TKGame Bot đã cập nhật hoàn tất: Ẩn bảng nạp khi xác nhận chuyển khoản và fix chuẩn điểm Baccarat...")
 
     app.run_polling(drop_pending_updates=True)
 
