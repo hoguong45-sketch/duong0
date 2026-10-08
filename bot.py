@@ -152,7 +152,12 @@ def api_post_bet():
     u["total_wagered"] = u.get("total_wagered", 0.0) + amount
     u["wager_remaining"] = max(0.0, u.get("wager_remaining", 0.0) - amount)
     weekly_wager_stats[user_id] = weekly_wager_stats.get(user_id, 0.0) + amount
-    u["cashback_fund"] += amount * 0.008
+    
+    # Hoàn trả cao hơn tùy theo cấp VIP
+    vip_lvl = tinh_vip(u.get("total_deposited", 0.0), u.get("total_wagered", 0.0))
+    cashback_rate = 0.008 + (vip_lvl * 0.002) # Tăng dần theo VIP
+    u["cashback_fund"] += amount * cashback_rate
+    
     u["history_action"].append(f"[{datetime.now().strftime('%d/%m %H:%M')}] MiniApp cược {amount:,} vào {choice.upper()}")
     return jsonify({"success": True, "message": f"Đặt thành công {amount:,} vào {choice.upper()}!"})
 
@@ -191,7 +196,8 @@ SINGLE_BANK_INFO = {
     "chủ tài khoản": "TKGAME AUTO SYSTEM"
 }
 
-ZALOPAY_QR_URL = "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=600&auto=format&fit=crop"
+# ẢNH MÃ NẠP NGÂN HÀNG CHUẨN MẪU BẠN GỬI
+BANK_QR_URL = "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=600&auto=format&fit=crop"
 
 BANK_LIST_TEXT = (
     f"📋 **CỔNG RÚT TIỀN TỰ ĐỘNG - MSB: 6314072009**\n\n"
@@ -216,6 +222,15 @@ def tinh_vip(deposited, wagered):
         else:
             break
     return current_vip
+
+def get_vip_requirements(level):
+    base_dep = 500.0
+    base_wag = 2000000.0
+    if level >= 11:
+        return 0, 0
+    req_dep = base_dep * (2 ** level)
+    req_wag = base_wag * (2 ** level)
+    return req_dep, req_wag
 
 def is_admin(user_id):
     return user_id == MASTER_ADMIN_ID or user_id in sub_admins
@@ -336,7 +351,10 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 u["total_wagered"] = u.get("total_wagered", 0.0) + amt
                 u["wager_remaining"] = max(0.0, u.get("wager_remaining", 0.0) - amt)
                 weekly_wager_stats[user_id] = weekly_wager_stats.get(user_id, 0.0) + amt
-                u["cashback_fund"] += amt * 0.008
+                
+                vip_lvl = tinh_vip(u.get("total_deposited", 0.0), u.get("total_wagered", 0.0))
+                cashback_rate = 0.008 + (vip_lvl * 0.002)
+                u["cashback_fund"] += amt * cashback_rate
                 
                 if cmd in ["T", "TAI"]: choice = "tai"
                 elif cmd in ["X", "XIU"]: choice = "xiu"
@@ -378,7 +396,11 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 u["total_wagered"] = u.get("total_wagered", 0.0) + total_bet
                 u["wager_remaining"] = max(0.0, u.get("wager_remaining", 0.0) - total_bet)
                 weekly_wager_stats[user_id] = weekly_wager_stats.get(user_id, 0.0) + total_bet
-                u["cashback_fund"] += total_bet * 0.008
+                
+                vip_lvl = tinh_vip(u.get("total_deposited", 0.0), u.get("total_wagered", 0.0))
+                cashback_rate = 0.008 + (vip_lvl * 0.002)
+                u["cashback_fund"] += total_bet * cashback_rate
+                
                 await xu_ly_quay_baucua_nhieu_con(update, context, user_id, bets, total_bet)
                 return
 
@@ -386,7 +408,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         keyboard = [
             [InlineKeyboardButton("🎲 Game Tài Xỉu & Chẵn Lẻ", callback_data="choi_taixiu"), InlineKeyboardButton("🦀 Game Bầu Cua", callback_data="choi_baucua")],
             [InlineKeyboardButton("🎧 CSKH Hỗ Trợ 24/7", url="https://t.me/cskhtelevip")],
-            [InlineKeyboardButton("🎡 Vòng quay", callback_data="vong_quay")]
+            [InlineKeyboardButton("👑 Tra Cứu VIP", callback_data="xem_vip")]
         ]
         await update.message.reply_text("🎮 **SẢNH TRÒ CHƠI TKGAME**\nChọn trò chơi bên dưới hoặc gõ lệnh cược nhanh:", parse_mode="Markdown", reply_markup=InlineKeyboardMarkup(keyboard))
     
@@ -410,9 +432,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await hien_thi_bxh_dep(update)
 
     elif text == "👑 VIP":
-        u = users_data[user_id]
-        vip_lvl = tinh_vip(u.get("total_deposited", 0.0), u.get("total_wagered", 0.0))
-        await update.message.reply_text(f"👑 **CẤP ĐỘ VIP**\nCấp hiện tại: **VIP {vip_lvl}** / Max VIP 11\n*(Yêu cầu nạp & cược tăng gấp đôi mỗi cấp)*", parse_mode="Markdown")
+        await hien_thi_thong_tin_vip(update, user_id)
 
     elif text == "🔎 Lệnh":
         await update.message.reply_text(
@@ -431,7 +451,7 @@ async def send_user_dashboard(update: Update, user_id: int):
     vip_lvl = tinh_vip(u.get("total_deposited", 0.0), u.get("total_wagered", 0.0))
     keyboard = [
         [InlineKeyboardButton("🎲 Game Tài Xỉu & Chẵn Lẻ", callback_data="choi_taixiu"), InlineKeyboardButton("🦀 Game Bầu Cua", callback_data="choi_baucua")],
-        [InlineKeyboardButton("🎧 CSKH Hỗ Trợ 24/7", url="https://t.me/cskhtelevip")],
+        [InlineKeyboardButton("👑 Thông Tin VIP", callback_data="xem_vip")],
         [InlineKeyboardButton("🏆 Bảng Xếp Hạng", callback_data="xem_bxh")]
     ]
     chat_obj = update.message if update.message else update.callback_query.message
@@ -446,20 +466,44 @@ async def send_user_dashboard(update: Update, user_id: int):
     )
 
 async def hien_thi_menu_nap(update: Update):
-    keyboard = [
-        [InlineKeyboardButton("💳 Nạp Chuyển Khoản BANK", callback_data="nap_bank")],
-        [InlineKeyboardButton("🟢 Nạp Qua ZaloPay (QR)", callback_data="nap_zalopay")],
-        [InlineKeyboardButton("🔙 Quay lại", callback_data="menu_chinh")]
-    ]
     chat_obj = update.message if update.message else update.callback_query.message
     await chat_obj.reply_text(
-        f"📥 **CHỌN PHƯƠNG THỨC NẠP TIỀN**\n"
+        f"📥 **HƯỚNG DẪN NẠP TIỀN QUA NGÂN HÀNG**\n"
         f"• STK Nhận Tiền Duy Nhất: `{SINGLE_BANK_INFO['stk']}` ({SINGLE_BANK_INFO['name']})\n"
-        f"• Có hỗ trợ tùy chọn **Khuyến Mãi 135%** (Ví dụ nạp 400.000đ, tiền khuyến mãi là 140.000đ, tổng nhận 540.000đ vào ví).\n\n"
-        f"💡 Hoặc gõ lệnh nhanh: `/nap [số_tiền]`",
-        parse_mode="Markdown",
-        reply_markup=InlineKeyboardMarkup(keyboard)
+        f"• Chủ TK: `{SINGLE_BANK_INFO['chủ tài khoản']}`\n"
+        f"• Có hỗ trợ **Khuyến Mãi 135%** (Nạp 400k + KM 140k = 540k, x1 vòng cược).\n\n"
+        f"💡 Vui lòng gõ lệnh: `/nap [số_tiền]` để hệ thống tạo mã giao dịch.",
+        parse_mode="Markdown"
     )
+
+async def hien_thi_thong_tin_vip(update: Update, user_id: int):
+    u = users_data[user_id]
+    dep = u.get("total_deposited", 0.0)
+    wag = u.get("total_wagered", 0.0)
+    vip_lvl = tinh_vip(dep, wag)
+    
+    req_dep, req_wag = get_vip_requirements(vip_lvl)
+    if vip_lvl >= 11:
+        missing_dep = 0
+        missing_wag = 0
+    else:
+        missing_dep = max(0.0, req_dep - dep)
+        missing_wag = max(0.0, req_wag - wag)
+
+    cashback_rate = 0.8 + (vip_lvl * 0.2)
+    vip_text = (
+        f"👑 **HỆ THỐNG CẤP ĐỘ VIP** 👑\n\n"
+        f"• Cấp VIP hiện tại: **VIP {vip_lvl}**\n"
+        f"• Tổng số tiền đã nạp: `{dep:,.0f}` điểm\n"
+        f"• Tổng số tiền đã cược: `{wag:,.0f}` điểm\n"
+        f"• Tỷ lệ hoàn trả hiện tại: `{cashback_rate:.1f}%` (Tăng dần theo cấp VIP)\n"
+        f"• Lương VIP định kỳ: **Tuần 10.000đ** | **Tháng 30.000đ**\n\n"
+        f"🎯 **Tiến độ lên VIP tiếp theo:**\n"
+        f"• Cần nạp thêm: `{missing_dep:,.0f}` điểm\n"
+        f"• Cần cược thêm: `{missing_wag:,.0f}` điểm"
+    )
+    chat_obj = update.message if update.message else update.callback_query.message
+    await chat_obj.reply_text(vip_text, parse_mode="Markdown")
 
 
 # =========================
@@ -670,6 +714,14 @@ async def menu_nap(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("❌ Nạp tối thiểu **20.000** điểm!", parse_mode="Markdown")
         return
 
+    # Thông báo đang tạo ảnh và chờ 3 giây theo yêu cầu
+    status_msg = await update.message.reply_text("⏳ Đang tạo ảnh mã nạp ngân hàng...")
+    await asyncio.sleep(3.0)
+    try:
+        await status_msg.delete()
+    except:
+        pass
+
     u = users_data[user_id]
     unique_note_code = f"TK{random.randint(100000, 999999)}"
     order_id = f"NAP{random.randint(10000,99999)}"
@@ -679,18 +731,26 @@ async def menu_nap(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "name": u["name"], "custom_id": u["custom_id"], "admin_status": "pending"
     }
 
-    nap_text = (
+    caption_text = (
         f"💳 **HƯỚNG DẪN NẠP ĐIỂM (#{order_id})**\n"
         f"🏦 Ngân hàng: *MSB* | STK Duy Nhất: `{SINGLE_BANK_INFO['stk']}`\n"
         f"👤 Chủ TK: *{SINGLE_BANK_INFO['chủ tài khoản']}*\n"
         f"💰 Số tiền: `{amount:,}` VNĐ\n"
         f"📝 **Nội dung chuyển khoản (Bắt buộc):** `{unique_note_code}`\n\n"
-        f"🎁 *Lưu ý:* Hỗ trợ khuyến mãi **135%** (Ví dụ: Nạp 400.000đ, tiền khuyến mãi là 140.000đ, tổng nhận 540.000đ). Sau khi chuyển khoản, bấm nút dưới để báo duyệt!"
+        f"🎁 *Lưu ý:* Hỗ trợ khuyến mãi **135%** (Ví dụ: Nạp 400.000đ, tiền KM là 140.000đ, tổng nhận 540.000đ, x1 vòng cược). Chuyển khoản xong bấm nút bên dưới!"
     )
     keyboard = [
         [InlineKeyboardButton("✅ Nhận KM 135%", callback_data=f"km_yes_{order_id}"), InlineKeyboardButton("❌ Không KM", callback_data=f"km_no_{order_id}")]
     ]
-    await update.message.reply_text(nap_text, parse_mode="Markdown", reply_markup=InlineKeyboardMarkup(keyboard))
+    
+    # Gửi ảnh QR nạp kèm thông tin phía dưới
+    await context.bot.send_photo(
+        chat_id=update.effective_chat.id,
+        photo=BANK_QR_URL,
+        caption=caption_text,
+        parse_mode="Markdown",
+        reply_markup=InlineKeyboardMarkup(keyboard)
+    )
 
 async def menu_rut_bank(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
@@ -785,25 +845,8 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await query.message.reply_text(bc_info, parse_mode="Markdown")
     elif data == "xem_bxh":
         await hien_thi_bxh_dep(query)
-    elif data == "nap_bank":
-        await query.message.reply_text(
-            f"💳 **NẠP QUA CHUYỂN KHOẢN BANK**\n"
-            f"• STK Duy Nhất: `{SINGLE_BANK_INFO['stk']}` ({SINGLE_BANK_INFO['name']})\n"
-            f"• Chủ TK: `{SINGLE_BANK_INFO['chủ tài khoản']}`\n\n"
-            f"💡 Vui lòng gõ lệnh: `/nap [số_tiền]` để tạo mã giao dịch.", parse_mode="Markdown"
-        )
-    elif data == "nap_zalopay":
-        await context.bot.send_photo(
-            chat_id=query.message.chat_id,
-            photo=ZALOPAY_QR_URL,
-            caption=(
-                f"🟢 **QUÉT MÃ QR ZALOPAY NẠP TIỀN**\n"
-                f"• STK Nhận: `{SINGLE_BANK_INFO['stk']}` ({SINGLE_BANK_INFO['name']})\n"
-                f"• Chủ TK: `{SINGLE_BANK_INFO['chủ tài khoản']}`\n\n"
-                f"💡 Gõ lệnh `/nap [số_tiền]` để lấy mã nội dung nạp ghi chú chính xác!"
-            ),
-            parse_mode="Markdown"
-        )
+    elif data == "xem_vip":
+        await hien_thi_thong_tin_vip(query, user_id)
     elif data.startswith("km_yes_") or data.startswith("km_no_"):
         parts = data.split("_")
         action, order_id = parts[1], parts[2]
@@ -828,7 +871,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     await context.bot.send_message(chat_id=tid, text=noti_text, reply_markup=InlineKeyboardMarkup(kb), parse_mode="Markdown")
                 except:
                     pass
-            await query.edit_message_text(text=f"✅ Đã tạo lệnh nạp! Vui lòng chuyển khoản với nội dung: `{info['note_code']}`", parse_mode="Markdown")
+            await query.edit_message_text(text=f"✅ Đã chọn phương thức! Vui lòng chuyển khoản với nội dung: `{info['note_code']}`", parse_mode="Markdown")
     elif data.startswith("nap_yes_"):
         if not is_admin(user_id): return
         order_id = data.replace("nap_yes_", "")
@@ -839,10 +882,9 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             amount = order["amount"]
             use_km = order.get("use_km", False)
             
-            # Công thức nạp KM 135%: Nạp 400k, KM 140k -> Tổng nhận 540k
-            # Tiền khuyến mãi = 35% của số tiền nạp (tức lượng vượt trội để thành 135%)
+            # KM 135%: Nạp 400k + KM 140k = 540k
             final_cred = amount + (amount * 0.35) if use_km else amount
-            req_wager = final_cred # x1 vòng cược tổng tiền
+            req_wager = final_cred 
             
             if target_id in users_data:
                 users_data[target_id]["balance"] += final_cred
@@ -888,7 +930,7 @@ def main():
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
     app.add_handler(CallbackQueryHandler(button_handler))
 
-    print("🤖 TKGame Bot đã cập nhật chuẩn xác công thức KM 135% (Nạp 400k + KM 140k = 540k)...")
+    print("🤖 TKGame Bot đã cập nhật hoàn tất: Chỉ nạp ngân hàng, hiệu ứng chờ 3s tạo ảnh QR, tra cứu VIP chi tiết và lương VIP...")
 
     app.run_polling(drop_pending_updates=True)
 
