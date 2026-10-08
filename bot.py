@@ -179,7 +179,7 @@ users_data = {}
 referral_counts = {} 
 gift_codes = {"VIP2026": 50000, "TET2026": 100000, "TANTHU": 5000}
 gift_code_limits = {"TANTHU": 99999} 
-used_code_users = set() # Quản lý người dùng đã dùng giftcode nào
+used_code_users = set()
 
 phien_id = 31180
 jackpot_pool = 294016.0  
@@ -261,12 +261,13 @@ async def an_lenh_admin(update: Update):
     except Exception as e:
         logging.error(f"Không thể xóa tin nhắn lệnh: {e}")
 
+# Đã thêm nút "🌸 Giới thiệu bạn bè" trực tiếp vào bàn phím chính bên dưới
 MAIN_REPLY_KEYBOARD = ReplyKeyboardMarkup(
     [
         [KeyboardButton("🎮 Game"), KeyboardButton("👤 Tài khoản")],
         [KeyboardButton("💰 Nạp"), KeyboardButton("💳 Rút")],
         [KeyboardButton("🎧 CSKH"), KeyboardButton("🏆 BXH")],
-        [KeyboardButton("👑 VIP"), KeyboardButton("🔎 Lệnh")]
+        [KeyboardButton("👑 VIP"), KeyboardButton("🌸 Giới thiệu bạn bè")]
     ],
     resize_keyboard=True
 )
@@ -278,11 +279,23 @@ MAIN_REPLY_KEYBOARD = ReplyKeyboardMarkup(
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
 
+    # Xử lý tự động cộng 3,000đ khi có người mới bấm link giới thiệu
     if context.args and context.args[0].startswith("ref_"):
         try:
             ref_id = int(context.args[0].replace("ref_", ""))
             if ref_id != user_id and ref_id in users_data:
-                referral_counts[ref_id] = referral_counts.get(ref_id, 0) + 1
+                if user_id not in used_code_users and user_id not in users_data:
+                    referral_counts[ref_id] = referral_counts.get(ref_id, 0) + 1
+                    users_data[ref_id]["balance"] += 3000.0
+                    users_data[ref_id]["history_action"].append(f"[{datetime.now().strftime('%d/%m %H:%M')}] Thưởng mời bạn bè: +3,000đ")
+                    try:
+                        await context.bot.send_message(
+                            chat_id=ref_id,
+                            text=f"🌸 **THÔNG BÁO GIỚI THIỆU**\n\nCó bạn mới tham gia qua link của bạn! Bạn nhận được thưởng `+3,000` điểm vào ví.",
+                            parse_mode="Markdown"
+                        )
+                    except:
+                        pass
         except:
             pass
 
@@ -350,9 +363,6 @@ async def add_cskh_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except:
         await update.message.reply_text("⚠️ ID không hợp lệ!")
 
-# =========================
-# TÍNH NĂNG TẠO GIFTCODE RIÊNG CHO ADMIN & NHẬP CODE
-# =========================
 async def admin_tao_code_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await an_lenh_admin(update)
     user_id = update.effective_user.id
@@ -610,8 +620,14 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif text == "🌸 Giới thiệu bạn bè":
         bot_username = context.bot.username
         ref_link = f"https://t.me/{bot_username}?start=ref_{user_id}"
+        count = referral_counts.get(user_id, 0)
         await update.message.reply_text(
-            f"🌸 **CHƯƠNG TRÌNH GIỚI THIỆU BẠN BÈ**\n\n🔗 Link:\n`{ref_link}`", parse_mode="Markdown"
+            f"🌸 **CHƯƠNG TRÌNH GIỚI THIỆU BẠN BÈ**\n\n"
+            f"🎁 Nhận ngay **3.000 điểm** cho mỗi người bạn đăng ký thành công qua link giới thiệu của bạn!\n\n"
+            f"📊 Số bạn bè đã mời thành công: **{count} người**\n"
+            f"💰 Tổng tiền thưởng nhận được: **{count * 3000:,} điểm**\n\n"
+            f"🔗 **Link giới thiệu của riêng bạn:**\n`{ref_link}`",
+            parse_mode="Markdown"
         )
 
     elif text == "🏆 BXH":
@@ -1389,7 +1405,7 @@ def main():
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, combined_message_handler))
     app.add_handler(CallbackQueryHandler(button_handler))
 
-    print("🤖 TKGame Bot đã cập nhật hoàn tất: Thêm tính năng tạo giftcode độc quyền cho Admin...")
+    print("🤖 TKGame Bot đã hoàn tất: Tích hợp link mời bạn bè nhận 3k thưởng...")
 
     app.run_polling(drop_pending_updates=True)
 
