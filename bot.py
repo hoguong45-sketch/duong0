@@ -225,7 +225,6 @@ SYSTEM_BANK_LIST = [
 ]
 
 def tinh_vip(deposited, wagered):
-    """Tính cấp bậc VIP từ VIP 1 đến VIP 11"""
     base_dep = 500.0
     base_wag = 2000000.0
     current_vip = 0
@@ -330,7 +329,6 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await send_user_dashboard(update, user_id)
         return
 
-    # XỬ LÝ CÚ PHÁP ĐẶT CƯỢC TÀI XỈU NHANH (T 10000 / X 20000)
     parts = text.split()
     if len(parts) >= 2:
         cmd = parts[0].upper()
@@ -358,7 +356,6 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 await xu_ly_quay_taixiu_tu_dong(update, context, user_id, choice, amt)
                 return
 
-        # XỬ LÝ ĐẶT CƯỢC BẦU CUA 1 HOẶC NHIỀU CON (VD: Nai 30000 hoặc Bau 10000 Cua 20000)
         map_linh_vat = {
             "B": "bau", "BAU": "bau", "C": "cua", "CUA": "cua", 
             "T": "tom", "TOM": "tom", "CA": "ca", 
@@ -836,7 +833,12 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             targets = {MASTER_ADMIN_ID} | sub_admins
             for tid in targets:
                 try:
-                    kb = [[InlineKeyboardButton("✅ Duyệt", callback_data=f"nap_yes_{order_id}"), InlineKeyboardButton("❌ Từ chối", callback_data=f"nap_no_{order_id}")]
+                    kb = [
+                        [
+                            InlineKeyboardButton("✅ Duyệt", callback_data=f"nap_yes_{order_id}"),
+                            InlineKeyboardButton("❌ Từ chối", callback_data=f"nap_no_{order_id}")
+                        ]
+                    ]
                     await context.bot.send_message(chat_id=tid, text=noti_text, reply_markup=InlineKeyboardMarkup(kb), parse_mode="Markdown")
                 except:
                     pass
@@ -872,7 +874,7 @@ def main():
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
     app.add_handler(CallbackQueryHandler(button_handler))
 
-    print("🤖 TKGame Bot đã cập nhật hoàn toàn giữ nguyên mọi tính năng cũ và bổ sung kết quả chuẩn khung mẫu, bầu cua nhiều con, hệ thống VIP 1-11...")
+    print("🤖 TKGame Bot đã sửa lỗi cú pháp thành công và sẵn sàng chạy Live...")
 
     app.run_polling(drop_pending_updates=True)
 
