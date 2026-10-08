@@ -195,18 +195,34 @@ SINGLE_BANK_INFO = {
     "chủ tài khoản": "TKGAME AUTO SYSTEM"
 }
 
-# ẢNH MÃ QR NGÂN HÀNG CHUẨN XÁC
-BANK_QR_URL = "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=600&auto=format&fit=crop"
+# ẢNH QR MỚI RÕ NÉT, UY TÍN CHẤT LƯỢNG CAO
+BANK_QR_URL = "https://images.unsplash.com/photo-1559526324-4b87b5e36e44?q=80&w=800&auto=format&fit=crop"
 
-BANK_LIST_TEXT = (
-    f"📋 **CỔNG RÚT TIỀN TỰ ĐỘNG - MSB: 6314072009**\n\n"
-    "✅ Vietcombank => `VCB`\n"
-    "✅ BIDV => `BIDV`\n"
-    "✅ Techcombank => `TCB`\n"
-    "✅ MB Bank => `MB`\n\n"
-    "⚠️ **Lưu ý:** Lần rút đầu tiên yêu cầu tài khoản đã nạp tối thiểu `50.000đ` và hoàn thành `x1` vòng cược tổng tiền!\n\n"
-    "💡 **Cú pháp rút:**\n"
-    "`/rutbank [Số_tiền] [Mã_NH] [STK] [Tên_chủ_khoản]`"
+WITHDRAW_GUIDE_TEXT = (
+    "⚠️ **Lưu ý:** Không hỗ trợ hoàn tiền nếu bạn nhập sai thông tin Tài khoản.\n\n"
+    "🎀 **MOMO**\n"
+    "`/rutmomo [số Momo] [số tiền cần rút]`\n"
+    "💡 VD: `/rutmomo 0987654321 100000`\n\n"
+    "🏦 **BANK**\n"
+    "`/rutbank [số tiền cần rút] [mã ngân hàng] [số TK] [Tên TK không dấu]`\n"
+    "💡 VD: `/rutbank 100000 VCB 0123456789 Tran Van B`\n\n"
+    "📌 Số tiền rút tối thiểu là **50.000đ** đối với Momo và **50.000đ** đối với Bank.\n\n"
+    "📋 **TÊN NGÂN HÀNG - MÃ NGÂN HÀNG:**\n"
+    "✅ Vietcombank => `VCB` | ✅ BIDV => `BIDV`\n"
+    "✅ Vietinbank => `VTB` | ✅ Techcombank => `TCB`\n"
+    "✅ MB Bank => `MB` | ✅ Agribank => `AGR`\n"
+    "✅ TienPhong Bank => `TPB` | ✅ SHB bank => `SHB`\n"
+    "✅ ACB => `ACB` | ✅ Maritime Bank => `MSB`\n"
+    "✅ VIB => `VIB` | ✅ Sacombank => `STB`\n"
+    "✅ VP Bank => `VPB` | ✅ SeaBank => `SEAB`\n"
+    "✅ Shinhan bank => `SHBVN` | ✅ Eximbank => `EIB`\n"
+    "✅ KienLong Bank => `KLB` | ✅ Dong A Bank => `DAB`\n"
+    "✅ HD Bank => `HDB` | ✅ LienVietPostBank => `LPB`\n"
+    "✅ VietBank => `VBB` | ✅ ABBANK => `ABB`\n"
+    "✅ PG Bank => `PGB` | ✅ PVComBank => `PVC`\n"
+    "✅ Bac A Bank => `BAB` | ✅ SCB => `SCB`\n"
+    "✅ BanVietBank => `VCCB` | ✅ Saigonbank => `SGB`\n"
+    "✅ Bao Viet Bank => `BVB` | ✅ Orient Commercial Bank => `OCB`"
 )
 
 def tinh_vip(deposited, wagered):
@@ -251,7 +267,7 @@ MAIN_REPLY_KEYBOARD = ReplyKeyboardMarkup(
     [
         [KeyboardButton("🎮 Game"), KeyboardButton("👤 Tài khoản")],
         [KeyboardButton("💰 Nạp"), KeyboardButton("💳 Rút")],
-        [KeyboardButton("🌸 Giới thiệu bạn bè"), KeyboardButton("🏆 BXH")],
+        [KeyboardButton("🎧 CSKH"), KeyboardButton("🏆 BXH")],
         [KeyboardButton("👑 VIP"), KeyboardButton("🔎 Lệnh")]
     ],
     resize_keyboard=True
@@ -307,7 +323,8 @@ async def add_qtv_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         new_qtv = int(context.args[0])
         sub_admins.add(new_qtv)
-        await update.message.reply_text(f"✅ Đã thêm QTV `{new_qtv}` thành công!", parse_mode="Markdown")
+        name_str = users_data.get(new_qtv, {}).get("name", "QTV")
+        await update.message.reply_text(f"✅ Đã thêm QTV **{name_str}** (ID: `{new_qtv}`) thành công!", parse_mode="Markdown")
     except:
         await update.message.reply_text("⚠️ ID không hợp lệ!")
 
@@ -322,7 +339,8 @@ async def add_cskh_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         new_cskh = int(context.args[0])
         cskh_staffs.add(new_cskh)
-        await update.message.reply_text(f"✅ Đã thêm CSKH `{new_cskh}` thành công!", parse_mode="Markdown")
+        name_str = users_data.get(new_cskh, {}).get("name", "CSKH")
+        await update.message.reply_text(f"✅ Đã thêm CSKH **{name_str}** (ID: `{new_cskh}`) thành công!", parse_mode="Markdown")
     except:
         await update.message.reply_text("⚠️ ID không hợp lệ!")
 
@@ -339,7 +357,7 @@ async def admin_panel_users(update: Update, context: ContextTypes.DEFAULT_TYPE):
         btn_text = f"{u.get('name', 'User')} | ID: {u['custom_id']} | {u['balance']:,.0f}đ"
         keyboard.append([InlineKeyboardButton(btn_text, callback_data=f"adm_detail_{uid}")])
     
-    await update.message.reply_text("👑 **QUẢN LÝ TÀI KHOẢN NGƯỜI CHƠI (ADMIN TỐI CAO)**\nBấm vào tài khoản bất kỳ để xem chi tiết:", parse_mode="Markdown", reply_markup=InlineKeyboardMarkup(keyboard))
+    await update.message.reply_text("👑 **QUẢN LÝ TÀI KHOẢN NGƯỜI CHƠI (ADMIN)**\nBấm vào tài khoản bất kỳ để tuỳ chỉnh:", parse_mode="Markdown", reply_markup=InlineKeyboardMarkup(keyboard))
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not update.message or not update.message.text:
@@ -453,7 +471,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if text == "🎮 Game":
         keyboard = [
             [InlineKeyboardButton("🎲 Game Tài Xỉu & Chẵn Lẻ", callback_data="choi_taixiu"), InlineKeyboardButton("🦀 Game Bầu Cua", callback_data="choi_baucua")],
-            [InlineKeyboardButton("🎧 CSKH Hỗ Trợ 24/7", url="https://t.me/cskhtelevip")],
+            [InlineKeyboardButton("🎧 Liên hệ CSKH", url="https://t.me/cskhtelevip")],
             [InlineKeyboardButton("👑 Tra Cứu VIP", callback_data="xem_vip")]
         ]
         await update.message.reply_text("🎮 **SẢNH TRÒ CHƠI TKGAME**\nChọn trò chơi bên dưới hoặc gõ lệnh cược nhanh:", parse_mode="Markdown", reply_markup=InlineKeyboardMarkup(keyboard))
@@ -465,7 +483,10 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await hien_thi_menu_nap(update)
 
     elif text == "💳 Rút":
-        await update.message.reply_text(BANK_LIST_TEXT, parse_mode="Markdown")
+        await update.message.reply_text(WITHDRAW_GUIDE_TEXT, parse_mode="Markdown")
+
+    elif text == "🎧 CSKH":
+        await update.message.reply_text("🎧 Hỗ trợ khách hàng 24/7: https://t.me/cskhtelevip", parse_mode="Markdown")
 
     elif text == "🌸 Giới thiệu bạn bè":
         bot_username = context.bot.username
@@ -481,17 +502,28 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await hien_thi_thong_tin_vip(update, user_id)
 
     elif text == "🔎 Lệnh":
-        admin_extra = "• `/danhsachacc` - Xem toàn bộ acc người chơi (Chỉ Admin)\n" if is_master_admin(user_id) else ""
-        await update.message.reply_text(
-            "🔎 **DANH MỤC LỆNH:**\n"
-            "• `T [số]` hoặc `X [số]` - Cược Tài/Xỉu (Min 10k)\n"
-            "• `C [số]` hoặc `L [số]` - Cược Chẵn/Lẻ (Min 10k)\n"
-            "• `D [mặt_1-6] [số]` - Chọn mặt xúc xắc X5\n"
-            "• `BAU [số] CUA [số]` - Đánh Bầu Cua\n"
-            "• `/nap [số]` - Nạp tiền (STK duy nhất: `6314072009`)\n"
-            f"{admin_extra}",
-            parse_mode="Markdown"
-        )
+        if is_master_admin(user_id):
+            admin_commands_text = (
+                "🔎 **DANH MỤC LỆNH ADMIN & QTV:**\n"
+                "• `/themqtv [ID]` - Thêm QTV hệ thống\n"
+                "• `/themcskh [ID]` - Thêm nhân viên CSKH\n"
+                "• `/danhsachacc` - Quản lý toàn bộ acc (Thay đổi tên, tiền)\n"
+                "• `/check [ID]` - Tra cứu chi tiết tài khoản\n"
+                "• `/nap [số]` - Nạp tiền\n"
+                "• `/rutbank` & `/rutmomo` - Hướng dẫn rút"
+            )
+            await update.message.reply_text(admin_commands_text, parse_mode="Markdown")
+        else:
+            await update.message.reply_text(
+                "🔎 **DANH MỤC LỆNH:**\n"
+                "• `T [số]` hoặc `X [số]` - Cược Tài/Xỉu (Min 10k)\n"
+                "• `C [số]` hoặc `L [số]` - Cược Chẵn/Lẻ (Min 10k)\n"
+                "• `D [mặt_1-6] [số]` - Chọn mặt xúc xắc X5\n"
+                "• `BAU [số] CUA [số]` - Đánh Bầu Cua\n"
+                "• `/nap [số]` - Nạp tiền\n"
+                "• `/rutbank` hoặc `/rutmomo` - Rút tiền",
+                parse_mode="Markdown"
+            )
 
 async def send_user_dashboard(update: Update, user_id: int):
     u = users_data[user_id]
@@ -509,7 +541,7 @@ async def send_user_dashboard(update: Update, user_id: int):
         [InlineKeyboardButton("🏆 Bảng Xếp Hạng", callback_data="xem_bxh")]
     ]
     if is_master_admin(user_id):
-        keyboard.append([InlineKeyboardButton("👑 Quản Lý Toàn Bộ Acc (Admin)", callback_data="admin_view_all_acc")])
+        keyboard.append([InlineKeyboardButton("👑 Quản Lý Acc Người Chơi (Admin)", callback_data="admin_view_all_acc")])
 
     chat_obj = update.message if update.message else update.callback_query.message
     await chat_obj.reply_text(
@@ -526,10 +558,11 @@ async def hien_thi_menu_nap(update: Update):
     chat_obj = update.message if update.message else update.callback_query.message
     await chat_obj.reply_text(
         f"📥 **HƯỚNG DẪN NẠP TIỀN QUA NGÂN HÀNG**\n"
-        f"• STK Nhận Tiền Duy Nhất: `{SINGLE_BANK_INFO['stk']}` ({SINGLE_BANK_INFO['name']})\n"
+        f"• Ngân hàng: **MSB**\n"
+        f"• STK Duy Nhất: `{SINGLE_BANK_INFO['stk']}`\n"
         f"• Chủ TK: `{SINGLE_BANK_INFO['chủ tài khoản']}`\n"
-        f"• Có hỗ trợ **Khuyến Mãi 135%** (Nạp 400k + KM 140k = 540k, x1 vòng cược).\n\n"
-        f"💡 Vui lòng gõ lệnh: `/nap [số_tiền]` để hệ thống tạo mã giao dịch.",
+        f"• Khuyến Mãi **135%** (Nạp 400k + KM 140k = 540k, x1 vòng cược).\n\n"
+        f"💡 Gõ lệnh: `/nap [số_tiền]` để nhận mã QR và nội dung chuyển khoản riêng!",
         parse_mode="Markdown"
     )
 
@@ -553,7 +586,7 @@ async def hien_thi_thong_tin_vip(update: Update, user_id: int):
         f"• Cấp VIP hiện tại: **VIP {vip_lvl}**\n"
         f"• Tổng số tiền đã nạp: `{dep:,.0f}` điểm\n"
         f"• Tổng số tiền đã cược: `{wag:,.0f}` điểm\n"
-        f"• Tỷ lệ hoàn trả hiện tại: `{cashback_rate:.1f}%` (Tăng dần theo cấp VIP)\n"
+        f"• Tỷ lệ hoàn trả hiện tại: `{cashback_rate:.1f}%`\n"
         f"• Lương VIP định kỳ: **Tuần 10.000đ** | **Tháng 30.000đ**\n\n"
         f"🎯 **Tiến độ lên VIP tiếp theo:**\n"
         f"• Cần nạp thêm: `{missing_dep:,.0f}` điểm\n"
@@ -771,8 +804,8 @@ async def menu_nap(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("❌ Nạp tối thiểu **20.000** điểm!", parse_mode="Markdown")
         return
 
-    # Hiệu ứng chờ 3 giây tạo ảnh QR
-    status_msg = await update.message.reply_text("⏳ Đang tạo ảnh mã nạp ngân hàng...")
+    # Hiệu ứng chờ 3 giây tạo ảnh QR rõ nét
+    status_msg = await update.message.reply_text("⏳ Đang tạo mã QR nạp ngân hàng...")
     await asyncio.sleep(3.0)
     try:
         await status_msg.delete()
@@ -790,17 +823,17 @@ async def menu_nap(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     caption_text = (
         f"💳 **HƯỚNG DẪN NẠP ĐIỂM (#{order_id})**\n"
-        f"🏦 Ngân hàng: *MSB* | STK Duy Nhất: `{SINGLE_BANK_INFO['stk']}`\n"
-        f"👤 Chủ TK: *{SINGLE_BANK_INFO['chủ tài khoản']}*\n"
+        f"🏦 Ngân hàng: **MSB**\n"
+        f"📌 STK Duy Nhất: `{SINGLE_BANK_INFO['stk']}`\n"
+        f"👤 Chủ TK: `{SINGLE_BANK_INFO['chủ tài khoản']}`\n"
         f"💰 Số tiền: `{amount:,}` VNĐ\n"
         f"📝 **Nội dung chuyển khoản (Bắt buộc):** `{unique_note_code}`\n\n"
-        f"🎁 *Lưu ý:* Hỗ trợ khuyến mãi **135%** (Ví dụ: Nạp 400.000đ, tiền KM là 140.000đ, tổng nhận 540.000đ, x1 vòng cược). Chuyển khoản xong bấm nút bên dưới!"
+        f"🎁 *Lưu ý:* Hỗ trợ khuyến mãi **135%** (Nạp 400k + KM 140k = 540k, x1 vòng cược). Chuyển khoản xong bấm nút bên dưới!"
     )
     keyboard = [
         [InlineKeyboardButton("✅ Nhận KM 135%", callback_data=f"km_yes_{order_id}"), InlineKeyboardButton("❌ Không KM", callback_data=f"km_no_{order_id}")]
     ]
     
-    # Gửi ảnh QR nạp kèm thông tin
     await context.bot.send_photo(
         chat_id=update.effective_chat.id,
         photo=BANK_QR_URL,
@@ -815,7 +848,7 @@ async def menu_rut_bank(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("⚠️ Vui lòng gõ `/start` trước!")
         return
     if not context.args or len(context.args) < 4:
-        await update.message.reply_text(BANK_LIST_TEXT, parse_mode="Markdown")
+        await update.message.reply_text(WITHDRAW_GUIDE_TEXT, parse_mode="Markdown")
         return
     try:
         amount = int(context.args[0])
@@ -823,7 +856,7 @@ async def menu_rut_bank(update: Update, context: ContextTypes.DEFAULT_TYPE):
         stk = context.args[2]
         chủ_tk = " ".join(context.args[3:])
     except ValueError:
-        await update.message.reply_text("⚠️ Sai cú pháp!", parse_mode="Markdown")
+        await update.message.reply_text("⚠️ Sai cú pháp! Vui lòng kiểm tra lại hướng dẫn.", parse_mode="Markdown")
         return
 
     u = users_data[user_id]
@@ -834,13 +867,44 @@ async def menu_rut_bank(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(f"❌ Bạn còn thiếu `{u['wager_remaining']:,.0f}` điểm cược để hoàn thành x1 vòng cược yêu cầu trước khi rút!", parse_mode="Markdown")
         return
 
-    if amount < 30000 or u["balance"] < amount:
-        await update.message.reply_text("❌ Số dư không đủ hoặc dưới mức tối thiểu 30.000!", parse_mode="Markdown")
+    if amount < 50000 or u["balance"] < amount:
+        await update.message.reply_text("❌ Số tiền rút tối thiểu là 50,000đ hoặc số dư ví không đủ!", parse_mode="Markdown")
         return
 
     u["balance"] -= amount
-    u["history_action"].append(f"[{datetime.now().strftime('%d/%m %H:%M')}] Rút {amount:,} về {bank_code} ({stk})")
-    await update.message.reply_text(f"✅ Gửi yêu cầu rút `{amount:,}` về `{bank_code}` thành công!", parse_mode="Markdown")
+    u["history_action"].append(f"[{datetime.now().strftime('%d/%m %H:%M')}] Rút BANK {amount:,} về {bank_code} ({stk})")
+    await update.message.reply_text(f"✅ Gửi yêu cầu rút BANK `{amount:,}` về `{bank_code}` thành công!", parse_mode="Markdown")
+
+async def menu_rut_momo(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+    if user_id not in users_data or users_data[user_id].get("step") != "active":
+        await update.message.reply_text("⚠️ Vui lòng gõ `/start` trước!")
+        return
+    if not context.args or len(context.args) < 2:
+        await update.message.reply_text(WITHDRAW_GUIDE_TEXT, parse_mode="Markdown")
+        return
+    try:
+        momo_number = context.args[0]
+        amount = int(context.args[1])
+    except ValueError:
+        await update.message.reply_text("⚠️ Sai cú pháp! VD: `/rutmomo 0987654321 50000`", parse_mode="Markdown")
+        return
+
+    u = users_data[user_id]
+    if not u.get("has_deposited_50k", False) or u.get("total_deposited", 0) < 50000:
+        await update.message.reply_text("❌ Rút tiền lần đầu yêu cầu bạn phải nạp tích lũy tối thiểu **50.000đ**!", parse_mode="Markdown")
+        return
+    if u.get("wager_remaining", 0.0) > 0:
+        await update.message.reply_text(f"❌ Bạn còn thiếu `{u['wager_remaining']:,.0f}` điểm cược để hoàn thành x1 vòng cược!", parse_mode="Markdown")
+        return
+
+    if amount < 50000 or u["balance"] < amount:
+        await update.message.reply_text("❌ Số tiền rút tối thiểu là 50,000đ đối với Momo hoặc số dư không đủ!", parse_mode="Markdown")
+        return
+
+    u["balance"] -= amount
+    u["history_action"].append(f"[{datetime.now().strftime('%d/%m %H:%M')}] Rút MOMO {amount:,} về {momo_number}")
+    await update.message.reply_text(f"✅ Gửi yêu cầu rút MOMO `{amount:,}` về số `{momo_number}` thành công!", parse_mode="Markdown")
 
 async def check_user_by_admin(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await an_lenh_admin(update)
@@ -913,7 +977,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         for uid, u in users_data.items():
             btn_text = f"{u.get('name', 'User')} | ID: {u['custom_id']} | {u['balance']:,.0f}đ"
             keyboard.append([InlineKeyboardButton(btn_text, callback_data=f"adm_detail_{uid}")])
-        await query.message.reply_text("👑 **DANH SÁCH TẤT CẢ TÀI KHOẢN (ADMIN)**", parse_mode="Markdown", reply_markup=InlineKeyboardMarkup(keyboard))
+        await query.message.reply_text("👑 **DANH SÁCH TẤT CẢ TÀI KHOẢN (ADMIN)**\nBấm vào để tuỳ chỉnh:", parse_mode="Markdown", reply_markup=InlineKeyboardMarkup(keyboard))
     elif data.startswith("adm_detail_"):
         if not is_master_admin(user_id): return
         target_uid = int(data.replace("adm_detail_", ""))
@@ -921,17 +985,34 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             u = users_data[target_uid]
             vip_lvl = tinh_vip(u.get("total_deposited", 0.0), u.get("total_wagered", 0.0))
             detail_txt = (
-                f"👑 **CHI TIẾT TÀI KHOẢN NGƯỜI CHƠI**\n\n"
+                f"👑 **QUẢN LÝ TÀI KHOẢN**\n\n"
                 f"• Telegram ID: `{target_uid}`\n"
                 f"• Mã ID Game: `{u['custom_id']}`\n"
                 f"• Họ và tên: **{u.get('name', 'N/A')}**\n"
                 f"• Số dư ví: `{u['balance']:,.0f}` điểm\n"
                 f"• Cấp VIP: **VIP {vip_lvl}**\n"
                 f"• Tổng nạp: `{u.get('total_deposited', 0):,.0f}` điểm\n"
-                f"• Tổng cược: `{u.get('total_wagered', 0):,.0f}` điểm\n"
-                f"• Vòng cược còn lại: `{u.get('wager_remaining', 0):,.0f}` điểm"
+                f"• Tổng cược: `{u.get('total_wagered', 0):,.0f}` điểm"
             )
-            await query.message.reply_text(detail_txt, parse_mode="Markdown")
+            kb = [
+                [
+                    InlineKeyboardButton("✏️ Đổi Tên", callback_data=f"adm_editname_{target_uid}"),
+                    InlineKeyboardButton("💰 Cộng/Trừ Tiền", callback_data=f"adm_editbal_{target_uid}")
+                ]
+            ]
+            await query.message.reply_text(detail_txt, parse_mode="Markdown", reply_markup=InlineKeyboardMarkup(kb))
+    elif data.startswith("adm_editname_"):
+        if not is_master_admin(user_id): return
+        target_uid = int(data.replace("adm_editname_", ""))
+        context.user_data["editing_user_id"] = target_uid
+        context.user_data["edit_type"] = "name"
+        await query.message.reply_text(f"✏️ Vui lòng gửi tên mới cho tài khoản ID `{target_uid}`:", parse_mode="Markdown")
+    elif data.startswith("adm_editbal_"):
+        if not is_master_admin(user_id): return
+        target_uid = int(data.replace("adm_editbal_", ""))
+        context.user_data["editing_user_id"] = target_uid
+        context.user_data["edit_type"] = "balance"
+        await query.message.reply_text(f"💰 Vui lòng gửi số tiền mới (hoặc số cộng thêm) cho tài khoản ID `{target_uid}`:", parse_mode="Markdown")
     elif data.startswith("km_yes_") or data.startswith("km_no_"):
         parts = data.split("_")
         action, order_id = parts[1], parts[2]
@@ -984,7 +1065,6 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 )
             except:
                 pass
-            # Cập nhật trạng thái thành Đã xử lý theo yêu cầu
             await query.edit_message_text(text=f"✅ **Đã xử lý (Duyệt nạp #{order_id})**")
     elif data.startswith("nap_no_"):
         if not is_cskh(user_id): return
@@ -992,6 +1072,34 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if order_id in pending_orders:
             pending_orders[order_id]["admin_status"] = "processed"
             await query.edit_message_text(text=f"❌ **Đã xử lý (Từ chối đơn #{order_id})**")
+
+# Xử lý nhập liệu chỉnh sửa tài khoản trực tiếp từ Admin
+async def handle_admin_edit_input(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+    if not is_master_admin(user_id):
+        return False
+    
+    if "editing_user_id" in context.user_data and "edit_type" in context.user_data:
+        target_uid = context.user_data["editing_user_id"]
+        edit_type = context.user_data["edit_type"]
+        val = update.message.text.strip()
+        
+        if target_uid in users_data:
+            if edit_type == "name":
+                users_data[target_uid]["name"] = val
+                await update.message.reply_text(f"✅ Đã đổi tên tài khoản ID `{target_uid}` thành: **{val}**", parse_mode="Markdown")
+            elif edit_type == "balance":
+                try:
+                    new_bal = float(val)
+                    users_data[target_uid]["balance"] = new_bal
+                    await update.message.reply_text(f"✅ Đã cập nhật số dư tài khoản ID `{target_uid}` thành: `{new_bal:,.0f}` điểm", parse_mode="Markdown")
+                except ValueError:
+                    await update.message.reply_text("⚠️ Số tiền không hợp lệ!")
+        
+        context.user_data.pop("editing_user_id", None)
+        context.user_data.pop("edit_type", None)
+        return True
+    return False
 
 
 # =========================
@@ -1013,13 +1121,19 @@ def main():
     app.add_handler(CommandHandler(["sd", "tk"], send_user_dashboard))
     app.add_handler(CommandHandler("nap", menu_nap))
     app.add_handler(CommandHandler("rutbank", menu_rut_bank))
+    app.add_handler(CommandHandler("rutmomo", menu_rut_momo))
     app.add_handler(CommandHandler("rut", menu_rut_bank))
     app.add_handler(CommandHandler("check", check_user_by_admin))
 
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
+    async def combined_message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+        if await handle_admin_edit_input(update, context):
+            return
+        await handle_message(update, context)
+
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, combined_message_handler))
     app.add_handler(CallbackQueryHandler(button_handler))
 
-    print("🤖 TKGame Bot đã cập nhật hoàn tất tính năng Admin, phân quyền QTV/CSKH, trạng thái Đã xử lý và quản lý toàn bộ tài khoản...")
+    print("🤖 TKGame Bot đã cập nhật hoàn tất toàn bộ yêu cầu nâng cao: Ảnh QR nạp uy tín, tuỳ chỉnh tên/tiền người chơi, lệnh admin/qtv ẩn, cổng rút Momo/Bank đa dạng...")
 
     app.run_polling(drop_pending_updates=True)
 
