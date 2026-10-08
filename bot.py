@@ -184,6 +184,7 @@ used_code_users = set()
 phien_id = 31180
 jackpot_pool = 294016.0  
 phien_baccarat_id = 46120
+phien_bau_cua_id = 10100
 
 weekly_wager_stats = {} 
 pending_orders = {}
@@ -261,7 +262,6 @@ async def an_lenh_admin(update: Update):
     except Exception as e:
         logging.error(f"Không thể xóa tin nhắn lệnh: {e}")
 
-# Đã thêm nút "🌸 Giới thiệu bạn bè" trực tiếp vào bàn phím chính bên dưới
 MAIN_REPLY_KEYBOARD = ReplyKeyboardMarkup(
     [
         [KeyboardButton("🎮 Game"), KeyboardButton("👤 Tài khoản")],
@@ -279,7 +279,6 @@ MAIN_REPLY_KEYBOARD = ReplyKeyboardMarkup(
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
 
-    # Xử lý tự động cộng 3,000đ khi có người mới bấm link giới thiệu
     if context.args and context.args[0].startswith("ref_"):
         try:
             ref_id = int(context.args[0].replace("ref_", ""))
@@ -458,6 +457,70 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     parts = text.split()
+    
+    # ---------------------------------------------------------
+    # BẮT CƯỢC BẦU CUA (Hỗ trợ chữ hoa / chữ thường linh hoạt)
+    # ---------------------------------------------------------
+    map_linh_vat = {
+        "BAU": "bau", "BẦU": "bau",
+        "CUA": "cua",
+        "TOM": "tom", "TÔM": "tom",
+        "CA": "ca", "CÁ": "ca",
+        "GA": "ga", "GÀ": "ga",
+        "NAI": "nai"
+    }
+    
+    # Kiểm tra xem chuỗi có chứa từ khóa Bầu Cua hay không
+    has_baucua_keyword = any(p.upper() in map_linh_vat for p in parts)
+    if has_baucua_keyword:
+        bets = []
+        total_bet = 0
+        i = 0
+        while i < len(parts) - 1:
+            k = parts[i].upper()
+            if k in map_linh_vat:
+                try:
+                    v = int(parts[i+1])
+                    if v >= 10000:
+                        bets.append((map_linh_vat[k], v))
+                        total_bet += v
+                        i += 2
+                        continue
+                except:
+                    pass
+            i += 1
+
+        if bets and total_bet > 0:
+            if user_id not in users_data or users_data[user_id].get("step") != "active":
+                await update.message.reply_text("⚠️ Vui lòng gõ `/start` trước!")
+                return
+            u = users_data[user_id]
+            if u["balance"] < total_bet:
+                await update.message.reply_text(f"❌ Số dư không đủ cược tổng `{total_bet:,}` điểm!", parse_mode="Markdown")
+                return
+            u["balance"] -= total_bet
+            u["total_wagered"] = u.get("total_wagered", 0.0) + total_bet
+            u["wager_remaining"] = max(0.0, u.get("wager_remaining", 0.0) - total_bet)
+            weekly_wager_stats[user_id] = weekly_wager_stats.get(user_id, 0.0) + total_bet
+            
+            old_vip = tinh_vip(u.get("total_deposited", 0.0), u.get("total_wagered", 0.0) - total_bet)
+            new_vip = tinh_vip(u.get("total_deposited", 0.0), u.get("total_wagered", 0.0))
+            if new_vip > old_vip:
+                try:
+                    await context.bot.send_message(chat_id=user_id, text=f"🎉 **CHÚC MỪNG!** Bạn đã thăng hạng thành công lên **VIP {new_vip}**!", parse_mode="Markdown")
+                except:
+                    pass
+
+            vip_lvl = new_vip
+            cashback_rate = 0.008 + (vip_lvl * 0.002)
+            u["cashback_fund"] += total_bet * cashback_rate
+            
+            await xu_ly_quay_baucua_nhieu_con(update, context, user_id, bets, total_bet)
+            return
+
+    # ---------------------------------------------------------
+    # CÁC LỆNH CƯỢC KHÁC
+    # ---------------------------------------------------------
     if len(parts) >= 2:
         cmd = parts[0].upper()
         try:
@@ -548,53 +611,6 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 else: choice = "le"
 
                 await xu_ly_quay_taixiu_tu_dong(update, context, user_id, choice, amt)
-                return
-
-        map_linh_vat = {"BAU": "bau", "CUA": "cua", "TOM": "tom", "CA": "ca", "GA": "ga", "NAI": "nai"}
-        if cmd in map_linh_vat or len(parts) >= 2:
-            bets = []
-            total_bet = 0
-            i = 0
-            while i < len(parts) - 1:
-                k = parts[i].upper()
-                if k in map_linh_vat:
-                    try:
-                        v = int(parts[i+1])
-                        if v >= 10000:
-                            bets.append((map_linh_vat[k], v))
-                            total_bet += v
-                            i += 2
-                            continue
-                    except:
-                        pass
-                i += 1
-
-            if bets and total_bet > 0:
-                if user_id not in users_data or users_data[user_id].get("step") != "active":
-                    await update.message.reply_text("⚠️ Vui lòng gõ `/start` trước!")
-                    return
-                u = users_data[user_id]
-                if u["balance"] < total_bet:
-                    await update.message.reply_text(f"❌ Số dư không đủ cược tổng `{total_bet:,}` điểm!", parse_mode="Markdown")
-                    return
-                u["balance"] -= total_bet
-                u["total_wagered"] = u.get("total_wagered", 0.0) + total_bet
-                u["wager_remaining"] = max(0.0, u.get("wager_remaining", 0.0) - total_bet)
-                weekly_wager_stats[user_id] = weekly_wager_stats.get(user_id, 0.0) + total_bet
-                
-                old_vip = tinh_vip(u.get("total_deposited", 0.0), u.get("total_wagered", 0.0) - total_bet)
-                new_vip = tinh_vip(u.get("total_deposited", 0.0), u.get("total_wagered", 0.0))
-                if new_vip > old_vip:
-                    try:
-                        await context.bot.send_message(chat_id=user_id, text=f"🎉 **CHÚC MỪNG!** Bạn đã thăng hạng thành công lên **VIP {new_vip}**!", parse_mode="Markdown")
-                    except:
-                        pass
-
-                vip_lvl = new_vip
-                cashback_rate = 0.008 + (vip_lvl * 0.002)
-                u["cashback_fund"] += total_bet * cashback_rate
-                
-                await xu_ly_quay_baucua_nhieu_con(update, context, user_id, bets, total_bet)
                 return
 
     if text == "🎮 Game":
@@ -974,7 +990,7 @@ async def xu_ly_quay_baucua_nhieu_con(update: Update, context: ContextTypes.DEFA
 
     msg = (
         f"┏━━━━━━━━━━━━━┓\n"
-        f"┣➤ Trò chơi: Bầu Cua\n"
+        f"┣➤ Trò chơi: Bầu Cua (Phiên #{phien_bau_cua_id})\n"
         f"┣➤ Kết quả: {hien_thi_ket_qua}\n"
         f"┣➤ Cửa đặt : {', '.join(chi_tiet_cua)}\n"
         f"┣➤ Mã giao dịch: {ma_gd}\n"
@@ -1209,7 +1225,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "⚀ Bầu B | ⚁ Cua C\n"
             "⚂ Tôm T | ⚃ Cá A\n"
             "⚄ Gà G | ⚅ Nai N\n\n"
-            "💡 **Gõ trực tiếp vào chat:** `BAU 30000` hoặc `BAU 10000 CUA 20000` (Min 10k)"
+            "💡 **Gõ trực tiếp vào chat:** `nai 50000` hoặc `bau 10000 cua 20000` (Min 10k)"
         )
         await query.message.reply_text(bc_info, parse_mode="Markdown")
     elif data == "xem_bxh":
@@ -1405,7 +1421,7 @@ def main():
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, combined_message_handler))
     app.add_handler(CallbackQueryHandler(button_handler))
 
-    print("🤖 TKGame Bot đã hoàn tất: Tích hợp link mời bạn bè nhận 3k thưởng...")
+    print("🤖 TKGame Bot đã được kiểm tra và vá lỗi Bầu Cua hoàn chỉnh...")
 
     app.run_polling(drop_pending_updates=True)
 
