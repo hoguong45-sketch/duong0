@@ -191,7 +191,7 @@ SINGLE_BANK_INFO = {
     "chủ tài khoản": "TKGAME AUTO SYSTEM"
 }
 
-ZALOPAY_QR_URL = "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=600&auto=format&fit=crop" # Hoặc link ảnh QR ZaloPay thực tế
+ZALOPAY_QR_URL = "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=600&auto=format&fit=crop"
 
 BANK_LIST_TEXT = (
     f"📋 **CỔNG RÚT TIỀN TỰ ĐỘNG - MSB: 6314072009**\n\n"
@@ -205,7 +205,6 @@ BANK_LIST_TEXT = (
 )
 
 def tinh_vip(deposited, wagered):
-    """Thông số nạp và cược chuẩn để lên cấp từ VIP 1 đến VIP 11"""
     base_dep = 500.0
     base_wag = 2000000.0
     current_vip = 0
@@ -265,13 +264,13 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "history_action": [f"[{datetime.now().strftime('%d/%m %H:%M')}] Tặng thưởng tân thủ: +5,000đ"]
         }
 
-        welcome_img_url = "https://images.unsplash.com/photo-1518609878373-06d740f60d8b?q=80&w=1000&auto=format&fit=crop"
+        welcome_img_url = "https://images.unsplash.com/photo-1596838132731-3301c3fd4317?q=80&w=1000&auto=format&fit=crop"
         intro_text = (
-            "🌟 **CHÀO MỪNG ĐẾN VỚI TKGAME - TẶNG NGAY 5.000Đ KHI VÀO CHƠI** 🌟\n\n"
-            "🏰 **THÔNG TIN HỆ THỐNG:**\n"
-            "• STK Nhận Tiền Duy Nhất: `6314072009` (MSB)\n"
-            "• Khuyến mãi nạp 135% tự chọn (x1 tiền nạp + x1 tiền KM vòng cược).\n\n"
-            "💡 Vui lòng nhập **Họ và Tên trùng với Tài Khoản Ngân Hàng** để kích hoạt tài khoản:"
+            "✨ **CHÀO MỪNG ĐẾN VỚI TKGAME - TẶNG NGAY 5.000Đ KHI VÀO CHƠI** ✨\n\n"
+            "🏰 **VỀ CHÚNG TÔI & CAM KẾT VÀNG:**\n"
+            "• 💯 **Uy tín tuyệt đối:** Hệ thống tự động 100%, nạp rút siêu tốc trong 30 giây.\n"
+            "• 🛡️ **Minh bạch công khai:** Kết quả xúc xắc hoàn toàn ngẫu nhiên bằng công nghệ chuẩn Telegram (Dice API).\n\n"
+            "💡 Vui lòng nhập **Họ và Tên trùng với Tài Khoản Ngân Hàng** bên dưới để kích hoạt tài khoản:"
         )
         await update.message.reply_photo(photo=welcome_img_url, caption=intro_text, parse_mode="Markdown")
         return
@@ -456,7 +455,7 @@ async def hien_thi_menu_nap(update: Update):
     await chat_obj.reply_text(
         f"📥 **CHỌN PHƯƠNG THỨC NẠP TIỀN**\n"
         f"• STK Nhận Tiền Duy Nhất: `{SINGLE_BANK_INFO['stk']}` ({SINGLE_BANK_INFO['name']})\n"
-        f"• Có hỗ trợ tùy chọn **Khuyến Mãi 135%** (x1 tiền nạp và x1 tiền KM vào vòng cược yêu cầu).\n\n"
+        f"• Có hỗ trợ tùy chọn **Khuyến Mãi 135%** (Ví dụ nạp 400.000đ, tiền khuyến mãi là 140.000đ, tổng nhận 540.000đ vào ví).\n\n"
         f"💡 Hoặc gõ lệnh nhanh: `/nap [số_tiền]`",
         parse_mode="Markdown",
         reply_markup=InlineKeyboardMarkup(keyboard)
@@ -630,22 +629,22 @@ async def hien_thi_bxh_dep(update: Update):
         f"🔥 **Chuỗi thắng**\n"
         f"🥇 **BXH hôm nay**\n"
         f"📅 **Ngày: {today_str}**\n"
-        f"🔥 Trạng thái: cập nhật liên tục · chốt lúc 23:55 mỗi ngày[span_17](start_span)[span_17](end_span)\n\n"
-        f"Tính chuỗi thắng/thua dài nhất trong ngày; tất cả nhóm game cộng lại · mỗi lệnh $\\ge$ 5.000 · cần đã nạp mới tính hạng; lệnh nhỏ hơn bỏ qua (không cắt chuỗi)[span_18](start_span)[span_18](end_span).\n\n"
+        f"🔥 Trạng thái: cập nhật liên tục · chốt lúc 23:55 mỗi ngày\n\n"
+        f"Tính chuỗi thắng/thua dài nhất trong ngày; tất cả nhóm game cộng lại · mỗi lệnh $\\ge$ 5.000 · cần đã nạp mới tính hạng; lệnh nhỏ hơn bỏ qua (không cắt chuỗi).\n\n"
         f"🟤 **Top 10**\n"
-        f"🥇 `*****72771` · 11 ván · 🧧 **20.000**[span_19](start_span)[span_19](end_span)\n"
-        f"🥈 `*****08433` · 8 ván · 🧧 **10.000**[span_20](start_span)[span_20](end_span)\n"
-        f"🥉 `*****59087` · 6 ván · 🧧 **5.000**[span_21](start_span)[span_21](end_span)\n"
-        f"4. `*****53249` · 6 ván[span_22](start_span)[span_22](end_span)\n"
-        f"5. `*****13100` · 5 ván[span_23](start_span)[span_23](end_span)\n"
-        f"6. `*****11187` · 5 ván[span_24](start_span)[span_24](end_span)\n"
-        f"7. `*****01421` · 5 ván[span_25](start_span)[span_25](end_span)\n"
-        f"8. `*****30888` · 5 ván[span_26](start_span)[span_26](end_span)\n"
-        f"9. `*****23724` · 5 ván[span_27](start_span)[span_27](end_span)\n"
-        f"10. `*****66779` · 4 ván[span_28](start_span)[span_28](end_span)\n\n"
+        f"🥇 `*****72771` · 11 ván · 🧧 **20.000**\n"
+        f"🥈 `*****08433` · 8 ván · 🧧 **10.000**\n"
+        f"🥉 `*****59087` · 6 ván · 🧧 **5.000**\n"
+        f"4. `*****53249` · 6 ván\n"
+        f"5. `*****13100` · 5 ván\n"
+        f"6. `*****11187` · 5 ván\n"
+        f"7. `*****01421` · 5 ván\n"
+        f"8. `*****30888` · 5 ván\n"
+        f"9. `*****23724` · 5 ván\n"
+        f"10. `*****66779` · 4 ván\n\n"
         f"🆔 **Thành tích của bạn**\n"
-        f"• Hôm nay chưa có thành tích tính vào bảng[span_29](start_span)[span_29](end_span)\n\n"
-        f"💡 Số liệu cộng dồn đến 23:55, bấm «Làm mới» để xem hạng mới nhất[span_30](start_span)[span_30](end_span)."
+        f"• Hôm nay chưa có thành tích tính vào bảng\n\n"
+        f"💡 Số liệu cộng dồn đến 23:55, bấm «Làm mới» để xem hạng mới nhất."
     )
     keyboard = [
         [InlineKeyboardButton("🔄 Làm mới", callback_data="refresh_bxh"), InlineKeyboardButton("📅 Hôm qua", callback_data="bxh_yesterday")],
@@ -672,7 +671,6 @@ async def menu_nap(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     u = users_data[user_id]
-    # Sinh mã giao dịch riêng biệt cho từng người nạp
     unique_note_code = f"TK{random.randint(100000, 999999)}"
     order_id = f"NAP{random.randint(10000,99999)}"
     
@@ -687,7 +685,7 @@ async def menu_nap(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"👤 Chủ TK: *{SINGLE_BANK_INFO['chủ tài khoản']}*\n"
         f"💰 Số tiền: `{amount:,}` VNĐ\n"
         f"📝 **Nội dung chuyển khoản (Bắt buộc):** `{unique_note_code}`\n\n"
-        f"🎁 *Lưu ý:* Hệ thống hỗ trợ khuyến mãi **135%** (x1 tiền nạp và x1 tiền khuyến mãi vào vòng cược). Sau khi chuyển khoản, bấm nút dưới để báo duyệt!"
+        f"🎁 *Lưu ý:* Hỗ trợ khuyến mãi **135%** (Ví dụ: Nạp 400.000đ, tiền khuyến mãi là 140.000đ, tổng nhận 540.000đ). Sau khi chuyển khoản, bấm nút dưới để báo duyệt!"
     )
     keyboard = [
         [InlineKeyboardButton("✅ Nhận KM 135%", callback_data=f"km_yes_{order_id}"), InlineKeyboardButton("❌ Không KM", callback_data=f"km_no_{order_id}")]
@@ -712,7 +710,6 @@ async def menu_rut_bank(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     u = users_data[user_id]
-    # Kiểm tra điều kiện rút lần đầu: Đã nạp tối thiểu 50k và hoàn thành x1 vòng cược
     if not u.get("has_deposited_50k", False) or u.get("total_deposited", 0) < 50000:
         await update.message.reply_text("❌ Rút tiền lần đầu yêu cầu bạn phải nạp tích lũy tối thiểu **50.000đ**!", parse_mode="Markdown")
         return
@@ -842,7 +839,9 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             amount = order["amount"]
             use_km = order.get("use_km", False)
             
-            final_cred = amount * (2.35 if use_km else 1.0)
+            # Công thức nạp KM 135%: Nạp 400k, KM 140k -> Tổng nhận 540k
+            # Tiền khuyến mãi = 35% của số tiền nạp (tức lượng vượt trội để thành 135%)
+            final_cred = amount + (amount * 0.35) if use_km else amount
             req_wager = final_cred # x1 vòng cược tổng tiền
             
             if target_id in users_data:
@@ -889,7 +888,7 @@ def main():
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
     app.add_handler(CallbackQueryHandler(button_handler))
 
-    print("🤖 TKGame Bot đã cập nhật hoàn tất STK 6314072009, KM 135%, rút 50k x1 vòng cược, BXH đẹp và mã giao dịch riêng...")
+    print("🤖 TKGame Bot đã cập nhật chuẩn xác công thức KM 135% (Nạp 400k + KM 140k = 540k)...")
 
     app.run_polling(drop_pending_updates=True)
 
