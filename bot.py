@@ -726,7 +726,6 @@ async def xu_ly_quay_baccarat(update: Update, context: ContextTypes.DEFAULT_TYPE
             u["history_action"].append(f"[{datetime.now().strftime('%d/%m %H:%M')}] Thua Baccarat {choice.upper()}: -{amt:,}đ")
 
     con_icons_str = f"{dice_emojis[con_d1]} {dice_emojis[con_d2]} {dice_emojis[con_d3]}"
-    cai_icons_str = f"{dice_emojis[cai_d1]} {dice_emojis[cai_d2]} {dice_emojis[cai_d3]}"
 
     msg = (
         f"🃏 **BACCARAT XÚC XẮC - PHIÊN #{phien_baccarat_id}**\n"
@@ -955,7 +954,7 @@ async def menu_nap(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     status_msg = await update.message.reply_text("⏳ Đang tạo mã QR nạp ngân hàng...")
-    await asyncio.sleep(3.0)
+    await asyncio.sleep(2.0)
     try:
         await status_msg.delete()
     except:
@@ -1196,13 +1195,25 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     await context.bot.send_message(chat_id=tid, text=noti_text, reply_markup=InlineKeyboardMarkup(kb), parse_mode="Markdown")
                 except:
                     pass
-            # Cập nhật tin nhắn hướng dẫn nạp thành thông báo đã gửi đơn cho admin hoặc qtv
-            await query.edit_message_text(text=f"✅ Đã gửi đơn cho Admin hoặc QTV xử lý (Mã đơn: #{order_id})", parse_mode="Markdown")
+            
+            # Xoá hoàn toàn ảnh hướng dẫn nạp và thay thế bằng văn bản xác nhận đã gửi đơn cho Admin/QTV
+            try:
+                await query.message.delete()
+            except:
+                pass
+            await context.bot.send_message(
+                chat_id=query.message.chat.id,
+                text=f"✅ Đã chuyển khoản, báo Admin QTV xử lý\n(Đã gửi đơn đi, mã đơn: #{order_id})",
+                parse_mode="Markdown"
+            )
     elif data.startswith("nap_yes_"):
         if not is_cskh(user_id): return
         order_id = data.replace("nap_yes_", "")
         if order_id in pending_orders:
             order = pending_orders[order_id]
+            if order.get("admin_status") == "processed":
+                await query.answer("⚠️ Đơn này đã được xử lý trước đó!", show_alert=True)
+                return
             order["admin_status"] = "processed"
             target_id = order["user_id"]
             amount = order["amount"]
@@ -1232,13 +1243,19 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 )
             except:
                 pass
-            await query.edit_message_text(text=f"✅ **Đã xử lý (Duyệt nạp #{order_id})**")
+            # Cập nhật và xóa bỏ toàn bộ nút bấm ở phía Admin để tránh bấm lại nhiều lần
+            await query.edit_message_text(text=f"✅ **Đã xử lý (Duyệt nạp #{order_id})**", reply_markup=None)
     elif data.startswith("nap_no_"):
         if not is_cskh(user_id): return
         order_id = data.replace("nap_no_", "")
         if order_id in pending_orders:
-            pending_orders[order_id]["admin_status"] = "processed"
-            await query.edit_message_text(text=f"❌ **Đã xử lý (Từ chối đơn #{order_id})**")
+            order = pending_orders[order_id]
+            if order.get("admin_status") == "processed":
+                await query.answer("⚠️ Đơn này đã được xử lý trước đó!", show_alert=True)
+                return
+            order["admin_status"] = "processed"
+            # Cập nhật và xóa bỏ toàn bộ nút bấm ở phía Admin để tránh bấm lại nhiều lần
+            await query.edit_message_text(text=f"❌ **Đã xử lý (Từ chối đơn #{order_id})**", reply_markup=None)
 
 async def handle_admin_edit_input(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
@@ -1299,7 +1316,7 @@ def main():
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, combined_message_handler))
     app.add_handler(CallbackQueryHandler(button_handler))
 
-    print("🤖 TKGame Bot đã cập nhật hoàn tất: Ẩn bảng nạp khi xác nhận và định dạng rõ lần tung của Cái trong Baccarat...")
+    print("🤖 TKGame Bot đã cập nhật hoàn tất: Xoá bảng nạp khi xác nhận, thông báo đã gửi đơn và khóa nút duyệt của Admin...")
 
     app.run_polling(drop_pending_updates=True)
 
