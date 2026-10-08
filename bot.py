@@ -188,6 +188,7 @@ phien_bau_cua_id = 10100
 
 weekly_wager_stats = {} 
 pending_orders = {}
+pending_withdraws = {}  # Lưu trữ đơn rút tiền chờ duyệt
 
 SINGLE_BANK_INFO = {
     "name": "MSB", 
@@ -262,7 +263,6 @@ async def an_lenh_admin(update: Update):
     except Exception as e:
         logging.error(f"Không thể xóa tin nhắn lệnh: {e}")
 
-# Đã thêm mục "🔄 Hoàn trả" vào menu bàn phím chính cho tất cả mọi người
 MAIN_REPLY_KEYBOARD = ReplyKeyboardMarkup(
     [
         [KeyboardButton("🎮 Game"), KeyboardButton("👤 Tài khoản")],
@@ -1036,7 +1036,7 @@ async def hien_thi_bxh_dep(update: Update):
         f"🎁 Thưởng nóng từ 10.000đ đến 40.000đ cho top giới thiệu!\n\n"
         f"{ref_bxh_str}\n"
         f"━━━━━━━━━━━━━━━\n"
-        f"🥇 **BXH Chuỗi Thắng hôm nay**\n"
+        f"🥇 **BXH Chuỗi Thắng hôm hôm nay**\n"
         f"📅 **Ngày: {today_str}**\n"
         f"🔥 Trạng thái: cập nhật liên tục · chốt lúc 23:55 mỗi ngày\n\n"
         f"🟤 **Top 10**\n"
@@ -1134,23 +1134,34 @@ async def menu_rut_bank(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("❌ Số tiền rút tối thiểu là 50,000đ hoặc số dư ví không đủ!", parse_mode="Markdown")
         return
 
+    # Trừ tiền tạm thời khi gửi yêu cầu rút
     u["balance"] -= amount
-    u["history_action"].append(f"[{datetime.now().strftime('%d/%m %H:%M')}] Rút BANK {amount:,} về {bank_code} ({stk})")
-    await update.message.reply_text(f"✅ Gửi yêu cầu rút BANK `{amount:,}` về `{bank_code}` thành công!", parse_mode="Markdown")
+    u["history_action"].append(f"[{datetime.now().strftime('%d/%m %H:%M')}] Gửi rút BANK {amount:,} về {bank_code} ({stk})")
+    await update.message.reply_text(f"✅ Gửi yêu cầu rút BANK `{amount:,}` về `{bank_code}` thành công! Đang chờ Admin duyệt.", parse_mode="Markdown")
 
-    # Gửi thông báo chi tiết số tiền, ngân hàng, tên người rút về cho Admin/QTV
+    # Tạo mã đơn rút tiền và gửi về Admin kèm cụm nút Duyệt / Từ chối
+    withdraw_id = f"WD{random.randint(10000,99999)}"
+    pending_withdraws[withdraw_id] = {
+        "user_id": user_id, "amount": amount, "type": "BANK",
+        "bank_code": bank_code, "stk": stk, "chu_tk": chủ_tk, "admin_status": "pending"
+    }
+
     admin_notif = (
-        f"🚨 **CÓ YÊU CẦU RÚT TIỀN (BANK)**\n\n"
+        f"🚨 **CÓ YÊU CẦU RÚT TIỀN (BANK) [#{withdraw_id}]**\n\n"
         f"• Khách hàng: **{u.get('name')}** (ID: `{u['custom_id']}`, Tele ID: `{user_id}`)\n"
         f"• Số tiền rút: `{amount:,.0f}` điểm\n"
         f"• Ngân hàng: `{bank_code}`\n"
         f"• Số tài khoản: `{stk}`\n"
         f"• Tên chủ tài khoản: **{chủ_tk}**"
     )
+    kb = [[
+        InlineKeyboardButton("✅ Duyệt", callback_data=f"wd_yes_{withdraw_id}"),
+        InlineKeyboardButton("❌ Từ chối", callback_data=f"wd_no_{withdraw_id}")
+    ]]
     targets = {MASTER_ADMIN_ID} | sub_admins | cskh_staffs
     for tid in targets:
         try:
-            await context.bot.send_message(chat_id=tid, text=admin_notif, parse_mode="Markdown")
+            await context.bot.send_message(chat_id=tid, text=admin_notif, reply_markup=InlineKeyboardMarkup(kb), parse_mode="Markdown")
         except:
             pass
 
@@ -1182,20 +1193,29 @@ async def menu_rut_momo(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     u["balance"] -= amount
-    u["history_action"].append(f"[{datetime.now().strftime('%d/%m %H:%M')}] Rút MOMO {amount:,} về {momo_number}")
-    await update.message.reply_text(f"✅ Gửi yêu cầu rút MOMO `{amount:,}` về số `{momo_number}` thành công!", parse_mode="Markdown")
+    u["history_action"].append(f"[{datetime.now().strftime('%d/%m %H:%M')}] Gửi rút MOMO {amount:,} về {momo_number}")
+    await update.message.reply_text(f"✅ Gửi yêu cầu rút MOMO `{amount:,}` về số `{momo_number}` thành công! Đang chờ Admin duyệt.", parse_mode="Markdown")
 
-    # Gửi thông báo chi tiết Momo về cho Admin/QTV
+    withdraw_id = f"WD{random.randint(10000,99999)}"
+    pending_withdraws[withdraw_id] = {
+        "user_id": user_id, "amount": amount, "type": "MOMO",
+        "momo_number": momo_number, "admin_status": "pending"
+    }
+
     admin_notif = (
-        f"🚨 **CÓ YÊU CẦU RÚT TIỀN (MOMO)**\n\n"
+        f"🚨 **CÓ YÊU CẦU RÚT TIỀN (MOMO) [#{withdraw_id}]**\n\n"
         f"• Khách hàng: **{u.get('name')}** (ID: `{u['custom_id']}`, Tele ID: `{user_id}`)\n"
         f"• Số tiền rút: `{amount:,.0f}` điểm\n"
         f"• Ví Momo / SĐT: `{momo_number}`"
     )
+    kb = [[
+        InlineKeyboardButton("✅ Duyệt", callback_data=f"wd_yes_{withdraw_id}"),
+        InlineKeyboardButton("❌ Từ chối", callback_data=f"wd_no_{withdraw_id}")
+    ]]
     targets = {MASTER_ADMIN_ID} | sub_admins | cskh_staffs
     for tid in targets:
         try:
-            await context.bot.send_message(chat_id=tid, text=admin_notif, parse_mode="Markdown")
+            await context.bot.send_message(chat_id=tid, text=admin_notif, reply_markup=InlineKeyboardMarkup(kb), parse_mode="Markdown")
         except:
             pass
 
@@ -1399,6 +1419,55 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             order["admin_status"] = "processed"
             await query.edit_message_text(text=f"❌ **Đã xử lý (Từ chối đơn #{order_id})**", reply_markup=None)
 
+    # Xử lý Duyệt / Từ chối đơn Rút tiền
+    elif data.startswith("wd_yes_"):
+        if not is_cskh(user_id): return
+        withdraw_id = data.replace("wd_yes_", "")
+        if withdraw_id in pending_withdraws:
+            wd = pending_withdraws[withdraw_id]
+            if wd.get("admin_status") == "processed":
+                await query.answer("⚠️ Đơn rút này đã được xử lý trước đó!", show_alert=True)
+                return
+            wd["admin_status"] = "processed"
+            target_id = wd["user_id"]
+            
+            try:
+                await context.bot.send_message(
+                    chat_id=target_id,
+                    text=f"🎉 **THÔNG BÁO RÚT TIỀN THÀNH CÔNG**\n\nLệnh rút `{wd['amount']:,.0f}` điểm của bạn đã được Admin duyệt và chuyển khoản thành công!",
+                    parse_mode="Markdown"
+                )
+            except:
+                pass
+            await query.edit_message_text(text=f"✅ **Đã duyệt lệnh rút [#{withdraw_id}] thành công!**", reply_markup=None)
+
+    elif data.startswith("wd_no_"):
+        if not is_cskh(user_id): return
+        withdraw_id = data.replace("wd_no_", "")
+        if withdraw_id in pending_withdraws:
+            wd = pending_withdraws[withdraw_id]
+            if wd.get("admin_status") == "processed":
+                await query.answer("⚠️ Đơn rút này đã được xử lý trước đó!", show_alert=True)
+                return
+            wd["admin_status"] = "processed"
+            target_id = wd["user_id"]
+            amount = wd["amount"]
+            
+            # Hoàn tiền lại vào ví người chơi nếu đơn rút bị từ chối
+            if target_id in users_data:
+                users_data[target_id]["balance"] += amount
+                users_data[target_id]["history_action"].append(f"[{datetime.now().strftime('%d/%m %H:%M')}] Từ chối rút, hoàn tiền: +{amount:,}đ")
+
+            try:
+                await context.bot.send_message(
+                    chat_id=target_id,
+                    text=f"❌ **THÔNG BÁO TỪ CHỐI RÚT TIỀN**\n\nLệnh rút `{amount:,.0f}` điểm của bạn đã bị từ chối. Số tiền đã được hoàn lại vào ví của bạn.",
+                    parse_mode="Markdown"
+                )
+            except:
+                pass
+            await query.edit_message_text(text=f"❌ **Đã từ chối lệnh rút [#{withdraw_id}] (Đã hoàn lại tiền cho khách)!**", reply_markup=None)
+
 async def handle_admin_edit_input(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     if not is_admin(user_id):
@@ -1460,7 +1529,7 @@ def main():
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, combined_message_handler))
     app.add_handler(CallbackQueryHandler(button_handler))
 
-    print("🤖 TKGame Bot đã cập nhật hoàn tất tính năng thông báo rút chi tiết và nút Hoàn trả...")
+    print("🤖 TKGame Bot đã cập nhật hoàn tất tính năng Duyệt/Từ chối rút tiền...")
 
     app.run_polling(drop_pending_updates=True)
 
