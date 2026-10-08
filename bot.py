@@ -53,10 +53,9 @@ MINI_APP_HTML = """
         <h3>⚡ Cược Nhanh Mini App</h3>
         <label>Cửa cược:</label>
         <select id="bet_choice">
-            <option value="tai">TÀI (T)</option>
-            <option value="xiu">XỈU (X)</option>
-            <option value="chan">CHẴN (C)</option>
-            <option value="le">LẺ (L)</option>
+            <option value="con">CON (PLAYER)</option>
+            <option value="cai">CÁI (BANKER)</option>
+            <option value="hoa">HOÀ (TIE)</option>
         </select>
         <label>Số tiền cược (Min 10,000):</label>
         <input type="number" id="bet_amount" value="10000" min="10000">
@@ -177,25 +176,24 @@ cskh_staffs = set()
 logging.basicConfig(format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO)
 
 users_data = {}
+referral_counts = {} 
 gift_codes = {"VIP2026": 50000, "TET2026": 100000, "TANTHU": 5000}
 gift_code_limits = {"TANTHU": 99999} 
 used_tanthu_users = set() 
 
-phien_id = 66516
+phien_id = 31180
 jackpot_pool = 294016.0  
-phien_bau_cua_id = 34370
+phien_baccarat_id = 8820
 
 weekly_wager_stats = {} 
 pending_orders = {}
 
-# SỐ TÀI KHOẢN DUY NHẤT MSB: 6314072009
 SINGLE_BANK_INFO = {
     "name": "MSB", 
     "stk": "6314072009", 
     "chủ tài khoản": "TKGAME AUTO SYSTEM"
 }
 
-# ẢNH QR MỚI RÕ NÉT, UY TÍN CHẤT LƯỢNG CAO
 BANK_QR_URL = "https://images.unsplash.com/photo-1559526324-4b87b5e36e44?q=80&w=800&auto=format&fit=crop"
 
 WITHDRAW_GUIDE_TEXT = (
@@ -280,11 +278,19 @@ MAIN_REPLY_KEYBOARD = ReplyKeyboardMarkup(
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
 
+    if context.args and context.args[0].startswith("ref_"):
+        try:
+            ref_id = int(context.args[0].replace("ref_", ""))
+            if ref_id != user_id and ref_id in users_data:
+                referral_counts[ref_id] = referral_counts.get(ref_id, 0) + 1
+        except:
+            pass
+
     if user_id not in users_data or users_data[user_id].get("step") != "active":
         users_data[user_id] = {
             "step": "waiting_name",
             "custom_id": f"{random.randint(10000000,99999999)}",
-            "balance": 5000.0,  # Tặng ngay 5k khi vào chơi
+            "balance": 5000.0,  
             "ref_balance": 0.0, 
             "cashback_fund": 0.0,
             "total_deposited": 0.0,
@@ -314,7 +320,7 @@ async def set_master_admin(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def add_qtv_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
-    if not is_master_admin(user_id):
+    if not is_admin(user_id):
         await update.message.reply_text("❌ Bạn không có quyền sử dụng lệnh này!")
         return
     if not context.args:
@@ -330,7 +336,7 @@ async def add_qtv_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def add_cskh_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
-    if not is_master_admin(user_id):
+    if not is_admin(user_id):
         await update.message.reply_text("❌ Bạn không có quyền sử dụng lệnh này!")
         return
     if not context.args:
@@ -346,7 +352,7 @@ async def add_cskh_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def admin_panel_users(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
-    if not is_master_admin(user_id):
+    if not is_admin(user_id):
         return
     if not users_data:
         await update.message.reply_text("⚠️ Chưa có người chơi nào trong hệ thống.")
@@ -357,7 +363,7 @@ async def admin_panel_users(update: Update, context: ContextTypes.DEFAULT_TYPE):
         btn_text = f"{u.get('name', 'User')} | ID: {u['custom_id']} | {u['balance']:,.0f}đ"
         keyboard.append([InlineKeyboardButton(btn_text, callback_data=f"adm_detail_{uid}")])
     
-    await update.message.reply_text("👑 **QUẢN LÝ TÀI KHOẢN NGƯỜI CHƠI (ADMIN)**\nBấm vào tài khoản bất kỳ để tuỳ chỉnh:", parse_mode="Markdown", reply_markup=InlineKeyboardMarkup(keyboard))
+    await update.message.reply_text("👑 **QUẢN LÝ TÀI KHOẢN NGƯỜI CHƠI**\nBấm vào tài khoản bất kỳ để tuỳ chỉnh:", parse_mode="Markdown", reply_markup=InlineKeyboardMarkup(keyboard))
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not update.message or not update.message.text:
@@ -380,6 +386,36 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             amt = int(parts[1])
         except ValueError:
             amt = 0
+
+        # Lệnh Baccarat Xúc Xắc: Con [số], Cai [số], Hoa [số]
+        if cmd in ["CON", "CAI", "HOA"] and amt >= 10000:
+            if user_id not in users_data or users_data[user_id].get("step") != "active":
+                await update.message.reply_text("⚠️ Vui lòng gõ `/start` và đăng ký tài khoản trước!")
+                return
+            u = users_data[user_id]
+            if u["balance"] < amt:
+                await update.message.reply_text("❌ Số dư ví không đủ để đặt cược Baccarat!", parse_mode="Markdown")
+                return
+            u["balance"] -= amt
+            u["total_wagered"] = u.get("total_wagered", 0.0) + amt
+            u["wager_remaining"] = max(0.0, u.get("wager_remaining", 0.0) - amt)
+            weekly_wager_stats[user_id] = weekly_wager_stats.get(user_id, 0.0) + amt
+            
+            old_vip = tinh_vip(u.get("total_deposited", 0.0), u.get("total_wagered", 0.0) - amt)
+            new_vip = tinh_vip(u.get("total_deposited", 0.0), u.get("total_wagered", 0.0))
+            if new_vip > old_vip:
+                try:
+                    await context.bot.send_message(chat_id=user_id, text=f"🎉 **CHÚC MỪNG!** Bạn đã thăng hạng thành công lên **VIP {new_vip}**!", parse_mode="Markdown")
+                except:
+                    pass
+
+            vip_lvl = new_vip
+            cashback_rate = 0.008 + (vip_lvl * 0.002)
+            u["cashback_fund"] += amt * cashback_rate
+
+            choice_map = {"CON": "con", "CAI": "cai", "HOA": "hoa"}
+            await xu_ly_quay_baccarat(update, context, user_id, choice_map[cmd], amt)
+            return
 
         if cmd == "D" and len(parts) >= 3:
             try:
@@ -417,7 +453,15 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 u["wager_remaining"] = max(0.0, u.get("wager_remaining", 0.0) - amt)
                 weekly_wager_stats[user_id] = weekly_wager_stats.get(user_id, 0.0) + amt
                 
-                vip_lvl = tinh_vip(u.get("total_deposited", 0.0), u.get("total_wagered", 0.0))
+                old_vip = tinh_vip(u.get("total_deposited", 0.0), u.get("total_wagered", 0.0) - amt)
+                new_vip = tinh_vip(u.get("total_deposited", 0.0), u.get("total_wagered", 0.0))
+                if new_vip > old_vip:
+                    try:
+                        await context.bot.send_message(chat_id=user_id, text=f"🎉 **CHÚC MỪNG!** Bạn đã thăng hạng thành công lên **VIP {new_vip}**!", parse_mode="Markdown")
+                    except:
+                        pass
+
+                vip_lvl = new_vip
                 cashback_rate = 0.008 + (vip_lvl * 0.002)
                 u["cashback_fund"] += amt * cashback_rate
                 
@@ -461,7 +505,15 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 u["wager_remaining"] = max(0.0, u.get("wager_remaining", 0.0) - total_bet)
                 weekly_wager_stats[user_id] = weekly_wager_stats.get(user_id, 0.0) + total_bet
                 
-                vip_lvl = tinh_vip(u.get("total_deposited", 0.0), u.get("total_wagered", 0.0))
+                old_vip = tinh_vip(u.get("total_deposited", 0.0), u.get("total_wagered", 0.0) - total_bet)
+                new_vip = tinh_vip(u.get("total_deposited", 0.0), u.get("total_wagered", 0.0))
+                if new_vip > old_vip:
+                    try:
+                        await context.bot.send_message(chat_id=user_id, text=f"🎉 **CHÚC MỪNG!** Bạn đã thăng hạng thành công lên **VIP {new_vip}**!", parse_mode="Markdown")
+                    except:
+                        pass
+
+                vip_lvl = new_vip
                 cashback_rate = 0.008 + (vip_lvl * 0.002)
                 u["cashback_fund"] += total_bet * cashback_rate
                 
@@ -470,9 +522,9 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if text == "🎮 Game":
         keyboard = [
-            [InlineKeyboardButton("🎲 Game Tài Xỉu & Chẵn Lẻ", callback_data="choi_taixiu"), InlineKeyboardButton("🦀 Game Bầu Cua", callback_data="choi_baucua")],
-            [InlineKeyboardButton("🎧 Liên hệ CSKH", url="https://t.me/cskhtelevip")],
-            [InlineKeyboardButton("👑 Tra Cứu VIP", callback_data="xem_vip")]
+            [InlineKeyboardButton("🎲 Tài Xỉu & Chẵn Lẻ", callback_data="choi_taixiu"), InlineKeyboardButton("🃏 Baccarat Xúc Xắc", callback_data="choi_baccarat")],
+            [InlineKeyboardButton("🦀 Game Bầu Cua", callback_data="choi_baucua"), InlineKeyboardButton("👑 Tra Cứu VIP", callback_data="xem_vip")],
+            [InlineKeyboardButton("🎧 Liên hệ CSKH", url="https://t.me/cskhtelevip")]
         ]
         await update.message.reply_text("🎮 **SẢNH TRÒ CHƠI TKGAME**\nChọn trò chơi bên dưới hoặc gõ lệnh cược nhanh:", parse_mode="Markdown", reply_markup=InlineKeyboardMarkup(keyboard))
     
@@ -502,7 +554,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await hien_thi_thong_tin_vip(update, user_id)
 
     elif text == "🔎 Lệnh":
-        if is_master_admin(user_id):
+        if is_admin(user_id):
             admin_commands_text = (
                 "🔎 **DANH MỤC LỆNH ADMIN & QTV:**\n"
                 "• `/themqtv [ID]` - Thêm QTV hệ thống\n"
@@ -518,7 +570,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 "🔎 **DANH MỤC LỆNH:**\n"
                 "• `T [số]` hoặc `X [số]` - Cược Tài/Xỉu (Min 10k)\n"
                 "• `C [số]` hoặc `L [số]` - Cược Chẵn/Lẻ (Min 10k)\n"
-                "• `D [mặt_1-6] [số]` - Chọn mặt xúc xắc X5\n"
+                "• `Con [số]` hoặc `Cai [số]` hoặc `Hoa [số]` - Cược Baccarat (Min 10k)\n"
                 "• `BAU [số] CUA [số]` - Đánh Bầu Cua\n"
                 "• `/nap [số]` - Nạp tiền\n"
                 "• `/rutbank` hoặc `/rutmomo` - Rút tiền",
@@ -528,27 +580,30 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def send_user_dashboard(update: Update, user_id: int):
     u = users_data[user_id]
     vip_lvl = tinh_vip(u.get("total_deposited", 0.0), u.get("total_wagered", 0.0))
+    cashback_rate = 0.8 + (vip_lvl * 0.2) # Hoàn trả cơ bản 0.8% tăng theo VIP
     
     admin_tag = ""
     if is_master_admin(user_id):
         admin_tag = "\n👑 **Quản trị viên tối cao / Admin hệ thống**"
+    elif user_id in sub_admins:
+        admin_tag = "\n🛡️ **Quản trị viên (QTV)**"
     elif user_id in cskh_staffs:
         admin_tag = "\n🎧 **Nhân viên CSKH hệ thống**"
 
     keyboard = [
-        [InlineKeyboardButton("🎲 Game Tài Xỉu & Chẵn Lẻ", callback_data="choi_taixiu"), InlineKeyboardButton("🦀 Game Bầu Cua", callback_data="choi_baucua")],
-        [InlineKeyboardButton("👑 Thông Tin VIP", callback_data="xem_vip")],
+        [InlineKeyboardButton("🎲 Tài Xỉu & Chẵn Lẻ", callback_data="choi_taixiu"), InlineKeyboardButton("🃏 Baccarat Xúc Xắc", callback_data="choi_baccarat")],
+        [InlineKeyboardButton("🦀 Game Bầu Cua", callback_data="choi_baucua"), InlineKeyboardButton("👑 Thông Tin VIP", callback_data="xem_vip")],
         [InlineKeyboardButton("🏆 Bảng Xếp Hạng", callback_data="xem_bxh")]
     ]
-    if is_master_admin(user_id):
-        keyboard.append([InlineKeyboardButton("👑 Quản Lý Acc Người Chơi (Admin)", callback_data="admin_view_all_acc")])
+    if is_admin(user_id):
+        keyboard.append([InlineKeyboardButton("👑 Quản Lý Acc Người Chơi (QTV/Admin)", callback_data="admin_view_all_acc")])
 
     chat_obj = update.message if update.message else update.callback_query.message
     await chat_obj.reply_text(
         f"【**TKGame**】\n\n"
         f"🆔 ID: `{u['custom_id']}` (Tele ID: `{user_id}`){admin_tag}\n"
         f"👑 **VIP {vip_lvl}** | 💰 Ví TK: `{u['balance']:,.0f}` điểm\n"
-        f"🏦 STK Duy Nhất: `{SINGLE_BANK_INFO['stk']}` ({SINGLE_BANK_INFO['name']})\n\n"
+        f"🔄 Hoàn trả cược: `{cashback_rate:.1f}%` | 🏦 STK: `{SINGLE_BANK_INFO['stk']}` ({SINGLE_BANK_INFO['name']})\n\n"
         f"💡 *Gõ lệnh nạp:* `/nap [số_tiền]` (Hỗ trợ KM 135%) 🔽",
         parse_mode="Markdown",
         reply_markup=InlineKeyboardMarkup(keyboard)
@@ -574,31 +629,104 @@ async def hien_thi_thong_tin_vip(update: Update, user_id: int):
     
     req_dep, req_wag = get_vip_requirements(vip_lvl)
     if vip_lvl >= 11:
-        missing_dep = 0
-        missing_wag = 0
+        dep_status = f"{dep:,.0f} [ĐỦ]"
+        wag_status = f"{wag:,.0f} [ĐỦ]"
+        missing_dep_str = "0 [ĐỦ]"
+        missing_wag_str = "0 [ĐỦ]"
     else:
+        dep_status = f"{dep:,.0f} / {req_dep:,.0f}"
+        wag_status = f"{wag:,.0f} / {req_wag:,.0f}"
         missing_dep = max(0.0, req_dep - dep)
         missing_wag = max(0.0, req_wag - wag)
+        missing_dep_str = f"còn thiếu {missing_dep:,.0f}" if missing_dep > 0 else "[ĐỦ]"
+        missing_wag_str = f"còn thiếu {missing_wag:,.0f}" if missing_wag > 0 else "[ĐỦ]"
 
     cashback_rate = 0.8 + (vip_lvl * 0.2)
     vip_text = (
         f"👑 **HỆ THỐNG CẤP ĐỘ VIP** 👑\n\n"
         f"• Cấp VIP hiện tại: **VIP {vip_lvl}**\n"
-        f"• Tổng số tiền đã nạp: `{dep:,.0f}` điểm\n"
-        f"• Tổng số tiền đã cược: `{wag:,.0f}` điểm\n"
+        f"• Tổng số tiền đã nạp: `{dep_status}`\n"
+        f"• Tổng số tiền đã cược: `{wag_status}`\n"
         f"• Tỷ lệ hoàn trả hiện tại: `{cashback_rate:.1f}%`\n"
         f"• Lương VIP định kỳ: **Tuần 10.000đ** | **Tháng 30.000đ**\n\n"
         f"🎯 **Tiến độ lên VIP tiếp theo:**\n"
-        f"• Cần nạp thêm: `{missing_dep:,.0f}` điểm\n"
-        f"• Cần cược thêm: `{missing_wag:,.0f}` điểm"
+        f"• Cần nạp thêm: `{missing_dep_str}`\n"
+        f"• Cần cược thêm: `{missing_wag_str}`"
     )
     chat_obj = update.message if update.message else update.callback_query.message
     await chat_obj.reply_text(vip_text, parse_mode="Markdown")
 
 
 # =========================
-# 4. HỆ THỐNG TRÒ CHƠI & XÚC XẮC
+# 4. HỆ THỐNG TRÒ CHƠI & XÚC XẮC (BACCARAT)
 # =========================
+async def xu_ly_quay_baccarat(update: Update, context: ContextTypes.DEFAULT_TYPE, user_id: int, choice: str, amt: int):
+    chat_id = update.effective_chat.id
+    global phien_baccarat_id
+    phien_baccarat_id += 1
+    ma_gd = random.randint(100000, 999999)
+
+    dice_icons = {1: "⚀", 2: "⚁", 3: "⚂", 4: "⚃", 5: "⚄", 6: "⚅"}
+
+    # Tung 3 xúc xắc cho Con (Player) và 3 cho Cái (Banker)
+    con_d1, con_d2, con_d3 = random.randint(1,6), random.randint(1,6), random.randint(1,6)
+    cai_d1, cai_d2, cai_d3 = random.randint(1,6), random.randint(1,6), random.randint(1,6)
+
+    # Tính điểm Baccarat (Lấy hàng đơn vị của tổng 3 viên)
+    con_sum = con_d1 + con_d2 + con_d3
+    cai_sum = cai_d1 + cai_d2 + cai_d3
+    con_score = con_sum % 10
+    cai_score = cai_sum % 10
+
+    if con_score > cai_score:
+        winning_side = "con"
+    elif cai_score > con_score:
+        winning_side = "cai"
+    else:
+        winning_side = "hoa"
+
+    is_win = (choice == winning_side)
+    total_thang = 0.0
+    u = users_data[user_id]
+
+    if is_win:
+        if choice == "hoa":
+            total_thang = amt * 8.0
+        elif choice == "con":
+            total_thang = amt * 2.0
+        elif choice == "cai":
+            total_thang = amt * 1.95
+        u["balance"] += total_thang
+        ket_qua_str = f"Chiến thắng - +{total_thang:,.0f}đ"
+        u["history_action"].append(f"[{datetime.now().strftime('%d/%m %H:%M')}] Thắng Baccarat {choice.upper()}: +{total_thang:,.0f}đ")
+    else:
+        # Nếu cược Con hoặc Cái mà kết quả Hoà (Tie) thì hoàn tiền cược gốc
+        if winning_side == "hoa" and choice in ["con", "cai"]:
+            total_thang = amt
+            u["balance"] += total_thang
+            ket_qua_str = f"Hoà (Tie) - Hoàn tiền {amt:,}đ"
+            u["history_action"].append(f"[{datetime.now().strftime('%d/%m %H:%M')}] Baccarat Hoà, hoàn tiền: +{amt:,}đ")
+        else:
+            ket_qua_str = f"Thua cuộc - -{amt:,}đ"
+            u["history_action"].append(f"[{datetime.now().strftime('%d/%m %H:%M')}] Thua Baccarat {choice.upper()}: -{amt:,}đ")
+
+    con_icons_str = f"{dice_icons[con_d1]} {dice_icons[con_d2]} {dice_icons[con_d3]}"
+    cai_icons_str = f"{dice_icons[cai_d1]} {dice_icons[cai_d2]} {dice_icons[cai_d3]}"
+
+    msg = (
+        f"🃏 **BACCARAT XÚC XẮC - PHIÊN #{phien_baccarat_id}**\n"
+        f"━━━━━━━━━━━━━━━━━━━\n"
+        f"🔵 **Con (Player):** {con_icons_str} ➔ **{con_score} điểm** (Tổng: {con_sum})\n"
+        f"🔴 **Cái (Banker):** {cai_icons_str} ➔ **{cai_score} điểm** (Tổng: {cai_sum})\n"
+        f"━━━━━━━━━━━━━━━━━━━\n"
+        f"📌 Cửa đặt: **{choice.upper()}** ({amt:,}đ)\n"
+        f"🔢 Mã GD: `{ma_gd}`\n"
+        f"🏆 Kết quả: {winning_side.upper()}\n"
+        f"💰 {ket_qua_str}\n"
+        f"💳 Số dư ví: **{u['balance']:,.0f}đ**"
+    )
+    await context.bot.send_message(chat_id=chat_id, text=msg, parse_mode="Markdown")
+
 async def xu_ly_quay_taixiu_tu_dong(update: Update, context: ContextTypes.DEFAULT_TYPE, user_id: int, choice: str, amt: int):
     chat_id = update.effective_chat.id
     global phien_id
@@ -759,30 +887,36 @@ async def xu_ly_quay_baucua_nhieu_con(update: Update, context: ContextTypes.DEFA
 # =========================
 async def hien_thi_bxh_dep(update: Update):
     today_str = datetime.now().strftime("%Y-%m-%d")
+    
+    sorted_refs = sorted(referral_counts.items(), key=lambda x: x[1], reverse=True)[:5]
+    ref_rewards = [40000, 30000, 20000, 10000, 10000]
+    
+    ref_bxh_str = ""
+    for idx, (uid, count) in enumerate(sorted_refs):
+        uname = users_data.get(uid, {}).get("name", "User")
+        masked_name = uname[:2] + "***" if len(uname) > 2 else "***"
+        reward = ref_rewards[idx]
+        medal = ["🥇", "🥈", "🥉", "4️⃣", "5️⃣"][idx]
+        ref_bxh_str += f"{medal} `{masked_name}` · {count} bạn · 🧧 **{reward:,}đ**\n"
+    if not ref_bxh_str:
+        ref_bxh_str = "• Chưa có dữ liệu mời bạn bè.\n"
+
     bxh_text = (
-        f"🔥 **Chuỗi thắng**\n"
-        f"🥇 **BXH hôm nay**\n"
+        f"🔥 **CHƯƠNG TRÌNH MỜI BẠN BÈ (TOP 5)**\n"
+        f"🎁 Thưởng nóng từ 10.000đ đến 40.000đ cho top giới thiệu!\n\n"
+        f"{ref_bxh_str}\n"
+        f"━━━━━━━━━━━━━━━\n"
+        f"🥇 **BXH Chuỗi Thắng hôm nay**\n"
         f"📅 **Ngày: {today_str}**\n"
         f"🔥 Trạng thái: cập nhật liên tục · chốt lúc 23:55 mỗi ngày\n\n"
-        f"Tính chuỗi thắng/thua dài nhất trong ngày; tất cả nhóm game cộng lại · mỗi lệnh $\\ge$ 5.000 · cần đã nạp mới tính hạng; lệnh nhỏ hơn bỏ qua (không cắt chuỗi).\n\n"
         f"🟤 **Top 10**\n"
-        f"🥇 `*****72771` · 11 ván · 🧧 **20.000**\n"
-        f"🥈 `*****08433` · 8 ván · 🧧 **10.000**\n"
-        f"🥉 `*****59087` · 6 ván · 🧧 **5.000**\n"
-        f"4. `*****53249` · 6 ván\n"
-        f"5. `*****13100` · 5 ván\n"
-        f"6. `*****11187` · 5 ván\n"
-        f"7. `*****01421` · 5 ván\n"
-        f"8. `*****30888` · 5 ván\n"
-        f"9. `*****23724` · 5 ván\n"
-        f"10. `*****66779` · 4 ván\n\n"
-        f"🆔 **Thành tích của bạn**\n"
-        f"• Hôm nay chưa có thành tích tính vào bảng\n\n"
+        f"🥇 `*****72771` · 11 ván · 🧧 **20.000đ**\n"
+        f"🥈 `*****08433` · 8 ván · 🧧 **10.000đ**\n"
+        f"🥉 `*****59087` · 6 ván · 🧧 **5.000đ**\n\n"
         f"💡 Số liệu cộng dồn đến 23:55, bấm «Làm mới» để xem hạng mới nhất."
     )
     keyboard = [
         [InlineKeyboardButton("🔄 Làm mới", callback_data="refresh_bxh"), InlineKeyboardButton("📅 Hôm qua", callback_data="bxh_yesterday")],
-        [InlineKeyboardButton("🏆 BXH cược", callback_data="bxh_cuoc"), InlineKeyboardButton("💲 BXH nạp", callback_data="bxh_nap")],
         [InlineKeyboardButton("🔥 Nhận thưởng chuỗi", callback_data="nhan_thuong_chuoi")]
     ]
     chat_obj = update.message if update.message else update.callback_query.message
@@ -804,7 +938,6 @@ async def menu_nap(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("❌ Nạp tối thiểu **20.000** điểm!", parse_mode="Markdown")
         return
 
-    # Hiệu ứng chờ 3 giây tạo ảnh QR rõ nét
     status_msg = await update.message.reply_text("⏳ Đang tạo mã QR nạp ngân hàng...")
     await asyncio.sleep(3.0)
     try:
@@ -955,6 +1088,16 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "💡 **Gõ trực tiếp vào chat:** `T 50000`, `C 20000`, `D 4 30000` (Min 10k)"
         )
         await query.message.reply_text(tx_info, parse_mode="Markdown")
+    elif data == "choi_baccarat":
+        bc_rule = (
+            "🃏 **HƯỚNG DẪN BACCARAT XÚC XẮC**\n"
+            "• Tung 3 xúc xắc cho Con (Player) và 3 cho Cái (Banker).\n"
+            "• Tính điểm chuẩn Baccarat: Lấy hàng đơn vị của tổng 3 viên (Tổng 15 tính 5 điểm).\n"
+            "• Tỷ lệ trả thưởng: **Con x2** | **Cái x1.95** | **Hoà x8** (Trường hợp Hoà mà cược Con/Cái sẽ được hoàn tiền).\n\n"
+            "💡 **Gõ lệnh cược nhanh:**\n"
+            "`Con 50000` hoặc `Cai 50000` hoặc `Hoa 20000`"
+        )
+        await query.message.reply_text(bc_rule, parse_mode="Markdown")
     elif data == "choi_baucua":
         bc_info = (
             "🔥 **CỬA CƯỢC BẦU CUA**\n"
@@ -969,7 +1112,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif data == "xem_vip":
         await hien_thi_thong_tin_vip(query, user_id)
     elif data == "admin_view_all_acc":
-        if not is_master_admin(user_id): return
+        if not is_admin(user_id): return
         if not users_data:
             await query.message.reply_text("⚠️ Chưa có tài khoản nào.")
             return
@@ -977,9 +1120,9 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         for uid, u in users_data.items():
             btn_text = f"{u.get('name', 'User')} | ID: {u['custom_id']} | {u['balance']:,.0f}đ"
             keyboard.append([InlineKeyboardButton(btn_text, callback_data=f"adm_detail_{uid}")])
-        await query.message.reply_text("👑 **DANH SÁCH TẤT CẢ TÀI KHOẢN (ADMIN)**\nBấm vào để tuỳ chỉnh:", parse_mode="Markdown", reply_markup=InlineKeyboardMarkup(keyboard))
+        await query.message.reply_text("👑 **DANH SÁCH TẤT CẢ TÀI KHOẢN (QTV/ADMIN)**\nBấm vào để tuỳ chỉnh:", parse_mode="Markdown", reply_markup=InlineKeyboardMarkup(keyboard))
     elif data.startswith("adm_detail_"):
-        if not is_master_admin(user_id): return
+        if not is_admin(user_id): return
         target_uid = int(data.replace("adm_detail_", ""))
         if target_uid in users_data:
             u = users_data[target_uid]
@@ -1002,13 +1145,13 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             ]
             await query.message.reply_text(detail_txt, parse_mode="Markdown", reply_markup=InlineKeyboardMarkup(kb))
     elif data.startswith("adm_editname_"):
-        if not is_master_admin(user_id): return
+        if not is_admin(user_id): return
         target_uid = int(data.replace("adm_editname_", ""))
         context.user_data["editing_user_id"] = target_uid
         context.user_data["edit_type"] = "name"
         await query.message.reply_text(f"✏️ Vui lòng gửi tên mới cho tài khoản ID `{target_uid}`:", parse_mode="Markdown")
     elif data.startswith("adm_editbal_"):
-        if not is_master_admin(user_id): return
+        if not is_admin(user_id): return
         target_uid = int(data.replace("adm_editbal_", ""))
         context.user_data["editing_user_id"] = target_uid
         context.user_data["edit_type"] = "balance"
@@ -1052,10 +1195,17 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             req_wager = final_cred 
             
             if target_id in users_data:
+                old_vip = tinh_vip(users_data[target_id].get("total_deposited", 0.0), users_data[target_id].get("total_wagered", 0.0))
                 users_data[target_id]["balance"] += final_cred
                 users_data[target_id]["total_deposited"] += amount
                 users_data[target_id]["has_deposited_50k"] = True
                 users_data[target_id]["wager_remaining"] = users_data[target_id].get("wager_remaining", 0.0) + req_wager
+                new_vip = tinh_vip(users_data[target_id].get("total_deposited", 0.0), users_data[target_id].get("total_wagered", 0.0))
+                if new_vip > old_vip:
+                    try:
+                        await context.bot.send_message(chat_id=target_id, text=f"🎉 **CHÚC MỪNG!** Bạn đã thăng hạng thành công lên **VIP {new_vip}**!", parse_mode="Markdown")
+                    except:
+                        pass
             
             try:
                 await context.bot.send_message(
@@ -1073,10 +1223,9 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             pending_orders[order_id]["admin_status"] = "processed"
             await query.edit_message_text(text=f"❌ **Đã xử lý (Từ chối đơn #{order_id})**")
 
-# Xử lý nhập liệu chỉnh sửa tài khoản trực tiếp từ Admin
 async def handle_admin_edit_input(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
-    if not is_master_admin(user_id):
+    if not is_admin(user_id):
         return False
     
     if "editing_user_id" in context.user_data and "edit_type" in context.user_data:
@@ -1133,7 +1282,7 @@ def main():
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, combined_message_handler))
     app.add_handler(CallbackQueryHandler(button_handler))
 
-    print("🤖 TKGame Bot đã cập nhật hoàn tất toàn bộ yêu cầu nâng cao: Ảnh QR nạp uy tín, tuỳ chỉnh tên/tiền người chơi, lệnh admin/qtv ẩn, cổng rút Momo/Bank đa dạng...")
+    print("🤖 TKGame Bot đã cập nhật hoàn tất Baccarat Xúc Xắc, tỷ lệ hoàn trả 0.8%, giao diện sắc nét chi tiết...")
 
     app.run_polling(drop_pending_updates=True)
 
