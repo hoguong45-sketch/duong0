@@ -2,17 +2,14 @@ import os
 import telebot
 from telebot.types import WebAppInfo, InlineKeyboardMarkup, InlineKeyboardButton
 
-# Lấy token từ biến môi trường trên Render
-BOT_TOKEN = os.environ.get('BOT_TOKEN')
-if not BOT_TOKEN:
-    print("LỖI: Chưa cài đặt biến môi trường BOT_TOKEN trên Render!")
-    exit(1)
+# Sử dụng token trực tiếp hoặc lấy từ biến môi trường của Render
+BOT_TOKEN = "8911175761:AAEV3V4LaDW_AO_Lfou4e2vIs6E61yZ-jzg"
 
 bot = telebot.TeleBot(BOT_TOKEN)
 
 @bot.message_handler(commands=['start'])
 def send_welcome(message):
-    # ĐÃ CẬP NHẬT LINK GITHUB PAGES CỦA BẠN VÀO ĐÂY
+    # Đường dẫn Web App / Mini App của bạn
     web_app_url = "https://hoguong45-sketch.github.io/duong0/"
     
     markup = InlineKeyboardMarkup()
@@ -24,7 +21,7 @@ def send_welcome(message):
 
     bot.send_message(
         message.chat.id, 
-        "Chào mừng bạn! Bấm nút bên dưới để mở giao diện Mini App.", 
+        "Chào mừng bạn đến với Ngân hàng số! Bấm nút bên dưới để mở giao diện Mini App.", 
         reply_markup=markup
     )
 
