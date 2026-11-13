@@ -267,12 +267,12 @@
             left: 0;
             width: 100%;
             height: 100%;
-            background: rgba(0, 0, 0, 0.75);
+            background: rgba(0, 0, 0, 0.8);
             display: none;
             justify-content: center;
             align-items: center;
             z-index: 1000;
-            padding: 16px;
+            padding: 12px;
             box-sizing: border-box;
         }
 
@@ -460,7 +460,7 @@
         <div class="sidebar-item" onclick="alert('Hướng dẫn sử dụng hệ thống Banktongocduong')">📱 Tải App & Hướng dẫn</div>
     </div>
 
-    <!-- MODAL 1: TẠO TÀI KHOẢN BANK ẢO -->
+    <!-- MODAL 1: TẠO TÀI KHOẢN BANK ÁO -->
     <div class="modal-overlay" id="createBankModal">
         <div class="modal-content">
             <div class="modal-header">
@@ -471,10 +471,10 @@
             <div class="form-group">
                 <label>Chọn ngân hàng *</label>
                 <select class="form-select" id="bankName">
-                    <option>MSB - Ngân hàng TMCP Hàng Hải Việt Nam</option>
-                    <option>VCB - Ngân hàng Ngoại Thương</option>
-                    <option>TCB - Techcombank</option>
-                    <option>MB - MBBank</option>
+                    <option value="Maritime Bank (MSB)">MSB - Ngân hàng TMCP Hàng Hải Việt Nam</option>
+                    <option value="Vietcombank (VCB)">VCB - Ngân hàng Ngoại Thương</option>
+                    <option value="Techcombank (TCB)">TCB - Techcombank</option>
+                    <option value="MBBank (MB)">MB - MBBank</option>
                 </select>
             </div>
 
@@ -485,7 +485,7 @@
 
             <div class="form-group">
                 <label>Tên chủ tài khoản *</label>
-                <input type="text" class="form-input" id="bankOwner" placeholder="Tên chủ tài khoản...">
+                <input type="text" class="form-input" id="bankOwner" placeholder="Ví dụ: TO NGOC DUONG">
             </div>
 
             <div class="form-group">
@@ -500,7 +500,7 @@
 
             <div class="form-group">
                 <label>Số tiền muốn chuyển *</label>
-                <input type="number" class="form-input" id="bankAmount" placeholder="Ví dụ: 500000">
+                <input type="number" class="form-input" id="bankAmount" placeholder="Ví dụ: 50000">
             </div>
 
             <div class="form-group">
@@ -515,43 +515,41 @@
         </div>
     </div>
 
-    <!-- MODAL HIỂN THỊ BILL SAU KHI TẠO -->
+    <!-- MODAL HIỂN THỊ BILL CHUẨN MẪU MB/MSB THẬT -->
     <div class="modal-overlay" id="billModal">
-        <div class="modal-content" style="background: #111827; border: 1px solid #374151; text-align: center;">
-            <div class="modal-header">
-                <div class="modal-title" style="color: #10b981;">✅ Biên Lai Chuyển Khoản</div>
-                <span style="cursor:pointer;" onclick="closeModal('billModal')">✕</span>
-            </div>
+        <div class="modal-content" style="background: #141419; border: 1px solid var(--border-color); text-align: center; padding: 24px 16px;">
             
-            <div style="background: #1f2937; padding: 16px; border-radius: 12px; text-align: left; margin-bottom: 16px; font-size: 13px; line-height: 1.6;">
-                <div style="text-align: center; font-size: 16px; font-weight: bold; color: #3b82f6; margin-bottom: 12px;" id="billBankName">MSB</div>
-                <div style="display: flex; justify-content: border-bottom: 1px solid #374151; padding-bottom: 6px;">
-                    <span style="color: var(--text-secondary);">Số tiền:</span> 
-                    <span style="font-weight: bold; color: #10b981; font-size: 16px;" id="billAmount">0 đ</span>
-                </div>
-                <div style="display: flex; justify-content: space-between; margin-top: 6px;">
-                    <span style="color: var(--text-secondary);">STK Người gửi:</span> 
-                    <span style="font-weight: bold;" id="billStk"></span>
-                </div>
-                <div style="display: flex; justify-content: space-between; margin-top: 6px;">
-                    <span style="color: var(--text-secondary);">Chủ tài khoản:</span> 
-                    <span style="font-weight: bold;" id="billOwner"></span>
-                </div>
-                <div style="display: flex; justify-content: space-between; margin-top: 6px;">
-                    <span style="color: var(--text-secondary);">STK Người nhận:</span> 
-                    <span style="font-weight: bold; color: #3b82f6;" id="billReceiverStk"></span>
-                </div>
-                <div style="display: flex; justify-content: space-between; margin-top: 6px;">
-                    <span style="color: var(--text-secondary);">Thời gian:</span> 
-                    <span style="font-weight: bold;" id="billTime"></span>
-                </div>
+            <!-- Check Icon giống mẫu thật -->
+            <div style="background: #3b82f6; width: 56px; height: 56px; border-radius: 50%; margin: 0 auto 12px auto; display: flex; align-items: center; justify-content: center; font-size: 28px; color: white;">
+                ✓
             </div>
 
-            <button class="btn-primary-full" onclick="closeModal('billModal'); closeModal('createBankModal');">Hoàn TẤT</button>
+            <div style="font-size: 16px; font-weight: bold; margin-bottom: 6px;">Chuyển tiền thành công</div>
+            
+            <!-- Số tiền lớn -->
+            <div style="font-size: 24px; font-weight: bold; color: #3b82f6; margin-bottom: 4px;" id="billAmount">50,000 VND</div>
+            <div style="font-size: 12px; color: var(--text-secondary); margin-bottom: 20px;" id="billTime">12:35 - 23/10/2026</div>
+
+            <!-- Khung thông tin chi tiết biên lai -->
+            <div style="background: #1c1c24; border: 1px solid var(--border-color); padding: 16px; border-radius: 12px; text-align: center; margin-bottom: 20px;">
+                <div style="font-weight: bold; font-size: 15px; margin-bottom: 4px;" id="billOwner">TO NGOC DUONG</div>
+                <div style="font-size: 12px; color: var(--text-secondary); margin-bottom: 8px;" id="billBankName">Maritime Bank (MSB)</div>
+                <div style="font-size: 15px; font-weight: bold; margin-bottom: 8px; letter-spacing: 1px;" id="billReceiverStk">80001684749</div>
+                <div style="font-size: 12px; color: var(--text-secondary);" id="billSenderInfo">Chuyển từ STK: <span id="billStk" style="color: white; font-weight: bold;"></span></div>
+            </div>
+
+            <!-- Các nút thao tác dưới cùng -->
+            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 16px;">
+                <div style="background: #1c1c24; border: 1px solid var(--border-color); padding: 10px; border-radius: 10px; font-size: 12px; cursor: pointer;" onclick="alert('Đã chia sẻ biên lai!')">📤 Chia sẻ</div>
+                <div style="background: #1c1c24; border: 1px solid var(--border-color); padding: 10px; border-radius: 10px; font-size: 12px; cursor: pointer;" onclick="alert('Đã lưu ảnh về máy!')">📥 Lưu ảnh</div>
+                <div style="background: #1c1c24; border: 1px solid var(--border-color); padding: 10px; border-radius: 10px; font-size: 12px; cursor: pointer;" onclick="alert('Đã lưu mẫu giao dịch!')">📄 Lưu mẫu</div>
+            </div>
+
+            <button class="btn-primary-full" onclick="closeModal('billModal'); closeModal('createBankModal');">Thực hiện giao dịch khác</button>
         </div>
     </div>
 
-    <!-- MODAL 2: NẠP TIỀN TỰ ĐỘNG QUA VIETQR (Dùng ảnh QR mới của bạn[span_3](start_span)[span_3](end_span)) -->
+    <!-- MODAL 2: NẠP TIỀN TỰ ĐỘNG QUA VIETQR (Dùng đúng ảnh thẻ MSB của bạn)[span_4](start_span)[span_4](end_span) -->
     <div class="modal-overlay" id="depositModal">
         <div class="modal-content" style="text-align: center;">
             <div class="modal-header" style="text-align: left;">
@@ -562,7 +560,6 @@
             <div style="font-size: 12px; color: #10b981; margin-bottom: 12px; font-weight: bold;">● Tự động 24/7</div>
             
             <div style="background: white; padding: 12px; border-radius: 12px; display: inline-block; margin-bottom: 14px;">
-                <!-- Sử dụng đúng ảnh QR MSB mới cung cấp[span_4](start_span)[span_4](end_span) -->
                 <img src="https://i.ibb.co/6R22849/image-81892a.jpg" alt="VietQR MSB" style="width: 210px; height: auto; display: block; border-radius: 8px;">
             </div>
 
@@ -575,7 +572,7 @@
                     <span style="color: var(--text-secondary);">Số tài khoản:</span>
                     <span style="font-weight: bold; color: #3b82f6;">6314072009</span>
                 </div>
-                <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                <div style="display: flex; justify-content: space-between;">
                     <span style="color: var(--text-secondary);">Chủ tài khoản:</span>
                     <span style="font-weight: bold;">TO NGOC DUONG</span>
                 </div>
@@ -670,12 +667,19 @@
                 return;
             }
 
+            // Định dạng ngày giờ hiển thị kiểu DD/MM/YYYY - HH:mm
+            let dtObj = new Date(dateTime);
+            let formattedTime = `${String(dtObj.getHours()).padStart(2, '0')}:${String(dtObj.getMinutes()).padStart(2, '0')} - ${String(dtObj.getDate()).padStart(2, '0')}/${String(dtObj.getMonth() + 1).padStart(2, '0')}/${dtObj.getFullYear()}`;
+            if (isNaN(dtObj.getTime())) {
+                formattedTime = dateTime.replace('T', ' ');
+            }
+
             document.getElementById('billBankName').innerText = bank;
-            document.getElementById('billAmount').innerText = Number(amount).toLocaleString('vi-VN') + " đ";
+            document.getElementById('billAmount').innerText = Number(amount).toLocaleString('vi-VN') + " VND";
             document.getElementById('billStk').innerText = stk;
-            document.getElementById('billOwner').innerText = owner;
+            document.getElementById('billOwner').innerText = owner.toUpperCase();
             document.getElementById('billReceiverStk').innerText = receiverStk;
-            document.getElementById('billTime').innerText = dateTime.replace('T', ' ');
+            document.getElementById('billTime').innerText = formattedTime;
 
             openModal('billModal');
         }
