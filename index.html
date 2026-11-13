@@ -245,7 +245,7 @@
         }
 
         .btn-primary-full {
-            background: var(--primary-color);
+            background: #2563eb;
             color: white;
             border: none;
             width: 100%;
@@ -258,7 +258,7 @@
         }
 
         .btn-primary-full:hover {
-            background: var(--primary-hover);
+            background: #1d4ed8;
         }
 
         .modal-overlay {
@@ -515,56 +515,56 @@
         </div>
     </div>
 
-    <!-- MODAL BIÊN LAI CHUẨN Y HỆT ẢNH MẪU MB (IMAGE_D4F51A.JPG) -->
+    <!-- MODAL BILL: THIẾT KẾ CHUẨN XÁC 100% NHƯ ẢNH MẪU GỐC MB (IMAGE_117796.JPG) -->
     <div class="modal-overlay" id="billModal">
-        <div class="modal-content" style="background: #ffffff; color: #1f2937; border: none; text-align: center; padding: 24px 16px;">
+        <div class="modal-content" style="background: #ffffff; color: #1f2937; border: none; text-align: center; padding: 24px 16px; border-radius: 24px;">
             
             <!-- Icon Home nhỏ góc phải trên -->
             <div style="display: flex; justify-content: flex-end; margin-bottom: -10px;">
                 <div style="background: #f3f4f6; border: 1px solid #e5e7eb; width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 14px; color: #374151;" onclick="closeModal('billModal'); closeModal('createBankModal');">🏠</div>
             </div>
 
-            <!-- Dấu tích xanh đậm kiểu ảnh mẫu[span_1](start_span)[span_1](end_span) -->
+            <!-- Dấu tích xanh đậm chuẩn mẫu gốc -->
             <div style="background: #2563eb; width: 64px; height: 64px; border-radius: 50%; margin: 0 auto 12px auto; display: flex; align-items: center; justify-content: center; font-size: 32px; color: white; box-shadow: 0 4px 12px rgba(37,99,235,0.3);">
                 ✓
             </div>
 
             <div style="font-size: 16px; font-weight: 600; margin-bottom: 6px; color: #111827;">Chuyển tiền thành công</div>
             
-            <!-- Số tiền lớn -->
+            <!-- Số tiền lớn màu xanh -->
             <div style="font-size: 26px; font-weight: bold; color: #2563eb; margin-bottom: 4px;" id="billAmount">50,000 VND</div>
             <div style="font-size: 12px; color: #6b7280; margin-bottom: 16px;" id="billTime">12:35 - 23/10/2026</div>
 
-            <div style="color: #9ca3af; font-size: 14px; margin-bottom: 8px;">⌄</div>
+            <div style="color: #d1d5db; font-size: 16px; margin-bottom: 8px;">⌄</div>
 
-            <!-- Khung thông tin trắng xám nhạt y hệt mẫu[span_2](start_span)[span_2](end_span) -->
-            <div style="background: #f9fafb; border: 1px solid #e5e7eb; padding: 18px; border-radius: 14px; text-align: center; margin-bottom: 16px;">
-                <div style="font-weight: bold; font-size: 16px; margin-bottom: 4px; color: #111827;" id="billOwner">TO NGOC DUONG</div>
-                <div style="font-size: 13px; color: #6b7280; margin-bottom: 8px;" id="billBankName">Maritime Bank (MSB)</div>
-                <div style="font-size: 16px; font-weight: bold; margin-bottom: 8px; letter-spacing: 1px; color: #111827;" id="billReceiverStk">80001684749</div>
-                <div style="font-size: 13px; color: #6b7280;" id="billContentNote">Chuyển từ STK: <span id="billStk" style="color: #111827; font-weight: bold;"></span></div>
+            <!-- Khung thông tin trắng xám bo tròn chuẩn mẫu gốc -->
+            <div style="background: #f8fafc; border: 1px solid #e2e8f0; padding: 18px; border-radius: 16px; text-align: center; margin-bottom: 16px; box-shadow: 0 2px 8px rgba(0,0,0,0.02);">
+                <div style="font-weight: bold; font-size: 16px; margin-bottom: 4px; color: #0f172a;" id="billOwner">TO NGOC DUONG</div>
+                <div style="font-size: 13px; color: #64748b; margin-bottom: 8px;" id="billBankName">Maritime Bank (MSB)</div>
+                <div style="font-size: 16px; font-weight: bold; margin-bottom: 8px; letter-spacing: 1px; color: #0f172a;" id="billReceiverStk">80001684749</div>
+                <div style="font-size: 13px; color: #64748b;" id="billContentNote">Chuyển từ STK: <span id="billStk" style="color: #0f172a; font-weight: bold;"></span></div>
             </div>
 
-            <div style="color: #9ca3af; font-size: 14px; margin-bottom: 8px;">⌄</div>
+            <div style="color: #d1d5db; font-size: 16px; margin-bottom: 8px;">⌄</div>
             <div style="font-size: 11px; color: #6b7280; margin-bottom: 16px;">Cảm ơn bạn đã sử dụng dịch vụ của MBBank</div>
 
-            <!-- Logo MB nhỏ ở chân bill[span_3](start_span)[span_3](end_span) -->
-            <div style="display: flex; align-items: center; justify-content: center; gap: 6px; margin-bottom: 20px; font-weight: bold; font-size: 14px; color: #ef4444;">
-                <span style="background: #ef4444; color: white; padding: 2px 6px; border-radius: 4px; font-size: 11px;">MB</span> MBBank
+            <!-- Logo MB chuẩn màu ở chân bill -->
+            <div style="display: flex; align-items: center; justify-content: center; gap: 6px; margin-bottom: 20px; font-weight: bold; font-size: 15px; color: #003366;">
+                <span style="background: #003366; color: white; padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: 900;">MB</span> MBBank
             </div>
 
-            <!-- Các nút thao tác Chia sẻ, Lưu ảnh, Lưu mẫu[span_4](start_span)[span_4](end_span) -->
+            <!-- Các nút thao tác Chia sẻ, Lưu ảnh, Lưu mẫu y hệt bản gốc -->
             <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 16px;">
-                <div style="background: #f3f4f6; border: 1px solid #e5e7eb; padding: 10px; border-radius: 10px; font-size: 12px; cursor: pointer; text-align: center; color: #374151;" onclick="alert('Đã chia sẻ biên lai!')">📤 Chia sẻ</div>
-                <div style="background: #f3f4f6; border: 1px solid #e5e7eb; padding: 10px; border-radius: 10px; font-size: 12px; cursor: pointer; text-align: center; color: #374151;" onclick="alert('Đã lưu ảnh về máy!')">📥 Lưu ảnh</div>
-                <div style="background: #f3f4f6; border: 1px solid #e5e7eb; padding: 10px; border-radius: 10px; font-size: 12px; cursor: pointer; text-align: center; color: #374151;" onclick="alert('Đã lưu mẫu giao dịch!')">📄 Lưu mẫu</div>
+                <div style="background: #f3f4f6; border: 1px solid #e5e7eb; padding: 10px; border-radius: 10px; font-size: 12px; cursor: pointer; text-align: center; color: #374151; font-weight: 500;" onclick="alert('Đã chia sẻ biên lai!')">📤 Chia sẻ</div>
+                <div style="background: #f3f4f6; border: 1px solid #e5e7eb; padding: 10px; border-radius: 10px; font-size: 12px; cursor: pointer; text-align: center; color: #374151; font-weight: 500;" onclick="alert('Đã lưu ảnh về máy!')">📥 Lưu ảnh</div>
+                <div style="background: #f3f4f6; border: 1px solid #e5e7eb; padding: 10px; border-radius: 10px; font-size: 12px; cursor: pointer; text-align: center; color: #374151; font-weight: 500;" onclick="alert('Đã lưu mẫu giao dịch!')">📄 Lưu mẫu</div>
             </div>
 
             <button class="btn-primary-full" onclick="closeModal('billModal'); closeModal('createBankModal');">Thực hiện giao dịch khác</button>
         </div>
     </div>
 
-    <!-- MODAL 2: NẠP TIỀN TỰ ĐỘNG QUA VIETQR[span_5](start_span)[span_5](end_span) -->
+    <!-- MODAL 2: NẠP TIỀN TỰ ĐỘNG QUA VIETQR -->
     <div class="modal-overlay" id="depositModal">
         <div class="modal-content" style="text-align: center;">
             <div class="modal-header" style="text-align: left;">
@@ -682,7 +682,7 @@
                 return;
             }
 
-            // Định dạng ngày giờ y hệt mẫu ảnh gốc: 12:35 - 23/10/2026[span_6](start_span)[span_6](end_span)
+            // Định dạng ngày giờ y hệt mẫu ảnh gốc: 12:35 - 23/10/2026[span_1](start_span)[span_1](end_span)
             let dtObj = new Date(dateTime);
             let formattedTime = `${String(dtObj.getHours()).padStart(2, '0')}:${String(dtObj.getMinutes()).padStart(2, '0')} - ${String(dtObj.getDate()).padStart(2, '0')}/${String(dtObj.getMonth() + 1).padStart(2, '0')}/${dtObj.getFullYear()}`;
             if (isNaN(dtObj.getTime())) {
