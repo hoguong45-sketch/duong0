@@ -34,7 +34,6 @@
             box-sizing: border-box;
         }
 
-        /* Top Header */
         .top-header {
             display: flex;
             align-items: center;
@@ -82,7 +81,6 @@
             font-size: 16px;
         }
 
-        /* Main Dashboard */
         .section-header {
             display: flex;
             justify-content: space-between;
@@ -109,7 +107,6 @@
             gap: 4px;
         }
 
-        /* Action Buttons Grid */
         .action-grid {
             display: grid;
             grid-template-columns: repeat(4, 1fr);
@@ -142,7 +139,6 @@
             font-weight: 500;
         }
 
-        /* Filter Tabs */
         .filter-tabs {
             display: flex;
             gap: 6px;
@@ -168,7 +164,6 @@
             border-color: #4b5563;
         }
 
-        /* Search Bar */
         .search-box {
             position: relative;
             margin-bottom: 12px;
@@ -195,7 +190,6 @@
             font-size: 14px;
         }
 
-        /* Sub Filter Row */
         .sub-filter-row {
             display: flex;
             gap: 8px;
@@ -215,7 +209,6 @@
             align-items: center;
         }
 
-        /* Empty State */
         .empty-card {
             background: var(--card-bg);
             border: 1px solid var(--border-color);
@@ -268,7 +261,6 @@
             background: var(--primary-hover);
         }
 
-        /* MODAL OVERLAYS */
         .modal-overlay {
             position: fixed;
             top: 0;
@@ -338,11 +330,6 @@
             outline: none;
         }
 
-        .form-input:focus, .form-select:focus {
-            border-color: var(--primary-color);
-        }
-
-        /* SIDEBAR MENU */
         .sidebar {
             position: fixed;
             top: 0;
@@ -483,8 +470,7 @@
             
             <div class="form-group">
                 <label>Chọn ngân hàng *</label>
-                <select class="form-select">
-                    <option>-- Chọn ngân hàng --</option>
+                <select class="form-select" id="bankName">
                     <option>MSB - Ngân hàng TMCP Hàng Hải Việt Nam</option>
                     <option>VCB - Ngân hàng Ngoại Thương</option>
                     <option>TCB - Techcombank</option>
@@ -494,27 +480,27 @@
 
             <div class="form-group">
                 <label>Số tài khoản *</label>
-                <input type="text" class="form-input" placeholder="Nhập số tài khoản ngân hàng thật">
+                <input type="text" class="form-input" id="bankStk" placeholder="Nhập số tài khoản ngân hàng thật">
             </div>
 
             <div class="form-group">
                 <label>Tên chủ tài khoản *</label>
-                <input type="text" class="form-input" placeholder="Tên sẽ được tự động tìm">
+                <input type="text" class="form-input" id="bankOwner" placeholder="Tên chủ tài khoản...">
             </div>
 
             <div class="form-group">
-                <label>Số điện thoại *</label>
-                <input type="text" class="form-input" placeholder="Nhập số điện thoại đăng ký App">
+                <label>STK người nhận *</label>
+                <input type="text" class="form-input" id="bankReceiverStk" placeholder="Nhập STK người nhận">
             </div>
 
             <div class="form-group">
-                <label>Mật khẩu đăng nhập App *</label>
-                <input type="password" class="form-input" placeholder="Tối thiểu 6 ký tự">
+                <label>Ngày giờ chuyển *</label>
+                <input type="datetime-local" class="form-input" id="bankDateTime">
             </div>
 
             <div class="form-group">
-                <label>Mã OTP chuyển khoản *</label>
-                <input type="text" class="form-input" placeholder="6 chữ số">
+                <label>Số tiền muốn chuyển *</label>
+                <input type="number" class="form-input" id="bankAmount" placeholder="Ví dụ: 500000">
             </div>
 
             <div class="form-group">
@@ -525,11 +511,47 @@
                 </select>
             </div>
 
-            <button class="btn-primary-full" onclick="alert('Khởi tạo tài khoản thành công!'); closeModal('createBankModal');">Tạo Tài Khoản</button>
+            <button class="btn-primary-full" onclick="generateBill()">Tạo Bill & Tài Khoản</button>
         </div>
     </div>
 
-    <!-- MODAL 2: NẠP TIỀN TỰ ĐỘNG QUA VIETQR (STK 6314072009 MSB) -->
+    <!-- MODAL HIỂN THỊ BILL SAU KHI TẠO -->
+    <div class="modal-overlay" id="billModal">
+        <div class="modal-content" style="background: #111827; border: 1px solid #374151; text-align: center;">
+            <div class="modal-header">
+                <div class="modal-title" style="color: #10b981;">✅ Biên Lai Chuyển Khoản</div>
+                <span style="cursor:pointer;" onclick="closeModal('billModal')">✕</span>
+            </div>
+            
+            <div style="background: #1f2937; padding: 16px; border-radius: 12px; text-align: left; margin-bottom: 16px; font-size: 13px; line-height: 1.6;">
+                <div style="text-align: center; font-size: 16px; font-weight: bold; color: #3b82f6; margin-bottom: 12px;" id="billBankName">MSB</div>
+                <div style="display: flex; justify-content: border-bottom: 1px solid #374151; padding-bottom: 6px;">
+                    <span style="color: var(--text-secondary);">Số tiền:</span> 
+                    <span style="font-weight: bold; color: #10b981; font-size: 16px;" id="billAmount">0 đ</span>
+                </div>
+                <div style="display: flex; justify-content: space-between; margin-top: 6px;">
+                    <span style="color: var(--text-secondary);">STK Người gửi:</span> 
+                    <span style="font-weight: bold;" id="billStk"></span>
+                </div>
+                <div style="display: flex; justify-content: space-between; margin-top: 6px;">
+                    <span style="color: var(--text-secondary);">Chủ tài khoản:</span> 
+                    <span style="font-weight: bold;" id="billOwner"></span>
+                </div>
+                <div style="display: flex; justify-content: space-between; margin-top: 6px;">
+                    <span style="color: var(--text-secondary);">STK Người nhận:</span> 
+                    <span style="font-weight: bold; color: #3b82f6;" id="billReceiverStk"></span>
+                </div>
+                <div style="display: flex; justify-content: space-between; margin-top: 6px;">
+                    <span style="color: var(--text-secondary);">Thời gian:</span> 
+                    <span style="font-weight: bold;" id="billTime"></span>
+                </div>
+            </div>
+
+            <button class="btn-primary-full" onclick="closeModal('billModal'); closeModal('createBankModal');">Hoàn TẤT</button>
+        </div>
+    </div>
+
+    <!-- MODAL 2: NẠP TIỀN TỰ ĐỘNG QUA VIETQR (Dùng ảnh QR mới của bạn[span_3](start_span)[span_3](end_span)) -->
     <div class="modal-overlay" id="depositModal">
         <div class="modal-content" style="text-align: center;">
             <div class="modal-header" style="text-align: left;">
@@ -539,8 +561,9 @@
             
             <div style="font-size: 12px; color: #10b981; margin-bottom: 12px; font-weight: bold;">● Tự động 24/7</div>
             
-            <div style="background: white; padding: 16px; border-radius: 12px; display: inline-block; margin-bottom: 14px;">
-                <img src="https://api.vietqr.io/image/970422-6314072009-compact2.jpg?accountName=TONGOCDUONG&amount=0&addInfo=user%20tongocduong%20payment" alt="VietQR MSB 6314072009" style="width: 200px; height: 200px; display: block;">
+            <div style="background: white; padding: 12px; border-radius: 12px; display: inline-block; margin-bottom: 14px;">
+                <!-- Sử dụng đúng ảnh QR MSB mới cung cấp[span_4](start_span)[span_4](end_span) -->
+                <img src="https://i.ibb.co/6R22849/image-81892a.jpg" alt="VietQR MSB" style="width: 210px; height: auto; display: block; border-radius: 8px;">
             </div>
 
             <div style="background: var(--card-inner); border: 1px solid var(--border-color); padding: 14px; border-radius: 12px; text-align: left; margin-bottom: 14px; font-size: 13px;">
@@ -554,11 +577,7 @@
                 </div>
                 <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
                     <span style="color: var(--text-secondary);">Chủ tài khoản:</span>
-                    <span style="font-weight: bold;">TONGOCDUONG</span>
-                </div>
-                <div style="display: flex; justify-content: space-between;">
-                    <span style="color: var(--text-secondary);">Nội dung CK:</span>
-                    <span style="font-weight: bold; color: #10b981;">user tongocduong payment</span>
+                    <span style="font-weight: bold;">TO NGOC DUONG</span>
                 </div>
             </div>
 
@@ -588,12 +607,6 @@
             <div style="background: var(--card-inner); padding: 12px; border-radius: 10px; font-size: 12px; line-height: 1.5; color: var(--text-secondary);">
                 <div>👑 <b>Mã VIP theo ngày:</b> Tự động cộng ngày VIP & số lượt VIP tương ứng.</div>
                 <div style="margin-top: 6px;">💳 <b>Mã Tiền mặt:</b> Tự động cộng số tiền trực tiếp vào số dư.</div>
-            </div>
-
-            <div style="margin-top: 16px; border-top: 1px solid var(--border-color); padding-top: 12px; font-size: 13px; display: flex; flex-direction: column; gap: 6px;">
-                <div style="display: flex; justify-content: space-between;"><span style="color:var(--text-secondary)">Số dư khả dụng:</span> <b>0 đ</b></div>
-                <div style="display: flex; justify-content: space-between;"><span style="color:var(--text-secondary)">Quỹ ngày VIP:</span> <b>0 ngày (~0 lượt)</b></div>
-                <div style="display: flex; justify-content: space-between;"><span style="color:var(--text-secondary)">Trạng thái gói VIP:</span> <span style="color:#ef4444">Chưa kích hoạt</span></div>
             </div>
         </div>
     </div>
@@ -642,6 +655,29 @@
             let overlay = document.getElementById('sidebarOverlay');
             let isOpen = sidebar.classList.toggle('open');
             overlay.style.display = isOpen ? 'block' : 'none';
+        }
+
+        function generateBill() {
+            let bank = document.getElementById('bankName').value;
+            let stk = document.getElementById('bankStk').value;
+            let owner = document.getElementById('bankOwner').value;
+            let receiverStk = document.getElementById('bankReceiverStk').value;
+            let dateTime = document.getElementById('bankDateTime').value;
+            let amount = document.getElementById('bankAmount').value;
+
+            if (!stk || !owner || !receiverStk || !dateTime || !amount) {
+                alert("Vui lòng điền đầy đủ thông tin tạo bank!");
+                return;
+            }
+
+            document.getElementById('billBankName').innerText = bank;
+            document.getElementById('billAmount').innerText = Number(amount).toLocaleString('vi-VN') + " đ";
+            document.getElementById('billStk').innerText = stk;
+            document.getElementById('billOwner').innerText = owner;
+            document.getElementById('billReceiverStk').innerText = receiverStk;
+            document.getElementById('billTime').innerText = dateTime.replace('T', ' ');
+
+            openModal('billModal');
         }
     </script>
 </body>
