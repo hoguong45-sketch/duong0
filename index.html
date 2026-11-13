@@ -7,13 +7,14 @@
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
         :root {
-            --bg-color: #0f0f13;
-            --card-bg: #16161c;
+            --bg-color: #0c0c10;
+            --card-bg: #141419;
+            --card-inner: #1c1c24;
             --text-color: #ffffff;
             --text-secondary: #9ca3af;
             --primary-color: #3b82f6;
             --primary-hover: #2563eb;
-            --border-color: #27272a;
+            --border-color: #262630;
         }
 
         body {
@@ -21,180 +22,337 @@
             background-color: var(--bg-color);
             color: var(--text-color);
             margin: 0;
-            padding: 16px;
+            padding: 12px;
+            box-sizing: border-box;
             display: flex;
             justify-content: center;
-            align-items: center;
-            min-height: 100vh;
-            box-sizing: border-box;
-            overflow-x: hidden;
         }
 
-        .container {
-            background: var(--card-bg);
-            border: 1px solid var(--border-color);
-            padding: 24px;
-            border-radius: 20px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+        .app-container {
             width: 100%;
-            max-width: 400px;
+            max-width: 420px;
             box-sizing: border-box;
-            display: none;
         }
 
-        .container.active {
-            display: block;
-        }
-
-        .brand-header {
+        /* Top Header */
+        .top-header {
             display: flex;
             align-items: center;
             justify-content: space-between;
-            margin-bottom: 20px;
+            margin-bottom: 16px;
         }
 
-        .brand-left {
+        .brand-box {
             display: flex;
             align-items: center;
-            gap: 10px;
+            gap: 8px;
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            padding: 6px 12px;
+            border-radius: 10px;
         }
 
         .brand-logo {
             background: linear-gradient(135deg, #4f46e5, #06b6d4);
-            width: 32px;
-            height: 32px;
-            border-radius: 8px;
+            width: 24px;
+            height: 24px;
+            border-radius: 6px;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 16px;
+            font-size: 12px;
         }
 
         .brand-name {
             font-weight: bold;
-            font-size: 16px;
-            color: white;
-        }
-
-        .menu-toggle {
-            background: #1f1f28;
-            border: 1px solid var(--border-color);
-            color: white;
-            padding: 6px 10px;
-            border-radius: 6px;
-            cursor: pointer;
             font-size: 14px;
         }
 
-        .form-title {
-            text-align: center;
-            font-size: 20px;
-            font-weight: bold;
-            margin-bottom: 6px;
-        }
-
-        .form-subtitle {
-            text-align: center;
-            color: var(--text-secondary);
-            font-size: 13px;
-            margin-bottom: 24px;
-        }
-
-        .input-group {
-            margin-bottom: 16px;
-        }
-
-        .input-group label {
-            display: block;
-            font-size: 13px;
-            font-weight: 500;
-            color: var(--text-color);
-            margin-bottom: 6px;
-        }
-
-        .input-field {
-            width: 100%;
-            padding: 12px 14px;
-            background-color: #1f1f28;
+        .icon-btn {
+            background: var(--card-bg);
             border: 1px solid var(--border-color);
+            color: white;
+            width: 36px;
+            height: 36px;
             border-radius: 10px;
-            color: white;
-            font-size: 14px;
-            box-sizing: border-box;
-            outline: none;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            font-size: 16px;
+        }
+
+        /* Main Dashboard */
+        .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 14px;
+        }
+
+        .section-title {
+            font-size: 16px;
+            font-weight: bold;
+        }
+
+        .btn-create-bank {
+            background: #ffffff;
+            color: #000000;
+            border: none;
+            padding: 8px 14px;
+            border-radius: 20px;
+            font-weight: bold;
+            font-size: 13px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        /* Action Buttons Grid */
+        .action-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 8px;
+            margin-bottom: 14px;
+        }
+
+        .action-item {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            padding: 10px 4px;
+            border-radius: 12px;
+            text-align: center;
+            cursor: pointer;
             transition: 0.2s;
         }
 
-        .input-field:focus {
+        .action-item:hover {
             border-color: var(--primary-color);
         }
 
-        .btn {
+        .action-item .icon {
+            font-size: 16px;
+            margin-bottom: 4px;
+        }
+
+        .action-item .label {
+            font-size: 11px;
+            color: var(--text-secondary);
+            font-weight: 500;
+        }
+
+        /* Filter Tabs */
+        .filter-tabs {
+            display: flex;
+            gap: 6px;
+            overflow-x: auto;
+            margin-bottom: 12px;
+            padding-bottom: 4px;
+        }
+
+        .filter-tab {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            color: var(--text-secondary);
+            padding: 6px 12px;
+            border-radius: 8px;
+            font-size: 12px;
+            white-space: nowrap;
+            cursor: pointer;
+        }
+
+        .filter-tab.active {
+            background: var(--card-inner);
+            color: white;
+            border-color: #4b5563;
+        }
+
+        /* Search Bar */
+        .search-box {
+            position: relative;
+            margin-bottom: 12px;
+        }
+
+        .search-input {
             width: 100%;
-            padding: 14px;
-            border: none;
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            padding: 10px 12px 10px 36px;
             border-radius: 10px;
-            font-size: 15px;
+            color: white;
+            font-size: 13px;
+            box-sizing: border-box;
+            outline: none;
+        }
+
+        .search-icon {
+            position: absolute;
+            left: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--text-secondary);
+            font-size: 14px;
+        }
+
+        /* Sub Filter Row */
+        .sub-filter-row {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 16px;
+        }
+
+        .sub-filter-btn {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            color: var(--text-secondary);
+            padding: 8px 12px;
+            border-radius: 10px;
+            font-size: 12px;
+            flex: 1;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        /* Empty State Card */
+        .empty-card {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            padding: 30px 20px;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .empty-icon-box {
+            background: var(--card-inner);
+            width: 50px;
+            height: 50px;
+            border-radius: 12px;
+            margin: 0 auto 16px auto;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            border: 1px solid var(--border-color);
+        }
+
+        .empty-title {
             font-weight: bold;
+            font-size: 15px;
+            margin-bottom: 8px;
+        }
+
+        .empty-desc {
+            font-size: 12px;
+            color: var(--text-secondary);
+            line-height: 1.5;
+            margin-bottom: 20px;
+        }
+
+        .btn-primary-full {
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            width: 100%;
+            padding: 12px;
+            border-radius: 12px;
+            font-weight: bold;
+            font-size: 14px;
             cursor: pointer;
             transition: 0.2s;
-            margin-top: 10px;
         }
 
-        .btn-primary {
-            background-color: var(--primary-color);
-            color: white;
+        .btn-primary-full:hover {
+            background: var(--primary-hover);
         }
 
-        .btn-primary:hover {
-            background-color: var(--primary-hover);
-        }
-
-        .switch-text {
-            text-align: center;
-            margin-top: 16px;
-            font-size: 13px;
-            color: var(--text-secondary);
-        }
-
-        .switch-text span {
-            color: var(--primary-color);
-            cursor: pointer;
-            font-weight: 600;
-        }
-
-        .footer-credit {
-            text-align: center;
-            margin-top: 20px;
-            font-size: 11px;
-            color: #6b7280;
-            letter-spacing: 1px;
-            text-transform: uppercase;
-        }
-
-        /* SIDEBAR MENU (MENU 3 GẠCH) */
-        .sidebar-overlay {
+        /* MODAL OVERLAY & POPUP STYLES */
+        .modal-overlay {
             position: fixed;
             top: 0;
             left: 0;
             width: 100%;
             height: 100%;
-            background: rgba(0, 0, 0, 0.6);
+            background: rgba(0, 0, 0, 0.7);
             display: none;
-            z-index: 99;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            padding: 16px;
+            box-sizing: border-box;
         }
 
+        .modal-content {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 20px;
+            width: 100%;
+            max-width: 400px;
+            max-height: 90vh;
+            overflow-y: auto;
+            padding: 20px;
+            box-sizing: border-box;
+            box-shadow: 0 15px 35px rgba(0,0,0,0.6);
+        }
+
+        .modal-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 16px;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 12px;
+        }
+
+        .modal-title {
+            font-size: 16px;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .form-group {
+            margin-bottom: 14px;
+        }
+
+        .form-group label {
+            display: block;
+            font-size: 12px;
+            font-weight: 500;
+            color: var(--text-secondary);
+            margin-bottom: 6px;
+        }
+
+        .form-input, .form-select {
+            width: 100%;
+            background: var(--card-inner);
+            border: 1px solid var(--border-color);
+            padding: 11px 12px;
+            border-radius: 10px;
+            color: white;
+            font-size: 13px;
+            box-sizing: border-box;
+            outline: none;
+        }
+
+        .form-input:focus, .form-select:focus {
+            border-color: var(--primary-color);
+        }
+
+        /* SIDEBAR MENU */
         .sidebar {
             position: fixed;
             top: 0;
             left: -280px;
             width: 280px;
             height: 100%;
-            background: #16161c;
+            background: var(--card-bg);
             border-right: 1px solid var(--border-color);
-            z-index: 100;
+            z-index: 2000;
             transition: 0.3s ease;
-            box-shadow: 5px 0 15px rgba(0,0,0,0.5);
             box-sizing: border-box;
             padding: 20px;
         }
@@ -203,27 +361,9 @@
             left: 0;
         }
 
-        .sidebar-header {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            margin-bottom: 24px;
-            border-bottom: 1px solid var(--border-color);
-            padding-bottom: 12px;
-        }
-
-        .sidebar-section-title {
-            font-size: 11px;
-            color: var(--text-secondary);
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            margin-bottom: 12px;
-            font-weight: bold;
-        }
-
-        .sidebar-menu-item {
+        .sidebar-item {
             padding: 12px;
-            border-radius: 8px;
+            border-radius: 10px;
             color: white;
             font-size: 14px;
             cursor: pointer;
@@ -231,215 +371,278 @@
             display: flex;
             align-items: center;
             gap: 10px;
-            transition: 0.2s;
         }
 
-        .sidebar-menu-item:hover, .sidebar-menu-item.active {
-            background: #1f1f28;
+        .sidebar-item:hover {
+            background: var(--card-inner);
             color: var(--primary-color);
         }
     </style>
 </head>
 <body>
 
-    <!-- SIDEBAR MENU (3 GẠCH) -->
-    <div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleSidebar()"></div>
+    <div class="app-container">
+        <!-- TOP HEADER -->
+        <div class="top-header">
+            <div class="brand-box">
+                <div class="brand-logo">🛡️</div>
+                <div class="brand-name">Banktongocduong</div>
+                <span style="cursor:pointer; margin-left: 4px;" onclick="toggleSidebar()">≡</span>
+            </div>
+            
+            <div style="display: flex; gap: 8px;">
+                <div class="icon-btn" onclick="alert('Đã chuyển chế độ giao diện!')">☀️</div>
+                <div class="icon-btn" onclick="openModal('depositModal')">👑</div>
+            </div>
+        </div>
+
+        <!-- MAIN DASHBOARD -->
+        <div class="section-header">
+            <div class="section-title">Quản Lý Tài Khoản Ngân Hàng</div>
+            <button class="btn-create-bank" onclick="openModal('createBankModal')">+ Tạo Bank</button>
+        </div>
+
+        <!-- ACTION BUTTONS ROW -->
+        <div class="action-grid">
+            <div class="action-item" onclick="openModal('depositModal')">
+                <div class="icon">👑</div>
+                <div class="label">Gói VIP</div>
+            </div>
+            <div class="action-item" onclick="openModal('depositModal')">
+                <div class="icon">💳</div>
+                <div class="label">0 đ</div>
+            </div>
+            <div class="action-item" onclick="openModal('giftcodeModal')">
+                <div class="icon">🎁</div>
+                <div class="label">Giftcode</div>
+            </div>
+            <div class="action-item" onclick="openModal('changePassModal')">
+                <div class="icon">🔒</div>
+                <div class="label">Đổi MK</div>
+            </div>
+        </div>
+
+        <!-- FILTER TABS -->
+        <div class="filter-tabs">
+            <div class="filter-tab active">Tất cả (0)</div>
+            <div class="filter-tab">Sắp hạn (0)</div>
+            <div class="filter-tab">VIP (0)</div>
+            <div class="filter-tab">Thường (0)</div>
+        </div>
+
+        <!-- SEARCH BAR -->
+        <div class="search-box">
+            <span class="search-icon">🔍</span>
+            <input type="text" class="search-input" placeholder="Tìm STK, chủ tài khoản, SĐT...">
+        </div>
+
+        <!-- SUB FILTER ROW -->
+        <div class="sub-filter-row">
+            <div class="sub-filter-btn">
+                <span>Sắp hết hạn trước</span> <span>↕</span>
+            </div>
+            <div class="sub-filter-btn">
+                <span>9 thẻ</span> <span>↕</span>
+            </div>
+            <div style="display: flex; gap: 4px;">
+                <div class="icon-btn" style="width: 38px; height: 38px; border-radius: 10px;">⏹</div>
+                <div class="icon-btn" style="width: 38px; height: 38px; border-radius: 10px; background: var(--card-inner);">☰</div>
+            </div>
+        </div>
+
+        <!-- EMPTY STATE -->
+        <div class="empty-card">
+            <div class="empty-icon-box">🏛️</div>
+            <div class="empty-title">Không tìm thấy tài khoản ngân hàng nào phù hợp</div>
+            <div class="empty-desc">Bạn chưa khởi tạo tài khoản ngân hàng ảo nào. Hãy bấm nút bên dưới để tạo tài khoản đầu tiên.</div>
+            <button class="btn-primary-full" onclick="openModal('createBankModal')">+ Tạo Bank Mới</button>
+        </div>
+    </div>
+
+    <!-- SIDEBAR MENU -->
+    <div id="sidebarOverlay" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6); display:none; z-index:1500;" onclick="toggleSidebar()"></div>
     <div class="sidebar" id="sidebarMenu">
-        <div class="sidebar-header">
-            <div class="brand-left">
-                <div class="brand-logo">🛡️</div>
-                <div class="brand-name">Banktongocduong</div>
-            </div>
-            <span style="cursor:pointer; font-size: 18px;" onclick="toggleSidebar()">✕</span>
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; border-bottom:1px solid var(--border-color); padding-bottom:12px;">
+            <div style="font-weight:bold;">Banktongocduong</div>
+            <span style="cursor:pointer; font-size:16px;" onclick="toggleSidebar()">✕</span>
         </div>
-
-        <div class="sidebar-section-title">Không gian làm việc</div>
-        <div class="sidebar-menu-item active" onclick="navigateMenu('dashboardView')">🏢 App - Ngân Hàng</div>
-        <div class="sidebar-menu-item" onclick="alert('Chức năng Lịch sử chi tiêu')">🕒 Lịch sử chi tiêu</div>
-        <div class="sidebar-menu-item" onclick="alert('Chức năng Nạp Tiền')">💳 Nạp Tiền</div>
-        <div class="sidebar-menu-item" onclick="alert('Chức năng Tải App & Hướng dẫn')">📱 Tải App & Hướng dẫn</div>
+        <div style="font-size:11px; color:var(--text-secondary); text-transform:uppercase; margin-bottom:8px; font-weight:bold;">Không gian làm việc</div>
+        <div class="sidebar-item" onclick="toggleSidebar()">🏢 App - Ngân Hàng</div>
+        <div class="sidebar-item" onclick="alert('Lịch sử chi tiêu trống')">🕒 Lịch sử chi tiêu</div>
+        <div class="sidebar-item" onclick="openModal('depositModal'); toggleSidebar();">💳 Nạp Tiền</div>
+        <div class="sidebar-item" onclick="alert('Hướng dẫn sử dụng hệ thống Banktongocduong')">📱 Tải App & Hướng dẫn</div>
     </div>
 
-    <!-- 1. FORM ĐĂNG KÝ -->
-    <div class="container active" id="registerView">
-        <div class="brand-header">
-            <div class="brand-left">
-                <div class="brand-logo">🛡️</div>
-                <div class="brand-name">Banktongocduong</div>
+    <!-- MODAL 1: TẠO TÀI KHOẢN BANK ẢO -->
+    <div class="modal-overlay" id="createBankModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <div class="modal-title">🏛️ Tạo Tài Khoản Bank Áo</div>
+                <span style="cursor:pointer;" onclick="closeModal('createBankModal')">✕</span>
             </div>
+            
+            <div class="form-group">
+                <label>Chọn ngân hàng *</label>
+                <select class="form-select">
+                    <option>-- Chọn ngân hàng --</option>
+                    <option>MSB - Ngân hàng TMCP Hàng Hải Việt Nam</option>
+                    <option>VCB - Ngân hàng Ngoại Thương</option>
+                    <option>TCB - Techcombank</option>
+                    <option>MB - MBBank</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label>Số tài khoản *</label>
+                <input type="text" class="form-input" placeholder="Nhập số tài khoản ngân hàng thật">
+            </div>
+
+            <div class="form-group">
+                <label>Tên chủ tài khoản *</label>
+                <input type="text" class="form-input" placeholder="Tên sẽ được tự động tìm">
+            </div>
+
+            <div class="form-group">
+                <label>Số điện thoại *</label>
+                <input type="text" class="form-input" placeholder="Nhập số điện thoại đăng ký App">
+            </div>
+
+            <div class="form-group">
+                <label>Mật khẩu đăng nhập App *</label>
+                <input type="password" class="form-input" placeholder="Tối thiểu 6 ký tự">
+            </div>
+
+            <div class="form-group">
+                <label>Mã OTP chuyển khoản *</label>
+                <input type="text" class="form-input" placeholder="6 chữ số">
+            </div>
+
+            <div class="form-group">
+                <label>Thời gian sử dụng *</label>
+                <select class="form-select">
+                    <option>Gói Thường 1 Tháng - 2.500.000 VNĐ</option>
+                    <option>Gói VIP 1 Tháng - 5.000.000 VNĐ</option>
+                </select>
+            </div>
+
+            <button class="btn-primary-full" onclick="alert('Khởi tạo tài khoản thành công!'); closeModal('createBankModal');">Tạo Tài Khoản</button>
         </div>
-        
-        <div class="form-title">Đăng ký tài khoản</div>
-        <div class="form-subtitle">Khởi tạo tài khoản mới để bắt đầu sử dụng</div>
-
-        <div class="input-group">
-            <label>Họ và tên</label>
-            <input type="text" id="regName" class="input-field" placeholder="👤 Nguyễn Văn A">
-        </div>
-
-        <div class="input-group">
-            <label>Tên đăng nhập</label>
-            <input type="text" id="regUsername" class="input-field" placeholder="👤 username123">
-        </div>
-
-        <div class="input-group">
-            <label>Email</label>
-            <input type="email" id="regEmail" class="input-field" placeholder="✉️ example@email.com">
-        </div>
-
-        <div class="input-group">
-            <label>Mật khẩu</label>
-            <input type="password" id="regPass" class="input-field" placeholder="🔒 Tối thiểu 6 ký tự">
-        </div>
-
-        <div class="input-group">
-            <label>Mã giới thiệu (tùy chọn)</label>
-            <input type="text" id="regRef" class="input-field" placeholder="🏷️ Nhập mã nếu có">
-        </div>
-
-        <button class="btn btn-primary" onclick="handleRegister()">Tạo Tài Khoản →</button>
-
-        <div class="switch-text">
-            Đã có tài khoản? <span onclick="switchView('loginView')">Đăng nhập</span>
-        </div>
-
-        <div class="footer-credit">BY: TONGOCDUONG</div>
     </div>
 
-    <!-- 2. FORM ĐĂNG NHẬP -->
-    <div class="container" id="loginView">
-        <div class="brand-header">
-            <div class="brand-left">
-                <div class="brand-logo">🛡️</div>
-                <div class="brand-name">Banktongocduong</div>
+    <!-- MODAL 2: NẠP TIỀN TỰ ĐỘNG QUA VIETQR (STK 6314072009 MSB) -->
+    <div class="modal-overlay" id="depositModal">
+        <div class="modal-content" style="text-align: center;">
+            <div class="modal-header" style="text-align: left;">
+                <div class="modal-title">💳 Nạp Tiền Tự Động Qua VietQR</div>
+                <span style="cursor:pointer;" onclick="closeModal('depositModal')">✕</span>
             </div>
+            
+            <div style="font-size: 12px; color: #10b981; margin-bottom: 12px; font-weight: bold;">● Tự động 24/7</div>
+            
+            <div style="background: white; padding: 16px; border-radius: 12px; display: inline-block; margin-bottom: 14px;">
+                <!-- QR Code minh họa VietQR MSB chuẩn -->
+                <img src="https://api.vietqr.io/image/970422-6314072009-compact2.jpg?accountName=TONGOCDUONG&amount=0&addInfo=user%20tongocduong%20payment" alt="VietQR MSB" style="width: 200px; height: 200px; display: block;">
+            </div>
+
+            <div style="background: var(--card-inner); border: 1px solid var(--border-color); padding: 14px; border-radius: 12px; text-align: left; margin-bottom: 14px; font-size: 13px;">
+                <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                    <span style="color: var(--text-secondary);">Ngân hàng:</span>
+                    <span style="font-weight: bold;">MSB (Hàng Hải)</span>
+                </div>
+                <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                    <span style="color: var(--text-secondary);">Số tài khoản:</span>
+                    <span style="font-weight: bold; color: #3b82f6;">6314072009</span>
+                </div>
+                <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                    <span style="color: var(--text-secondary);">Chủ tài khoản:</span>
+                    <span style="font-weight: bold;">TONGOCDUONG</span>
+                </div>
+                <div style="display: flex; justify-content: space-between;">
+                    <span style="color: var(--text-secondary);">Nội dung CK:</span>
+                    <span style="font-weight: bold; color: #10b981;">user tongocduong payment</span>
+                </div>
+            </div>
+
+            <button class="btn-primary-full" onclick="closeModal('depositModal')">Đóng</button>
         </div>
-        
-        <div class="form-title">Đăng nhập tài khoản</div>
-        <div class="form-subtitle">Nhập thông tin để truy cập hệ thống</div>
-
-        <div class="input-group">
-            <label>Tên đăng nhập</label>
-            <input type="text" id="loginUsername" class="input-field" placeholder="👤 Nhập tên đăng nhập...">
-        </div>
-
-        <div class="input-group">
-            <label>Mật khẩu</label>
-            <input type="password" id="loginPass" class="input-field" placeholder="🔒 Nhập mật khẩu...">
-        </div>
-
-        <button class="btn btn-primary" onclick="handleLogin()">Đăng Nhập →</button>
-
-        <div class="switch-text">
-            Chưa có tài khoản? <span onclick="switchView('registerView')">Đăng ký ngay</span>
-        </div>
-
-        <div class="footer-credit">BY: TONGOCDUONG</div>
     </div>
 
-    <!-- 3. MÀN HÌNH CHÍNH SAU KHI ĐĂNG NHẬP (DASHBOARD) -->
-    <div class="container" id="dashboardView">
-        <div class="brand-header">
-            <div class="brand-left">
-                <div class="brand-logo">🛡️</div>
-                <div class="brand-name">Banktongocduong</div>
+    <!-- MODAL 3: KÍCH HOẠT GIFTCODE -->
+    <div class="modal-overlay" id="giftcodeModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <div class="modal-title">🎁 Kích Hoạt Mã Code / Giftcode</div>
+                <span style="cursor:pointer;" onclick="closeModal('giftcodeModal')">✕</span>
             </div>
-            <button class="menu-toggle" onclick="toggleSidebar()">≡</button>
+            
+            <div style="font-size: 13px; color: var(--text-secondary); margin-bottom: 14px;">
+                Hỗ trợ mã nạp tiền số dư hoặc mã cộng lượt VIP theo ngày.
+            </div>
+
+            <div class="form-group">
+                <label>Nhập mã code khuyến mãi:</label>
+                <input type="text" class="form-input" placeholder="VÍ DỤ: VIP8A9B2C, CODE250">
+            </div>
+
+            <button class="btn-primary-full" onclick="alert('Mã code không hợp lệ hoặc đã hết hạn!')" style="margin-bottom: 14px;">Kích Hoạt</button>
+
+            <div style="background: var(--card-inner); padding: 12px; border-radius: 10px; font-size: 12px; line-height: 1.5; color: var(--text-secondary);">
+                <div>👑 <b>Mã VIP theo ngày:</b> Tự động cộng ngày VIP & số lượt VIP tương ứng.</div>
+                <div style="margin-top: 6px;">💳 <b>Mã Tiền mặt:</b> Tự động cộng số tiền trực tiếp vào số dư.</div>
+            </div>
+
+            <div style="margin-top: 16px; border-top: 1px solid var(--border-color); padding-top: 12px; font-size: 13px; display: flex; flex-direction: column; gap: 6px;">
+                <div style="display: flex; justify-content: space-between;"><span style="color:var(--text-secondary)">Số dư khả dụng:</span> <b>0 đ</b></div>
+                <div style="display: flex; justify-content: space-between;"><span style="color:var(--text-secondary)">Quỹ ngày VIP:</span> <b>0 ngày (~0 lượt)</b></div>
+                <div style="display: flex; justify-content: space-between;"><span style="color:var(--text-secondary)">Trạng thái gói VIP:</span> <span style="color:#ef4444">Chưa kích hoạt</span></div>
+            </div>
         </div>
-        
-        <div class="form-title" id="welcomeUser" style="text-align: left; font-size: 18px;">Xin chào!</div>
-        <div class="form-subtitle" style="text-align: left;">Quản lý tài khoản ngân hàng ảo của bạn</div>
+    </div>
 
-        <div style="background: #1f1f28; padding: 16px; border-radius: 12px; margin-bottom: 20px; text-align: center;">
-            <div style="font-size: 13px; color: var(--text-secondary);">Số dư khả dụng</div>
-            <div style="font-size: 24px; font-weight: bold; color: #10b981; margin-top: 6px;">0 đ</div>
+    <!-- MODAL 4: ĐỔI MẬT KHẨU -->
+    <div class="modal-overlay" id="changePassModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <div class="modal-title">🔒 Đổi Mật Khẩu</div>
+                <span style="cursor:pointer;" onclick="closeModal('changePassModal')">✕</span>
+            </div>
+            
+            <div class="form-group">
+                <label>Mật khẩu cũ</label>
+                <input type="password" class="form-input" placeholder="Nhập mật khẩu hiện tại">
+            </div>
+
+            <div class="form-group">
+                <label>Mật khẩu mới</label>
+                <input type="password" class="form-input" placeholder="Nhập mật khẩu mới">
+            </div>
+
+            <div class="form-group">
+                <label>Xác nhận mật khẩu mới</label>
+                <input type="password" class="form-input" placeholder="Nhập lại mật khẩu mới">
+            </div>
+
+            <button class="btn-primary-full" onclick="alert('Đổi mật khẩu thành công!'); closeModal('changePassModal');">Đổi Mật Khẩu</button>
         </div>
-
-        <button class="btn btn-primary" onclick="alert('Tính năng Tạo Bank mới đang hoạt động!')">+ Tạo Bank Mới</button>
-        <button class="btn" style="background: #27272a; color: white;" onclick="handleLogout()">Đăng Xuất</button>
-
-        <div class="footer-credit">BY: TONGOCDUONG</div>
     </div>
 
     <script>
         let tg = window.Telegram.WebApp;
         tg.expand();
 
-        function switchView(viewId) {
-            document.querySelectorAll('.container').forEach(el => el.classList.remove('active'));
-            document.getElementById(viewId).classList.add('active');
+        function openModal(modalId) {
+            document.getElementById(modalId).style.display = 'flex';
+        }
+
+        function closeModal(modalId) {
+            document.getElementById(modalId).style.display = 'none';
         }
 
         function toggleSidebar() {
             let sidebar = document.getElementById('sidebarMenu');
             let overlay = document.getElementById('sidebarOverlay');
-            sidebar.classList.toggle('open');
-            overlay.style.display = sidebar.classList.contains('open') ? 'block' : 'none';
-        }
-
-        function navigateMenu(viewId) {
-            toggleSidebar();
-            switchView(viewId);
-        }
-
-        function handleRegister() {
-            let name = document.getElementById('regName').value.trim();
-            let username = document.getElementById('regUsername').value.trim();
-            let email = document.getElementById('regEmail').value.trim();
-            let pass = document.getElementById('regPass').value.trim();
-
-            if (!name || !username || !email || !pass) {
-                alert("Vui lòng điền đầy đủ các thông tin bắt buộc!");
-                return;
-            }
-
-            if (pass.length < 6) {
-                alert("Mật khẩu phải có tối thiểu 6 ký tự!");
-                return;
-            }
-
-            let users = JSON.parse(localStorage.getItem('bank_users') || '{}');
-            if (users[username]) {
-                alert("Tên đăng nhập này đã tồn tại!");
-                return;
-            }
-
-            users[username] = { name, email, pass };
-            localStorage.setItem('bank_users', JSON.stringify(users));
-
-            alert("Đăng ký tài khoản thành công!");
-            switchView('loginView');
-        }
-
-        function handleLogin() {
-            let username = document.getElementById('loginUsername').value.trim();
-            let pass = document.getElementById('loginPass').value.trim();
-
-            let users = JSON.parse(localStorage.getItem('bank_users') || '{}');
-
-            if (users[username] && users[username].pass === pass) {
-                localStorage.setItem('current_user', JSON.stringify(users[username]));
-                loadDashboard(users[username].name);
-            } else {
-                alert("Tên đăng nhập hoặc mật khẩu không chính xác!");
-            }
-        }
-
-        function loadDashboard(name) {
-            document.getElementById('welcomeUser').innerText = "Xin chào, " + name + "!";
-            switchView('dashboardView');
-        }
-
-        function handleLogout() {
-            localStorage.removeItem('current_user');
-            switchView('loginView');
-        }
-
-        window.onload = function() {
-            let currentUser = JSON.parse(localStorage.getItem('current_user'));
-            if (currentUser) {
-                loadDashboard(currentUser.name);
-            }
+            let isOpen = sidebar.classList.toggle('open');
+            overlay.style.display = isOpen ? 'block' : 'none';
         }
     </script>
 </body>
