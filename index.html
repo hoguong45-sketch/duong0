@@ -215,7 +215,7 @@
             align-items: center;
         }
 
-        /* Empty State Card */
+        /* Empty State */
         .empty-card {
             background: var(--card-bg);
             border: 1px solid var(--border-color);
@@ -268,14 +268,14 @@
             background: var(--primary-hover);
         }
 
-        /* MODAL OVERLAY & POPUP STYLES */
+        /* MODAL OVERLAYS */
         .modal-overlay {
             position: fixed;
             top: 0;
             left: 0;
             width: 100%;
             height: 100%;
-            background: rgba(0, 0, 0, 0.7);
+            background: rgba(0, 0, 0, 0.75);
             display: none;
             justify-content: center;
             align-items: center;
@@ -387,11 +387,11 @@
             <div class="brand-box">
                 <div class="brand-logo">🛡️</div>
                 <div class="brand-name">Banktongocduong</div>
-                <span style="cursor:pointer; margin-left: 4px;" onclick="toggleSidebar()">≡</span>
+                <span style="cursor:pointer; margin-left: 6px;" onclick="toggleSidebar()">≡</span>
             </div>
             
             <div style="display: flex; gap: 8px;">
-                <div class="icon-btn" onclick="alert('Đã chuyển chế độ giao diện!')">☀️</div>
+                <div class="icon-btn" onclick="alert('Chế độ giao diện tối đang bật')">☀️</div>
                 <div class="icon-btn" onclick="openModal('depositModal')">👑</div>
             </div>
         </div>
@@ -402,7 +402,7 @@
             <button class="btn-create-bank" onclick="openModal('createBankModal')">+ Tạo Bank</button>
         </div>
 
-        <!-- ACTION BUTTONS ROW -->
+        <!-- ACTION BUTTONS GRID -->
         <div class="action-grid">
             <div class="action-item" onclick="openModal('depositModal')">
                 <div class="icon">👑</div>
@@ -540,8 +540,7 @@
             <div style="font-size: 12px; color: #10b981; margin-bottom: 12px; font-weight: bold;">● Tự động 24/7</div>
             
             <div style="background: white; padding: 16px; border-radius: 12px; display: inline-block; margin-bottom: 14px;">
-                <!-- QR Code minh họa VietQR MSB chuẩn -->
-                <img src="https://api.vietqr.io/image/970422-6314072009-compact2.jpg?accountName=TONGOCDUONG&amount=0&addInfo=user%20tongocduong%20payment" alt="VietQR MSB" style="width: 200px; height: 200px; display: block;">
+                <img src="https://api.vietqr.io/image/970422-6314072009-compact2.jpg?accountName=TONGOCDUONG&amount=0&addInfo=user%20tongocduong%20payment" alt="VietQR MSB 6314072009" style="width: 200px; height: 200px; display: block;">
             </div>
 
             <div style="background: var(--card-inner); border: 1px solid var(--border-color); padding: 14px; border-radius: 12px; text-align: left; margin-bottom: 14px; font-size: 13px;">
