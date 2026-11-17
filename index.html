@@ -2,133 +2,527 @@
 <html lang="vi">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="Duong0">
-    <title>Duong0 - Chào mừng</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>SUN.WIN - Cổng Game Quốc Tế</title>
     <style>
-        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-        body {
-            margin: 0;
-            padding: 20px;
-            background: #0f172a;
-            color: white;
-            font-family: -apple-system, BlinkMacSystemFont, sans-serif;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            min-height: 100vh;
-        }
-        .container {
-            width: 100%;
-            max-width: 480px;
-            text-align: center;
-        }
-        h1 { color: #818cf8; font-size: 24px; margin-bottom: 8px; }
-        p { color: #94a3b8; font-size: 14px; margin-bottom: 20px; }
+        * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; }
+        body, html { width: 100%; height: 100%; overflow: hidden; background: #120505; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
         
-        /* Bảng thời khóa biểu phong cách hiện đại */
-        .schedule-card {
-            background: rgba(255, 255, 255, 0.05);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: 16px;
-            padding: 16px;
-            margin-bottom: 20px;
-            text-align: left;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+        /* Màn hình đăng nhập */
+        #auth-screen {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: radial-gradient(circle, #3a1111 0%, #120505 100%);
+            display: flex; justify-content: center; align-items: center; z-index: 9999;
         }
-        .schedule-card h3 { margin: 0 0 10px 0; color: #38bdf8; font-size: 16px; text-align: center; }
-        .row { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,0.05); font-size: 13px; }
-        .row span:first-child { font-weight: bold; color: #cbd5e1; width: 60px; }
-        .row span:last-child { color: #e2e8f0; text-align: right; }
+        .auth-box {
+            background: linear-gradient(135deg, #2b0b0b, #1a0404);
+            border: 2px solid #ffd700; border-radius: 15px; padding: 30px; width: 380px;
+            box-shadow: 0 0 30px rgba(255, 215, 0, 0.4); text-align: center;
+        }
+        .auth-box h2 { color: #ffd700; margin-bottom: 20px; font-size: 26px; text-shadow: 0 2px 4px rgba(0,0,0,0.8); }
+        .auth-box input {
+            width: 100%; padding: 12px 15px; margin-bottom: 15px; background: #110202;
+            border: 1px solid #8c672b; border-radius: 8px; color: #fff; font-size: 16px; outline: none;
+        }
+        .auth-box input:focus { border-color: #ffd700; box-shadow: 0 0 8px rgba(255,215,0,0.5); }
+        .auth-box button {
+            width: 100%; padding: 12px; background: linear-gradient(to bottom, #ffd700, #b8860b);
+            border: none; border-radius: 8px; color: #1a0404; font-weight: bold; font-size: 18px;
+            cursor: pointer; text-shadow: 0 1px 0 rgba(255,255,255,0.4); box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+        }
+        .auth-box button:active { transform: scale(0.98); }
 
-        .btn-install {
-            display: block;
-            background: #2563eb;
-            color: white;
-            text-decoration: none;
-            padding: 14px;
-            border-radius: 14px;
-            font-size: 16px;
-            font-weight: bold;
-            box-shadow: 0 4px 12px rgba(37, 99, 235, 0.4);
-            margin-bottom: 30px;
+        /* Sảnh chính */
+        #main-lobby {
+            position: relative; width: 100vw; height: 100vh;
+            background: url('https://images.unsplash.com/photo-1518709268805-4e9042af9f23?q=80&w=2000') no-repeat center center/cover;
+            display: none; flex-direction: column; justify-content: space-between; padding: 15px;
         }
-        .btn-install:active { opacity: 0.8; }
+        #main-lobby::before {
+            content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(18, 5, 5, 0.85); z-index: 1;
+        }
+        .lobby-content { position: relative; z-index: 2; width: 100%; height: 100%; display: flex; flex-direction: column; justify-content: space-between; }
+
+        /* Header sảnh */
+        .lobby-header { display: flex; justify-content: space-between; align-items: center; width: 100%; }
+        .user-info-box {
+            display: flex; align-items: center; background: linear-gradient(135deg, #2b1d0c, #140d05);
+            border: 1.5px solid #ffd700; border-radius: 30px; padding: 5px 15px 5px 5px; box-shadow: 0 4px 15px rgba(0,0,0,0.6);
+        }
+        .user-avatar { width: 45px; height: 45px; border-radius: 50%; border: 2px solid #ffd700; object-fit: cover; }
+        .user-details { margin-left: 10px; }
+        .user-name { color: #ffd700; font-weight: bold; font-size: 14px; text-shadow: 0 1px 2px #000; }
+        .user-balance-box {
+            display: flex; align-items: center; background: #0a0303; border: 1px solid #8c672b;
+            border-radius: 20px; padding: 3px 12px; margin-top: 2px;
+        }
+        .balance-icon { color: #ffd700; font-weight: bold; margin-right: 5px; font-size: 13px; }
+        .balance-text { color: #fff; font-weight: bold; font-size: 13px; }
+        .btn-plus {
+            background: linear-gradient(to bottom, #ffd700, #b8860b); border: none; width: 22px; height: 22px;
+            border-radius: 50%; color: #000; font-weight: bold; margin-left: 8px; cursor: pointer; display: flex; align-items: center; justify-content: center;
+        }
+
+        /* Danh sách game sảnh giữa */
+        .game-grid { display: flex; gap: 15px; overflow-x: auto; padding: 10px 0; align-items: center; justify-content: center; flex: 1; }
+        .game-card {
+            min-width: 140px; height: 210px; background: linear-gradient(145deg, #2a1111, #150606);
+            border: 2px solid #8c672b; border-radius: 12px; overflow: hidden; cursor: pointer;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.7); position: relative; transition: transform 0.2s, border-color 0.2s;
+            display: flex; flex-direction: column; align-items: center; justify-content: flex-end; padding-bottom: 15px;
+        }
+        .game-card:hover { transform: translateY(-5px); border-color: #ffd700; }
+        .game-card img { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; opacity: 0.85; }
+        .jackpot-badge {
+            position: relative; z-index: 2; background: rgba(0,0,0,0.75); border: 1px solid #ffd700;
+            border-radius: 10px; padding: 4px 8px; text-align: center; width: 90%;
+        }
+        .jp-title { font-size: 9px; color: #aaa; text-transform: uppercase; }
+        .jp-amount { font-size: 12px; color: #ffd700; font-weight: bold; }
+
+        /* Sidebar trái */
+        .sidebar-left { position: absolute; left: 15px; top: 50%; transform: translateY(-50%); display: flex; flex-direction: column; gap: 10px; z-index: 2; }
+        .side-btn {
+            background: linear-gradient(135deg, #3d1a1a, #1a0808); border: 1px solid #ffd700; border-radius: 8px;
+            color: #ffd700; padding: 8px 12px; font-size: 12px; font-weight: bold; cursor: pointer; text-align: center;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.5); width: 85px;
+        }
+        .side-btn:hover { background: #ffd700; color: #000; }
+
+        /* Bàn Tài Xỉu */
+        #taixiu-room {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(10, 2, 2, 0.95); z-index: 1000; display: none;
+            justify-content: center; align-items: center;
+        }
+        .tx-container {
+            width: 750px; height: 420px; background: linear-gradient(135deg, #321616, #120505);
+            border: 3px solid #ffd700; border-radius: 15px; position: relative;
+            box-shadow: 0 0 40px rgba(255,215,0,0.5); display: flex; flex-direction: column; padding: 10px;
+        }
+        .tx-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #5a3d1e; padding-bottom: 5px; }
+        .tx-title { color: #ffd700; font-weight: bold; font-size: 16px; display: flex; align-items: center; gap: 8px; }
+        .close-btn { background: #800; color: #fff; border: 1px solid #ff4444; width: 25px; height: 25px; border-radius: 50%; cursor: pointer; font-weight: bold; display: flex; align-items: center; justify-content: center; }
+        
+        .tx-main { display: flex; justify-content: space-between; align-items: center; flex: 1; padding: 10px 20px; position: relative; }
+        
+        /* Cửa Tài / Xỉu */
+        .bet-box {
+            width: 180px; height: 160px; border-radius: 20px; border: 3px solid #ffd700;
+            display: flex; flex-direction: column; justify-content: center; align-items: center; cursor: pointer;
+            box-shadow: inset 0 0 15px rgba(255,215,0,0.4); position: relative; transition: transform 0.1s;
+        }
+        .bet-box:active { transform: scale(0.95); }
+        .bet-tai { background: linear-gradient(135deg, #4a1515, #800000); }
+        .bet-xiu { background: linear-gradient(135deg, #15354a, #003366); }
+        .bet-box h1 { font-size: 32px; color: #ffd700; text-shadow: 0 2px 5px rgba(0,0,0,0.8); }
+        .bet-box span { font-size: 12px; color: #ccc; margin-top: 5px; }
+
+        /* Khu vực giữa (Đồng hồ & Bát nặn) */
+        .tx-center { display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative; width: 220px; height: 200px; }
+        .timer-circle {
+            width: 70px; height: 70px; border-radius: 50%; background: #000; border: 4px solid #ffd700;
+            display: flex; justify-content: center; align-items: center; font-size: 24px; font-weight: bold; color: #ffd700;
+            box-shadow: 0 0 15px rgba(255,215,0,0.6); margin-bottom: 10px;
+        }
+        
+        /* Đĩa và Xúc Xắc 3D */
+        .bowl-area {
+            position: absolute; top: 75px; left: 50%; transform: translateX(-50%);
+            width: 130px; height: 130px; display: flex; justify-content: center; align-items: center;
+        }
+        .dice-container {
+            width: 90px; height: 90px; background: #fff; border-radius: 12px; border: 2px solid #ccc;
+            display: flex; flex-wrap: wrap; justify-content: space-around; align-items: center; padding: 8px;
+            box-shadow: inset 0 0 10px rgba(0,0,0,0.3), 0 5px 15px rgba(0,0,0,0.8);
+            position: absolute; z-index: 2;
+        }
+        .dice-dice-group { display: flex; gap: 8px; }
+        .dice {
+            width: 32px; height: 32px; background: #fff; border-radius: 6px; border: 1px solid #aaa;
+            box-shadow: inset 0 0 5px rgba(0,0,0,0.3); display: grid; grid-template: repeat(3, 1fr) / repeat(3, 1fr); padding: 4px;
+        }
+        .dot { background: #d00; border-radius: 50%; width: 6px; height: 6px; align-self: center; justify-self: center; }
+        .dot.black { background: #111; }
+        
+        /* Bát vàng che */
+        .golden-bowl {
+            position: absolute; width: 120px; height: 120px; background: radial-gradient(circle, #ffe066 0%, #b8860b 70%, #5a3d1e 100%);
+            border-radius: 50%; border: 3px solid #fff; box-shadow: 0 10px 25px rgba(0,0,0,0.9);
+            z-index: 5; display: flex; justify-content: center; align-items: center; cursor: grab;
+            transition: transform 0.3s ease;
+        }
+        .golden-bowl span { color: #2a1111; font-weight: bold; font-size: 13px; text-shadow: 0 1px 0 rgba(255,255,255,0.6); pointer-events: none; }
+
+        /* Thanh phỉnh cược dưới */
+        .chip-bar { display: flex; gap: 8px; justify-content: center; align-items: center; margin-top: 5px; }
+        .chip {
+            width: 40px; height: 40px; border-radius: 50%; background: radial-gradient(circle, #ffd700, #b8860b);
+            border: 2px dashed #fff; display: flex; justify-content: center; align-items: center; font-weight: bold;
+            font-size: 11px; color: #000; cursor: pointer; box-shadow: 0 3px 8px rgba(0,0,0,0.5);
+        }
+        .chip.active { transform: scale(1.15); border-style: solid; box-shadow: 0 0 12px #ffd700; }
+
+        /* Khung chat trực tuyến trong bàn Tài Xỉu */
+        .tx-chat-box {
+            position: absolute; bottom: 15px; left: 15px; width: 220px; height: 110px;
+            background: rgba(0, 0, 0, 0.6); border: 1px solid #8c672b; border-radius: 8px;
+            display: flex; flex-direction: column; padding: 5px; z-index: 10;
+        }
+        .chat-messages { flex: 1; overflow-y: auto; font-size: 11px; display: flex; flex-direction: column; gap: 3px; }
+        .chat-msg { color: #fff; line-height: 1.2; }
+        .chat-msg span { color: #ffd700; font-weight: bold; }
+        .chat-input-row { display: flex; margin-top: 4px; }
+        .chat-input-row input {
+            flex: 1; background: #110202; border: 1px solid #5a3d1e; border-radius: 4px; color: #fff; padding: 3px 6px; font-size: 10px; outline: none;
+        }
+        .chat-input-row button { background: #b8860b; border: none; color: #fff; padding: 3px 8px; font-size: 10px; border-radius: 4px; margin-left: 4px; cursor: pointer; }
+
+        /* Nút mở bàn chat độc lập */
+        .btn-chat-toggle {
+            position: absolute; bottom: 15px; left: 15px; z-index: 3; background: linear-gradient(135deg, #b8860b, #5a3d1e);
+            border: 1px solid #ffd700; border-radius: 20px; padding: 6px 14px; color: #ffd700; font-weight: bold; font-size: 12px; cursor: pointer;
+        }
     </style>
 </head>
 <body>
-    <div class="container">
-        <h1>👋 Chào mừng đến app Duong0</h1>
-        <p>Ứng dụng quản lý thời khóa biểu và cá nhân của bạn.</p>
 
-        <!-- Khung hiển thị thông tin thời khóa biểu từ ảnh -->
-        <div class="schedule-card">
-            <h3>📅 Lịch học lớp 12A6 (Đ.Trang)</h3>
-            <div class="row"><span>Thứ 2</span><span>Toán, Công nghệ, HĐTN, Địa</span></div>
-            <div class="row"><span>Thứ 3</span><span>Văn, Văn, Toán, Ngữ, KTPL</span></div>
-            <div class="row"><span>Thứ 4</span><span>Văn, Toán, Ngữ, KTPL, HĐTN</span></div>
-            <div class="row"><span>Thứ 5</span><span>TD, Địa, Văn, Ngữ, QP</span></div>
-            <div class="row"><span>Thứ 6</span><span>TD, Địa, Sử, Toán, Công nghệ</span></div>
-            <div class="row"><span>Thứ 7</span><span>Hoá, Hoá, Sử, Sinh hoạt</span></div>
+    <!-- Màn hình Đăng Nhập / Đăng Ký -->
+    <div id="auth-screen">
+        <div class="auth-box">
+            <h2>SUN.WIN ĐĂNG NHẬP</h2>
+            <input type="text" id="username-input" placeholder="Nhập tên hiển thị (VD: Dnkdkdnd)..." autocomplete="off">
+            <input type="password" id="password-input" placeholder="Mật khẩu..." autocomplete="off">
+            <button onclick="handleLogin()">VÀO CỔNG GAME</button>
         </div>
+    </div>
 
-        <!-- Nút tải cấu hình cài đặt app ra màn hình chính -->
-        <a id="downloadProfileBtn" href="#" class="btn-install">
-            📲 Cài đặt App ra màn hình chính
-        </a>
+    <!-- Sảnh chính -->
+    <div id="main-lobby">
+        <div class="lobby-content">
+            <div class="lobby-header">
+                <div class="user-info-box">
+                    <img src="https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?q=80&w=150" class="user-avatar" id="display-avatar">
+                    <div class="user-details">
+                        <div class="user-name" id="display-username">Dnkdkdnd</div>
+                        <div class="user-balance-box">
+                            <span class="balance-icon">$</span>
+                            <span class="balance-text" id="display-balance">5,888,888</span>
+                            <button class="btn-plus" onclick="addMoney()">+</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="sidebar-left">
+                <div class="side-btn">Crypto</div>
+                <div class="side-btn">Idol</div>
+                <div class="side-btn" style="background: linear-gradient(135deg, #800000, #3d1a1a);">RÚT TIỀN</div>
+                <div class="side-btn">Cảnh Báo</div>
+                <div class="side-btn" onclick="openChatLobby()">Live Chat</div>
+            </div>
+
+            <!-- Sảnh Game Giữa -->
+            <div class="game-grid">
+                <div class="game-card" onclick="openTaiXiu()">
+                    <img src="https://images.unsplash.com/photo-1511193311914-0346f16efe90?q=80&w=300" alt="Tài Xỉu">
+                    <div class="jackpot-badge">
+                        <div class="jp-title">Tài Xỉu MD5</div>
+                        <div class="jp-amount" id="jp-taixiu">1,615,691,429</div>
+                    </div>
+                </div>
+                <div class="game-card">
+                    <img src="https://images.unsplash.com/photo-1518609878373-06d740f60d8b?q=80&w=300" alt="Sicbo">
+                    <div class="jackpot-badge">
+                        <div class="jp-title">Sicbo Tài Phú</div>
+                        <div class="jp-amount">5,324,500,590</div>
+                    </div>
+                </div>
+                <div class="game-card">
+                    <img src="https://images.unsplash.com/photo-1579952363873-27f3bade9f55?q=80&w=300" alt="Thể Thao">
+                    <div class="jackpot-badge">
+                        <div class="jp-title">Thể Thao</div>
+                        <div class="jp-amount">81,487,660</div>
+                    </div>
+                </div>
+                <div class="game-card">
+                    <img src="https://images.unsplash.com/photo-1563089145-599997674d42?q=80&w=300" alt="SunCa">
+                    <div class="jackpot-badge">
+                        <div class="jp-title">Sun Ca</div>
+                        <div class="jp-amount">57,116,352</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bàn Tài Xỉu Chi Tiết -->
+    <div id="taixiu-room">
+        <div class="tx-container">
+            <div class="tx-header">
+                <div class="tx-title">
+                    🎲 TÀI XỈU 
+                    <span style="font-size: 11px; color: #aaa;" id="session-id">#3330121</span>
+                </div>
+                <button class="close-btn" onclick="closeTaiXiu()">✕</button>
+            </div>
+
+            <div class="tx-main">
+                <!-- Cửa Tài -->
+                <div class="bet-box bet-tai" onclick="placeBet('tai')">
+                    <h1>TÀI</h1>
+                    <span id="total-tai">Cược: 0</span>
+                </div>
+
+                <!-- Khu vực giữa & Xúc xắc nặn -->
+                <div class="tx-center">
+                    <div class="timer-circle" id="timer-display">40</div>
+                    
+                    <div class="bowl-area">
+                        <!-- 3 viên xúc xắc 3D chi tiết -->
+                        <div class="dice-container" id="dice-container">
+                            <div class="dice" id="d1"></div>
+                            <div class="dice" id="d2"></div>
+                            <div class="dice" id="d3"></div>
+                        </div>
+                        <!-- Bát vàng úp kín -->
+                        <div class="golden-bowl" id="golden-bowl" onmousedown="startDrag(event)" ontouchstart="startDrag(event)">
+                            <span id="bowl-text">VUỐT ĐỂ NẶN</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Cửa Xỉu -->
+                <div class="bet-box bet-xiu" onclick="placeBet('xiu')">
+                    <h1>XỈU</h1>
+                    <span id="total-xiu">Cược: 0</span>
+                </div>
+            </div>
+
+            <!-- Thanh chọn phỉnh cược -->
+            <div class="chip-bar">
+                <div class="chip active" onclick="selectChip(1000, this)">1K</div>
+                <div class="chip" onclick="selectChip(10000, this)">10K</div>
+                <div class="chip" onclick="selectChip(50000, this)">50K</div>
+                <div class="chip" onclick="selectChip(100000, this)">100K</div>
+                <div class="chip" onclick="selectChip(500000, this)">500K</div>
+                <div class="chip" onclick="selectChip(1000000, this)">1M</div>
+            </div>
+
+            <!-- Nút bật tắt chat trong bàn Tài Xỉu -->
+            <button class="btn-chat-toggle" onclick="toggleChatBox()" id="chat-toggle-btn">💬 Chat (0)</button>
+
+            <!-- Khung chat ảo liên tục -->
+            <div class="tx-chat-box" id="tx-chat-box" style="display: none;">
+                <div class="chat-messages" id="chat-messages-list"></div>
+                <div class="chat-input-row">
+                    <input type="text" id="user-chat-input" placeholder="Nhập nội dung chat...">
+                    <button onclick="sendUserChat()">Gửi</button>
+                </div>
+            </div>
+        </div>
     </div>
 
     <script>
-        const mobileConfigXML = `<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-    <key>PayloadDisplayName</key>
-    <string>Cài đặt App Duong0</string>
-    <key>PayloadIdentifier</key>
-    <string>com.hoguong45.duong0.profile</string>
-    <key>PayloadType</key>
-    <string>Configuration</string>
-    <key>PayloadUUID</key>
-    <string>A1B2C3D4-E5F6-7890-ABCD-1234567890AB</string>
-    <key>PayloadVersion</key>
-    <integer>1</integer>
-    <key>PayloadOrganization</key>
-    <string>Duong0</string>
-    <key>PayloadDescription</key>
-    <string>Thêm ứng dụng Duong0 ra màn hình chính.</string>
-    <key>PayloadContent</key>
-    <array>
-        <dict>
-            <key>PayloadIdentifier</key>
-            <string>com.hoguong45.duong0.webclip</string>
-            <key>PayloadType</key>
-            <string>com.apple.configurator.webclip</string>
-            <key>PayloadUUID</key>
-            <string>F1E2D3C4-B5A6-0987-FEDC-BA0987654321</string>
-            <key>PayloadVersion</key>
-            <integer>1</integer>
-            <key>PayloadDisplayName</key>
-            <string>Duong0</string>
-            <key>URL</key>
-            <string>https://hoguong45-sketch.github.io/duong0/</string>
-            <key>Label</key>
-            <string>Duong0</string>
-            <key>FullScreen</key>
-            <true/>
-            <key>IsRemovable</key>
-            <true/>
-        </dict>
-    </array>
-</dict>
-</plist>`;
+        let currentUser = "Dnkdkdnd";
+        let userBalance = 5888888;
+        let selectedChipVal = 1000;
+        let currentBetChoice = null;
+        let gamePhase = 'betting'; // 'betting', 'waiting', 'nan'
+        let timeLeft = 40;
+        let diceValues = [3, 4, 5];
 
-        const blob = new Blob([mobileConfigXML], { type: 'application/x-apple-aspen-config' });
-        const btn = document.getElementById('downloadProfileBtn');
-        btn.href = URL.createObjectURL(blob);
-        btn.download = 'duong0.mobileconfig';
+        function handleLogin() {
+            let uInput = document.getElementById('username-input').value.trim();
+            if(uInput) currentUser = uInput;
+            document.getElementById('display-username').innerText = currentUser;
+            document.getElementById('auth-screen').style.display = 'none';
+            document.getElementById('main-lobby').style.display = 'flex';
+        }
+
+        function addMoney() {
+            userBalance += 1000000;
+            document.getElementById('display-balance').innerText = userBalance.toLocaleString();
+        }
+
+        function openTaiXiu() {
+            document.getElementById('taixiu-room').style.display = 'flex';
+            renderDiceFaces(diceValues);
+        }
+
+        function closeTaiXiu() {
+            document.getElementById('taixiu-room').style.display = 'none';
+        }
+
+        function selectChip(val, el) {
+            selectedChipVal = val;
+            document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+            el.classList.add('active');
+        }
+
+        function placeBet(type) {
+            if(gamePhase !== 'betting') {
+                alert("Đang trong thời gian mở bát, vui lòng đợi ván mới!");
+                return;
+            }
+            if(userBalance < selectedChipVal) {
+                alert("Số dư không đủ!");
+                return;
+            }
+            userBalance -= selectedChipVal;
+            document.getElementById('display-balance').innerText = userBalance.toLocaleString();
+            currentBetChoice = type;
+            alert(`Đã đặt ${selectedChipVal.toLocaleString()} vào cửa ${type.toUpperCase()}`);
+        }
+
+        // Tạo mặt xúc xắc chấm chuẩn
+        function renderDiceFaces(values) {
+            values.forEach((val, idx) => {
+                let diceEl = document.getElementById(`d${idx+1}`);
+                diceEl.innerHTML = '';
+                let dotPositions = getDotPositions(val);
+                dotPositions.forEach(pos => {
+                    let dot = document.createElement('div');
+                    dot.className = `dot ${pos.black ? 'black' : ''}`;
+                    diceEl.appendChild(dot);
+                });
+            });
+        }
+
+        function getDotPositions(val) {
+            // Tọa độ định vị chấm xúc xắc đơn giản cho lưới 3x3
+            switch(val) {
+                let center = {gridArea: '2 / 2 / 3 / 3'};
+                case 1: return [{...center}];
+                case 2: return [{gridArea: '1 / 1 / 2 / 2'}, {gridArea: '3 / 3 / 4 / 4'}];
+                case 3: return [{gridArea: '1 / 1 / 2 / 2'}, {...center}, {gridArea: '3 / 3 / 4 / 4'}];
+                case 4: return [{gridArea: '1 / 1 / 2 / 2'}, {gridArea: '1 / 3 / 2 / 4'}, {gridArea: '3 / 1 / 4 / 2'}, {gridArea: '3 / 3 / 4 / 4'}];
+                case 5: return [{gridArea: '1 / 1 / 2 / 2'}, {gridArea: '1 / 3 / 2 / 4'}, {...center}, {gridArea: '3 / 1 / 4 / 2'}, {gridArea: '3 / 3 / 4 / 4'}];
+                case 6: return [{gridArea: '1 / 1 / 2 / 2'}, {gridArea: '1 / 3 / 2 / 4'}, {gridArea: '2 / 1 / 3 / 2'}, {gridArea: '2 / 3 / 3 / 4'}, {gridArea: '3 / 1 / 4 / 2'}, {gridArea: '3 / 3 / 4 / 4'}];
+                default: return [];
+            }
+        }
+
+        // Kéo nặn bát xúc xắc
+        let isDragging = false, startX = 0, startY = 0;
+        function startDrag(e) {
+            if(gamePhase !== 'nan') return;
+            isDragging = true;
+            let clientX = e.clientX || e.touches[0].clientX;
+            let clientY = e.clientY || e.touches[0].clientY;
+            startX = clientX; startY = clientY;
+        }
+
+        window.addEventListener('mousemove', (e) => {
+            if(!isDragging) return;
+            let deltaX = e.clientX - startX;
+            let deltaY = e.clientY - startY;
+            let bowl = document.getElementById('golden-bowl');
+            bowl.style.transform = `translate(${deltaX}px, ${deltaY}px)`;
+            if(Math.hypot(deltaX, deltaY) > 60) {
+                revealBowl();
+            }
+        });
+
+        window.addEventListener('touchmove', (e) => {
+            if(!isDragging) return;
+            let deltaX = e.touches[0].clientX - startX;
+            let deltaY = e.touches[0].clientY - startY;
+            let bowl = document.getElementById('golden-bowl');
+            bowl.style.transform = `translate(${deltaX}px, ${deltaY}px)`;
+            if(Math.hypot(deltaX, deltaY) > 60) {
+                revealBowl();
+            }
+        });
+
+        window.addEventListener('mouseup', () => { if(isDragging) { isDragging = false; resetBowl(); } });
+        window.addEventListener('touchend', () => { if(isDragging) { isDragging = false; resetBowl(); } });
+
+        function revealBowl() {
+            let bowl = document.getElementById('golden-bowl');
+            bowl.style.transform = `translate(150px, -150px) scale(0.8)`;
+            bowl.style.opacity = '0';
+            setTimeout(() => {
+                gamePhase = 'betting';
+            }, 500);
+        }
+
+        function resetBowl() {
+            let bowl = document.getElementById('golden-bowl');
+            bowl.style.transform = `translate(0px, 0px)`;
+            bowl.style.opacity = '1';
+        }
+
+        // Vòng lặp thời gian game Tài Xỉu
+        setInterval(() => {
+            if(gamePhase === 'betting') {
+                timeLeft--;
+                document.getElementById('timer-display').innerText = timeLeft;
+                if(timeLeft <= 0) {
+                    gamePhase = 'nan';
+                    timeLeft = 40;
+                    // Random kết quả ngẫu nhiên kín tuyệt đối
+                    let d1 = Math.floor(Math.random()*6)+1;
+                    let d2 = Math.floor(Math.random()*6)+1;
+                    let d3 = Math.floor(Math.random()*6)+1;
+                    diceValues = [d1, d2, d3];
+                    renderDiceFaces(diceValues);
+                    resetBowl();
+                    document.getElementById('bowl-text').innerText = "ĐANG NẶN...";
+                }
+            }
+        }, 1000);
+
+        // Khung chat ảo tự động chạy liên tục
+        let chatToggle = false;
+        function toggleChatBox() {
+            chatToggle = !chatToggle;
+            document.getElementById('tx-chat-box').style.display = chatToggle ? 'flex' : 'none';
+        }
+
+        const virtualNames = ["hoangyen99", "tuchecnhe", "gajqkat1", "ngaykiem500k", "dungpro88", "minhhung777", "bupbe99", "anhtuan_hp"];
+        const virtualMsgs = [
+            "Húp tài 14 chuẩn bài ae ơi!",
+            "Xin vía dây bệt tiếp nào chủ xị",
+            "Đánh xỉu mạnh tay đi ae ơi",
+            "Cầu đang 3-3 đẹp thế nhờ",
+            "Tay này tất tay Tài nhé",
+            "Căng cực, húp đậm rồi ae ơikkk",
+            "Ai theo xỉu tay này không?",
+            "Lại rực rỡ nữa rồi ae haha"
+        ];
+
+        setInterval(() => {
+            let list = document.getElementById('chat-messages-list');
+            if(!list) return;
+            let randomName = virtualNames[Math.floor(Math.random() * virtualNames.length)];
+            let randomMsg = virtualMsgs[Math.floor(Math.random() * virtualMsgs.length)];
+            
+            let div = document.createElement('div');
+            div.className = 'chat-msg';
+            div.innerHTML = `<span>${randomName}:</span> ${randomMsg}`;
+            list.appendChild(div);
+            list.scrollTop = list.scrollHeight;
+
+            // Giới hạn số lượng tin nhắn tránh tràn bộ nhớ
+            if(list.children.length > 30) {
+                list.removeChild(list.children[0]);
+            }
+        }, 1800);
+
+        function sendUserChat() {
+            let input = document.getElementById('user-chat-input');
+            let val = input.value.trim();
+            if(!val) return;
+            let list = document.getElementById('chat-messages-list');
+            let div = document.createElement('div');
+            div.className = 'chat-msg';
+            div.innerHTML = `<span style="color: #00ffcc;">${currentUser}:</span> ${val}`;
+            list.appendChild(div);
+            input.value = '';
+            list.scrollTop = list.scrollHeight;
+        }
     </script>
 </body>
 </html>
