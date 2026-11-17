@@ -8,7 +8,7 @@
         * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; }
         body, html { width: 100%; height: 100%; overflow: hidden; background: #120505; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
         
-        /* Màn hình đăng nhập */
+        /* Màn hình Đăng Nhập / Đăng Ký */
         #auth-screen {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background: radial-gradient(circle, #3a1111 0%, #120505 100%);
@@ -16,21 +16,22 @@
         }
         .auth-box {
             background: linear-gradient(135deg, #2b0b0b, #1a0404);
-            border: 2px solid #ffd700; border-radius: 15px; padding: 30px; width: 380px;
+            border: 2px solid #ffd700; border-radius: 15px; padding: 25px; width: 360px;
             box-shadow: 0 0 30px rgba(255, 215, 0, 0.4); text-align: center;
         }
-        .auth-box h2 { color: #ffd700; margin-bottom: 20px; font-size: 26px; text-shadow: 0 2px 4px rgba(0,0,0,0.8); }
+        .auth-tabs { display: flex; margin-bottom: 20px; border-bottom: 1px solid #5a3d1e; }
+        .auth-tab { flex: 1; padding: 10px; color: #aaa; cursor: pointer; font-weight: bold; font-size: 16px; }
+        .auth-tab.active { color: #ffd700; border-bottom: 2px solid #ffd700; }
         .auth-box input {
-            width: 100%; padding: 12px 15px; margin-bottom: 15px; background: #110202;
-            border: 1px solid #8c672b; border-radius: 8px; color: #fff; font-size: 16px; outline: none;
+            width: 100%; padding: 10px 12px; margin-bottom: 12px; background: #110202;
+            border: 1px solid #8c672b; border-radius: 8px; color: #fff; font-size: 14px; outline: none;
         }
         .auth-box input:focus { border-color: #ffd700; box-shadow: 0 0 8px rgba(255,215,0,0.5); }
         .auth-box button {
             width: 100%; padding: 12px; background: linear-gradient(to bottom, #ffd700, #b8860b);
-            border: none; border-radius: 8px; color: #1a0404; font-weight: bold; font-size: 18px;
-            cursor: pointer; text-shadow: 0 1px 0 rgba(255,255,255,0.4); box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+            border: none; border-radius: 8px; color: #1a0404; font-weight: bold; font-size: 16px;
+            cursor: pointer; text-shadow: 0 1px 0 rgba(255,255,255,0.4); box-shadow: 0 4px 10px rgba(0,0,0,0.5); margin-top: 5px;
         }
-        .auth-box button:active { transform: scale(0.98); }
 
         /* Sảnh chính */
         #main-lobby {
@@ -138,7 +139,6 @@
             box-shadow: inset 0 0 10px rgba(0,0,0,0.3), 0 5px 15px rgba(0,0,0,0.8);
             position: absolute; z-index: 2;
         }
-        .dice-dice-group { display: flex; gap: 8px; }
         .dice {
             width: 32px; height: 32px; background: #fff; border-radius: 6px; border: 1px solid #aaa;
             box-shadow: inset 0 0 5px rgba(0,0,0,0.3); display: grid; grid-template: repeat(3, 1fr) / repeat(3, 1fr); padding: 4px;
@@ -191,10 +191,16 @@
     <!-- Màn hình Đăng Nhập / Đăng Ký -->
     <div id="auth-screen">
         <div class="auth-box">
-            <h2>SUN.WIN ĐĂNG NHẬP</h2>
-            <input type="text" id="username-input" placeholder="Nhập tên hiển thị (VD: Dnkdkdnd)..." autocomplete="off">
-            <input type="password" id="password-input" placeholder="Mật khẩu..." autocomplete="off">
-            <button onclick="handleLogin()">VÀO CỔNG GAME</button>
+            <div class="auth-tabs">
+                <div class="auth-tab active" onclick="switchAuthTab('login')">ĐĂNG NHẬP</div>
+                <div class="auth-tab" onclick="switchAuthTab('register')">ĐĂNG KÝ</div>
+            </div>
+            <div id="auth-form-content">
+                <input type="text" id="username-input" placeholder="Tên Đăng Nhập" autocomplete="off">
+                <input type="password" id="password-input" placeholder="Mật Khẩu" autocomplete="off">
+                <input type="text" id="display-name-input" placeholder="Tên Hiển Thị" autocomplete="off">
+                <button onclick="handleAuthSubmit()">ĐĂNG NHẬP</button>
+            </div>
         </div>
     </div>
 
@@ -325,16 +331,41 @@
     </div>
 
     <script>
+        let isRegisterMode = false;
         let currentUser = "Dnkdkdnd";
         let userBalance = 5888888;
         let selectedChipVal = 1000;
         let currentBetChoice = null;
-        let gamePhase = 'betting'; // 'betting', 'waiting', 'nan'
+        let gamePhase = 'betting';
         let timeLeft = 40;
         let diceValues = [3, 4, 5];
 
-        function handleLogin() {
-            let uInput = document.getElementById('username-input').value.trim();
+        function switchAuthTab(mode) {
+            isRegisterMode = (mode === 'register');
+            document.querySelectorAll('.auth-tab').forEach(t => t.classList.remove('active'));
+            event.target.classList.add('active');
+            
+            let container = document.getElementById('auth-form-content');
+            if(isRegisterMode) {
+                container.innerHTML = `
+                    <input type="text" id="username-input" placeholder="* Tên Đăng Nhập" autocomplete="off">
+                    <input type="password" id="password-input" placeholder="* Mật Khẩu" autocomplete="off">
+                    <input type="password" id="confirm-pass-input" placeholder="* Xác Nhận Mật Khẩu" autocomplete="off">
+                    <input type="text" id="display-name-input" placeholder="Tên Hiển Thị" autocomplete="off">
+                    <button onclick="handleAuthSubmit()">ĐĂNG KÝ</button>
+                `;
+            } else {
+                container.innerHTML = `
+                    <input type="text" id="username-input" placeholder="Tên Đăng Nhập" autocomplete="off">
+                    <input type="password" id="password-input" placeholder="Mật Khẩu" autocomplete="off">
+                    <input type="text" id="display-name-input" placeholder="Tên Hiển Thị" autocomplete="off">
+                    <button onclick="handleAuthSubmit()">ĐĂNG NHẬP</button>
+                `;
+            }
+        }
+
+        function handleAuthSubmit() {
+            let uInput = document.getElementById('display-name-input').value.trim() || document.getElementById('username-input').value.trim();
             if(uInput) currentUser = uInput;
             document.getElementById('display-username').innerText = currentUser;
             document.getElementById('auth-screen').style.display = 'none';
@@ -376,7 +407,6 @@
             alert(`Đã đặt ${selectedChipVal.toLocaleString()} vào cửa ${type.toUpperCase()}`);
         }
 
-        // Tạo mặt xúc xắc chấm chuẩn
         function renderDiceFaces(values) {
             values.forEach((val, idx) => {
                 let diceEl = document.getElementById(`d${idx+1}`);
@@ -391,9 +421,8 @@
         }
 
         function getDotPositions(val) {
-            // Tọa độ định vị chấm xúc xắc đơn giản cho lưới 3x3
+            let center = {gridArea: '2 / 2 / 3 / 3'};
             switch(val) {
-                let center = {gridArea: '2 / 2 / 3 / 3'};
                 case 1: return [{...center}];
                 case 2: return [{gridArea: '1 / 1 / 2 / 2'}, {gridArea: '3 / 3 / 4 / 4'}];
                 case 3: return [{gridArea: '1 / 1 / 2 / 2'}, {...center}, {gridArea: '3 / 3 / 4 / 4'}];
@@ -404,7 +433,6 @@
             }
         }
 
-        // Kéo nặn bát xúc xắc
         let isDragging = false, startX = 0, startY = 0;
         function startDrag(e) {
             if(gamePhase !== 'nan') return;
@@ -420,9 +448,7 @@
             let deltaY = e.clientY - startY;
             let bowl = document.getElementById('golden-bowl');
             bowl.style.transform = `translate(${deltaX}px, ${deltaY}px)`;
-            if(Math.hypot(deltaX, deltaY) > 60) {
-                revealBowl();
-            }
+            if(Math.hypot(deltaX, deltaY) > 60) revealBowl();
         });
 
         window.addEventListener('touchmove', (e) => {
@@ -431,9 +457,7 @@
             let deltaY = e.touches[0].clientY - startY;
             let bowl = document.getElementById('golden-bowl');
             bowl.style.transform = `translate(${deltaX}px, ${deltaY}px)`;
-            if(Math.hypot(deltaX, deltaY) > 60) {
-                revealBowl();
-            }
+            if(Math.hypot(deltaX, deltaY) > 60) revealBowl();
         });
 
         window.addEventListener('mouseup', () => { if(isDragging) { isDragging = false; resetBowl(); } });
@@ -443,9 +467,7 @@
             let bowl = document.getElementById('golden-bowl');
             bowl.style.transform = `translate(150px, -150px) scale(0.8)`;
             bowl.style.opacity = '0';
-            setTimeout(() => {
-                gamePhase = 'betting';
-            }, 500);
+            setTimeout(() => { gamePhase = 'betting'; }, 500);
         }
 
         function resetBowl() {
@@ -454,7 +476,6 @@
             bowl.style.opacity = '1';
         }
 
-        // Vòng lặp thời gian game Tài Xỉu
         setInterval(() => {
             if(gamePhase === 'betting') {
                 timeLeft--;
@@ -462,7 +483,6 @@
                 if(timeLeft <= 0) {
                     gamePhase = 'nan';
                     timeLeft = 40;
-                    // Random kết quả ngẫu nhiên kín tuyệt đối
                     let d1 = Math.floor(Math.random()*6)+1;
                     let d2 = Math.floor(Math.random()*6)+1;
                     let d3 = Math.floor(Math.random()*6)+1;
@@ -474,7 +494,6 @@
             }
         }, 1000);
 
-        // Khung chat ảo tự động chạy liên tục
         let chatToggle = false;
         function toggleChatBox() {
             chatToggle = !chatToggle;
@@ -504,11 +523,7 @@
             div.innerHTML = `<span>${randomName}:</span> ${randomMsg}`;
             list.appendChild(div);
             list.scrollTop = list.scrollHeight;
-
-            // Giới hạn số lượng tin nhắn tránh tràn bộ nhớ
-            if(list.children.length > 30) {
-                list.removeChild(list.children[0]);
-            }
+            if(list.children.length > 30) list.removeChild(list.children[0]);
         }, 1800);
 
         function sendUserChat() {
