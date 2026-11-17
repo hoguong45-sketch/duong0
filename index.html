@@ -6,63 +6,81 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="Duong0">
-    <title>Duong0 App</title>
+    <title>Duong0 - Chào mừng</title>
     <style>
         * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
         body {
             margin: 0;
-            padding: env(safe-area-inset-top) 20px env(safe-area-inset-bottom) 20px;
-            background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%);
+            padding: 20px;
+            background: #0f172a;
             color: white;
             font-family: -apple-system, BlinkMacSystemFont, sans-serif;
             display: flex;
             flex-direction: column;
             align-items: center;
-            justify-content: center;
             min-height: 100vh;
+        }
+        .container {
+            width: 100%;
+            max-width: 480px;
             text-align: center;
         }
-        .card {
+        h1 { color: #818cf8; font-size: 24px; margin-bottom: 8px; }
+        p { color: #94a3b8; font-size: 14px; margin-bottom: 20px; }
+        
+        /* Bảng thời khóa biểu phong cách hiện đại */
+        .schedule-card {
             background: rgba(255, 255, 255, 0.05);
-            backdrop-filter: blur(12px);
-            -webkit-backdrop-filter: blur(12px);
             border: 1px solid rgba(255, 255, 255, 0.1);
-            padding: 30px 20px;
-            border-radius: 24px;
-            width: 100%;
-            max-width: 360px;
-            box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+            border-radius: 16px;
+            padding: 16px;
+            margin-bottom: 20px;
+            text-align: left;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
         }
-        h2 { margin-top: 0; color: #818cf8; }
-        p { color: #94a3b8; font-size: 14px; margin-bottom: 24px; }
+        .schedule-card h3 { margin: 0 0 10px 0; color: #38bdf8; font-size: 16px; text-align: center; }
+        .row { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,0.05); font-size: 13px; }
+        .row span:first-child { font-weight: bold; color: #cbd5e1; width: 60px; }
+        .row span:last-child { color: #e2e8f0; text-align: right; }
+
         .btn-install {
             display: block;
-            background: #4f46e5;
+            background: #2563eb;
             color: white;
             text-decoration: none;
-            padding: 14px 20px;
+            padding: 14px;
             border-radius: 14px;
             font-size: 16px;
-            font-weight: 600;
-            box-shadow: 0 4px 12px rgba(79, 70, 229, 0.4);
-            transition: opacity 0.2s;
+            font-weight: bold;
+            box-shadow: 0 4px 12px rgba(37, 99, 235, 0.4);
+            margin-bottom: 30px;
         }
         .btn-install:active { opacity: 0.8; }
     </style>
 </head>
 <body>
-    <div class="card">
-        <h2>Duong0 App</h2>
-        <p>Bấm nút bên dưới để cài đặt ứng dụng này trực tiếp ra màn hình chính iPhone của bạn.</p>
-        
-        <!-- Nút tải file cấu hình tự động -->
+    <div class="container">
+        <h1>👋 Chào mừng đến app Duong0</h1>
+        <p>Ứng dụng quản lý thời khóa biểu và cá nhân của bạn.</p>
+
+        <!-- Khung hiển thị thông tin thời khóa biểu từ ảnh -->
+        <div class="schedule-card">
+            <h3>📅 Lịch học lớp 12A6 (Đ.Trang)</h3>
+            <div class="row"><span>Thứ 2</span><span>Toán, Công nghệ, HĐTN, Địa</span></div>
+            <div class="row"><span>Thứ 3</span><span>Văn, Văn, Toán, Ngữ, KTPL</span></div>
+            <div class="row"><span>Thứ 4</span><span>Văn, Toán, Ngữ, KTPL, HĐTN</span></div>
+            <div class="row"><span>Thứ 5</span><span>TD, Địa, Văn, Ngữ, QP</span></div>
+            <div class="row"><span>Thứ 6</span><span>TD, Địa, Sử, Toán, Công nghệ</span></div>
+            <div class="row"><span>Thứ 7</span><span>Hoá, Hoá, Sử, Sinh hoạt</span></div>
+        </div>
+
+        <!-- Nút tải cấu hình cài đặt app ra màn hình chính -->
         <a id="downloadProfileBtn" href="#" class="btn-install">
-            📲 Cài đặt App ngay
+            📲 Cài đặt App ra màn hình chính
         </a>
     </div>
 
     <script>
-        // Nội dung cấu hình profile iOS chuẩn
         const mobileConfigXML = `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
@@ -107,7 +125,6 @@
 </dict>
 </plist>`;
 
-        // Tự động đóng gói thành file cấu hình chuẩn khi trang web load xong
         const blob = new Blob([mobileConfigXML], { type: 'application/x-apple-aspen-config' });
         const btn = document.getElementById('downloadProfileBtn');
         btn.href = URL.createObjectURL(blob);
