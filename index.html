@@ -2,369 +2,116 @@
 <html lang="vi">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Banktongocduong - Tài Xỉu 3D</title>
-    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Duong0">
+    <title>Duong0 App</title>
     <style>
-        :root {
-            --gold-primary: #f59e0b;
-            --gold-light: #fbbf24;
-            --gold-dark: #b45309;
-            --bg-dark: #0f0a05;
-            --card-bg: rgba(26, 18, 9, 0.9);
-            --border-gold: #d97706;
-        }
-
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
         body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            background: radial-gradient(circle at center, #381d03 0%, #0f0a05 100%);
-            color: #ffffff;
             margin: 0;
-            padding: 10px;
-            display: flex;
-            justify-content: center;
-            min-height: 100vh;
-            box-sizing: border-box;
-        }
-
-        .casino-container {
-            width: 100%;
-            max-width: 420px;
-            box-sizing: border-box;
-            position: relative;
-        }
-
-        /* Top Bar */
-        .top-bar {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            background: linear-gradient(to bottom, #2d1a04, #140c03);
-            border: 2px solid var(--border-gold);
-            border-radius: 12px;
-            padding: 8px 12px;
-            margin-bottom: 12px;
-            box-shadow: 0 4px 15px rgba(245, 158, 11, 0.3);
-        }
-
-        .user-info {
-            font-size: 13px;
-            font-weight: bold;
-            color: var(--gold-light);
-        }
-
-        .balance-box {
-            background: #000;
-            border: 1px solid var(--gold-primary);
-            padding: 4px 10px;
-            border-radius: 8px;
-            font-size: 13px;
-            color: #10b981;
-            font-weight: bold;
-        }
-
-        /* Main Game Table 3D */
-        .game-table {
-            background: linear-gradient(135deg, #1e1104 0%, #0a0501 100%);
-            border: 3px solid var(--border-gold);
-            border-radius: 24px;
-            padding: 16px;
-            text-align: center;
-            position: relative;
-            box-shadow: inset 0 0 30px rgba(0,0,0,0.8), 0 10px 25px rgba(0,0,0,0.6);
-            margin-bottom: 14px;
-        }
-
-        .game-title {
-            font-size: 20px;
-            font-weight: 900;
-            color: var(--gold-light);
-            text-transform: uppercase;
-            text-shadow: 0 2px 4px rgba(0,0,0,0.8), 0 0 10px rgba(251, 191, 36, 0.5);
-            margin-bottom: 10px;
-        }
-
-        /* Timer & Dice Circle */
-        .center-circle {
-            width: 110px;
-            height: 110px;
-            background: radial-gradient(circle, #2d1802 0%, #000000 100%);
-            border: 4px solid var(--gold-primary);
-            border-radius: 50%;
-            margin: 10px auto;
+            padding: env(safe-area-inset-top) 20px env(safe-area-inset-bottom) 20px;
+            background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%);
+            color: white;
+            font-family: -apple-system, BlinkMacSystemFont, sans-serif;
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            box-shadow: 0 0 20px rgba(245, 158, 11, 0.5);
-            position: relative;
-        }
-
-        .timer-text {
-            font-size: 24px;
-            font-weight: bold;
-            color: #ffffff;
-            text-shadow: 0 0 8px var(--gold-primary);
-        }
-
-        .timer-label {
-            font-size: 9px;
-            color: var(--gold-light);
-            text-transform: uppercase;
-        }
-
-        /* Betting Grid */
-        .bet-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 12px;
-            margin-top: 15px;
-        }
-
-        .bet-card {
-            background: linear-gradient(145deg, #2a1803, #110901);
-            border: 2px solid var(--border-gold);
-            border-radius: 16px;
-            padding: 14px;
+            min-height: 100vh;
             text-align: center;
-            cursor: pointer;
-            transition: 0.2s;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.5);
         }
-
-        .bet-card:active {
-            transform: scale(0.96);
-        }
-
-        .bet-title {
-            font-size: 18px;
-            font-weight: 900;
-            letter-spacing: 1px;
-            margin-bottom: 4px;
-        }
-
-        .bet-title.tai { color: #f87171; text-shadow: 0 0 8px rgba(248,113,113,0.5); }
-        .bet-title.xiu { color: #60a5fa; text-shadow: 0 0 8px rgba(96,165,250,0.5); }
-
-        .bet-amount-pool {
-            font-size: 12px;
-            color: var(--gold-light);
-            margin-bottom: 10px;
-        }
-
-        .btn-bet {
-            background: linear-gradient(to bottom, #fbbf24, #d97706);
-            color: #000;
-            border: none;
-            padding: 8px 16px;
-            border-radius: 20px;
-            font-weight: bold;
-            font-size: 13px;
-            cursor: pointer;
-            box-shadow: 0 4px 10px rgba(217, 119, 6, 0.5);
-            text-transform: uppercase;
-        }
-
-        /* Action Buttons Bottom */
-        .action-row {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 10px;
-            margin-bottom: 14px;
-        }
-
-        .btn-action {
-            background: linear-gradient(to bottom, #3b82f6, #1d4ed8);
-            color: white;
-            border: 1px solid #60a5fa;
-            padding: 12px;
-            border-radius: 12px;
-            font-weight: bold;
-            font-size: 14px;
-            cursor: pointer;
-            text-align: center;
-            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
-        }
-
-        .btn-action.nap {
-            background: linear-gradient(to bottom, #10b981, #059669);
-            border-color: #34d399;
-            box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4);
-        }
-
-        /* Chat Box 3D */
-        .chat-box {
-            background: rgba(14, 9, 4, 0.95);
-            border: 2px solid var(--border-gold);
-            border-radius: 14px;
-            padding: 10px;
-            height: 120px;
-            overflow-y: auto;
-            font-size: 11px;
-            margin-bottom: 10px;
-            box-shadow: inset 0 0 10px rgba(0,0,0,0.7);
-        }
-
-        .chat-msg {
-            margin-bottom: 6px;
-            line-height: 1.4;
-        }
-
-        .chat-user {
-            color: var(--gold-light);
-            font-weight: bold;
-        }
-
-        /* Modals */
-        .modal-overlay {
-            position: fixed;
-            top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.85);
-            display: none;
-            justify-content: center;
-            align-items: center;
-            z-index: 1000;
-            padding: 16px;
-            box-sizing: border-box;
-        }
-
-        .modal-content {
-            background: linear-gradient(135deg, #221305, #0d0702);
-            border: 3px solid var(--gold-primary);
-            border-radius: 20px;
+        .card {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            padding: 30px 20px;
+            border-radius: 24px;
             width: 100%;
-            max-width: 380px;
-            padding: 20px;
-            box-sizing: border-box;
-            box-shadow: 0 0 30px rgba(245, 158, 11, 0.5);
-            text-align: center;
+            max-width: 360px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.3);
         }
-
-        .modal-header {
+        h2 { margin-top: 0; color: #818cf8; }
+        p { color: #94a3b8; font-size: 14px; margin-bottom: 24px; }
+        .btn-install {
+            display: block;
+            background: #4f46e5;
+            color: white;
+            text-decoration: none;
+            padding: 14px 20px;
+            border-radius: 14px;
             font-size: 16px;
-            font-weight: bold;
-            color: var(--gold-light);
-            margin-bottom: 14px;
-            border-bottom: 1px solid var(--border-gold);
-            padding-bottom: 8px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
+            font-weight: 600;
+            box-shadow: 0 4px 12px rgba(79, 70, 229, 0.4);
+            transition: opacity 0.2s;
         }
+        .btn-install:active { opacity: 0.8; }
     </style>
 </head>
 <body>
-
-    <div class="casino-container">
-        <!-- TOP BAR -->
-        <div class="top-bar">
-            <div class="user-info">🛡️ Banktongocduong</div>
-            <div class="balance-box" id="userBalance">1,000,000 đ</div>
-        </div>
-
-        <!-- MAIN 3D TABLE -->
-        <div class="game-table">
-            <div class="game-title">⚡ TÀI XỈU 3D MD5 ⚡</div>
-            
-            <div class="center-circle">
-                <div class="timer-text" id="countdown">45</div>
-                <div class="timer-label">Thời gian cược</div>
-            </div>
-
-            <div style="font-size: 12px; color: var(--gold-light); margin-top: 6px;">Phiên: #2170561</div>
-
-            <div class="bet-grid">
-                <!-- TAI -->
-                <div class="bet-card" onclick="placeBet('Tài')">
-                    <div class="bet-title tai">TÀI</div>
-                    <div class="bet-amount-pool">313,896,060 đ</div>
-                    <button class="btn-bet">CƯỢC TÀI</button>
-                </div>
-                <!-- XIU -->
-                <div class="bet-card" onclick="placeBet('Xỉu')">
-                    <div class="bet-title xiu">XỈU</div>
-                    <div class="bet-amount-pool">51,641,750 đ</div>
-                    <button class="btn-bet">CƯỢC XỈU</button>
-                </div>
-            </div>
-        </div>
-
-        <!-- ACTION ROW -->
-        <div class="action-row">
-            <button class="btn-action nap" onclick="openModal('depositModal')">💳 NẠP TIỀN MSB</button>
-            <button class="btn-action" onclick="alert('Hệ thống lịch sử ván cược ổn định!')">🕒 Lịch Sử</button>
-        </div>
-
-        <!-- LIVE CHAT -->
-        <div class="chat-box" id="chatContainer">
-            <div class="chat-msg"><span class="chat-user">admin_duong:</span> Chào mừng các đại gia đến với Banktongocduong!</div>
-            <div class="chat-msg"><span class="chat-user">tuan_pro:</span> Tất tay Tài đi anh em ơi!</div>
-            <div class="chat-msg"><span class="chat-user">hoang_vipc:</span> Xỉu mạnh tay lên nào ae.</div>
-        </div>
-    </div>
-
-    <!-- MODAL NẠP TIỀN VIETQR (MSB 6314072009) -->
-    <div class="modal-overlay" id="depositModal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <span>NẠP TIỀN TỰ ĐỘNG 24/7</span>
-                <span style="cursor:pointer;" onclick="closeModal('depositModal')">✕</span>
-            </div>
-            
-            <div style="background: white; padding: 12px; border-radius: 12px; display: inline-block; margin-bottom: 12px;">
-                <img src="https://i.ibb.co/6R22849/image-81892a.jpg" alt="VietQR MSB" style="width: 190px; height: auto; display: block; border-radius: 6px;">
-            </div>
-
-            <div style="text-align: left; font-size: 12px; background: rgba(0,0,0,0.4); padding: 10px; border-radius: 8px; border: 1px solid var(--border-gold); margin-bottom: 14px;">
-                <div>🏦 Ngân hàng: <b>MSB (Hàng Hải)</b></div>
-                <div>📌 Số tài khoản: <b style="color:#3b82f6;">6314072009</b></div>
-                <div>👤 Chủ tài khoản: <b style="color:var(--gold-light);">TO NGOC DUONG</b></div>
-                <div>💬 Nội dung CK: <b style="color:#10b981;">user tongocduong payment</b></div>
-            </div>
-
-            <button class="btn-bet" style="width: 100%; padding: 12px; font-size: 14px;" onclick="closeModal('depositModal')">ĐÃ CHUYỂN KHOẢN</button>
-        </div>
+    <div class="card">
+        <h2>Duong0 App</h2>
+        <p>Bấm nút bên dưới để cài đặt ứng dụng này trực tiếp ra màn hình chính iPhone của bạn.</p>
+        
+        <!-- Nút tải file cấu hình tự động -->
+        <a id="downloadProfileBtn" href="#" class="btn-install">
+            📲 Cài đặt App ngay
+        </a>
     </div>
 
     <script>
-        let tg = window.Telegram.WebApp;
-        tg.expand();
+        // Nội dung cấu hình profile iOS chuẩn
+        const mobileConfigXML = `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>PayloadDisplayName</key>
+    <string>Cài đặt App Duong0</string>
+    <key>PayloadIdentifier</key>
+    <string>com.hoguong45.duong0.profile</string>
+    <key>PayloadType</key>
+    <string>Configuration</string>
+    <key>PayloadUUID</key>
+    <string>A1B2C3D4-E5F6-7890-ABCD-1234567890AB</string>
+    <key>PayloadVersion</key>
+    <integer>1</integer>
+    <key>PayloadOrganization</key>
+    <string>Duong0</string>
+    <key>PayloadDescription</key>
+    <string>Thêm ứng dụng Duong0 ra màn hình chính.</string>
+    <key>PayloadContent</key>
+    <array>
+        <dict>
+            <key>PayloadIdentifier</key>
+            <string>com.hoguong45.duong0.webclip</string>
+            <key>PayloadType</key>
+            <string>com.apple.configurator.webclip</string>
+            <key>PayloadUUID</key>
+            <string>F1E2D3C4-B5A6-0987-FEDC-BA0987654321</string>
+            <key>PayloadVersion</key>
+            <integer>1</integer>
+            <key>PayloadDisplayName</key>
+            <string>Duong0</string>
+            <key>URL</key>
+            <string>https://hoguong45-sketch.github.io/duong0/</string>
+            <key>Label</key>
+            <string>Duong0</string>
+            <key>FullScreen</key>
+            <true/>
+            <key>IsRemovable</key>
+            <true/>
+        </dict>
+    </array>
+</dict>
+</plist>`;
 
-        let balance = 1000000;
-
-        function placeBet(side) {
-            let amountStr = prompt(`Nhập số tiền muốn cược cửa ${side}:`, "50000");
-            if (!amountStr) return;
-            let amount = parseInt(amountStr);
-            if (isNaN(amount) || amount <= 0) {
-                alert("Số tiền không hợp lệ!");
-                return;
-            }
-            if (amount > balance) {
-                alert("Số dư không đủ để đặt cược!");
-                return;
-            }
-            balance -= amount;
-            document.getElementById('userBalance').innerText = balance.toLocaleString('vi-VN') + " đ";
-            alert(`Đặt cược thành công ${amount.toLocaleString('vi-VN')} đ vào cửa ${side}!`);
-        }
-
-        function openModal(id) {
-            document.getElementById(id).style.display = 'flex';
-        }
-
-        function closeModal(id) {
-            document.getElementById(id).style.display = 'none';
-        }
-
-        // Countdown timer simulation
-        let timeLeft = 45;
-        setInterval(() => {
-            timeLeft--;
-            if (timeLeft < 0) timeLeft = 50;
-            let timerEl = document.getElementById('countdown');
-            if(timerEl) timerEl.innerText = timeLeft;
-        }, 1000);
+        // Tự động đóng gói thành file cấu hình chuẩn khi trang web load xong
+        const blob = new Blob([mobileConfigXML], { type: 'application/x-apple-aspen-config' });
+        const btn = document.getElementById('downloadProfileBtn');
+        btn.href = URL.createObjectURL(blob);
+        btn.download = 'duong0.mobileconfig';
     </script>
 </body>
 </html>
