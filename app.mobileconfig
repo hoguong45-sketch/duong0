@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>PayloadDisplayName</key>
+    <string>Cài đặt App Duong0</string>
+    <key>PayloadIdentifier</key>
+    <string>com.hoguong45.duong0.profile</string>
+    <key>PayloadType</key>
+    <string>Configuration</string>
+    <key>PayloadUUID</key>
+    <string>A1B2C3D4-E5F6-7890-ABCD-1234567890AB</string>
+    <key>PayloadVersion</key>
+    <integer>1</integer>
+    <key>PayloadOrganization</key>
+    <string>Duong0</string>
+    <key>PayloadDescription</key>
+    <string>Cài đặt biểu tượng ứng dụng Duong0 lên màn hình chính.</string>
+
+    <key>PayloadContent</key>
+    <array>
+        <dict>
+            <key>PayloadIdentifier</key>
+            <string>com.hoguong45.duong0.webclip</string>
+            <key>PayloadType</key>
+            <string>com.apple.configurator.webclip</string>
+            <key>PayloadUUID</key>
+            <string>F1E2D3C4-B5A6-0987-FEDC-BA0987654321</string>
+            <key>PayloadVersion</key>
+            <integer>1</integer>
+            <key>PayloadDisplayName</key>
+            <string>Duong0 App</string>
+
+            <!-- ĐÃ GẮN SẴN LINK GITHUB PAGES CỦA BẠN -->
+            <key>URL</key>
+            <string>https://hoguong45-sketch.github.io/duong0/</string>
+            
+            <!-- TÊN HIỂN THỊ DƯỚI ICON TRÊN IPHONE -->
+            <key>Label</key>
+            <string>Duong0</string>
+
+            <!-- CHẠY TOÀN MÀN HÌNH KHÔNG LỘ THANH SAFARI -->
+            <key>FullScreen</key>
+            <true/>
+
+            <key>IsRemovable</key>
+            <true/>
+        </dict>
+    </array>
+</dict>
+</plist>
