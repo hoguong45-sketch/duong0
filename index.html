@@ -196,10 +196,10 @@
                 <div class="auth-tab" onclick="switchAuthTab('register')">ĐĂNG KÝ</div>
             </div>
             <div id="auth-form-content">
-                <input type="text" id="username-input" placeholder="Tên Đăng Nhập" autocomplete="off">
-                <input type="password" id="password-input" placeholder="Mật Khẩu" autocomplete="off">
-                <input type="text" id="display-name-input" placeholder="Tên Hiển Thị" autocomplete="off">
-                <button onclick="handleAuthSubmit()">ĐĂNG NHẬP</button>
+                <input type="text" id="username-input" placeholder="Tên Đăng Nhập" value="Fghh" autocomplete="off">
+                <input type="password" id="password-input" placeholder="Mật Khẩu" value="12345" autocomplete="off">
+                <input type="text" id="display-name-input" placeholder="Tên Hiển Thị" value="Fghh" autocomplete="off">
+                <button onclick="handleAuthSubmit()">VÀO CỔNG GAME</button>
             </div>
         </div>
     </div>
@@ -211,7 +211,7 @@
                 <div class="user-info-box">
                     <img src="https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?q=80&w=150" class="user-avatar" id="display-avatar">
                     <div class="user-details">
-                        <div class="user-name" id="display-username">Dnkdkdnd</div>
+                        <div class="user-name" id="display-username">Fghh</div>
                         <div class="user-balance-box">
                             <span class="balance-icon">$</span>
                             <span class="balance-text" id="display-balance">5,888,888</span>
@@ -332,7 +332,7 @@
 
     <script>
         let isRegisterMode = false;
-        let currentUser = "Dnkdkdnd";
+        let currentUser = "Fghh";
         let userBalance = 5888888;
         let selectedChipVal = 1000;
         let currentBetChoice = null;
@@ -359,14 +359,20 @@
                     <input type="text" id="username-input" placeholder="Tên Đăng Nhập" autocomplete="off">
                     <input type="password" id="password-input" placeholder="Mật Khẩu" autocomplete="off">
                     <input type="text" id="display-name-input" placeholder="Tên Hiển Thị" autocomplete="off">
-                    <button onclick="handleAuthSubmit()">ĐĂNG NHẬP</button>
+                    <button onclick="handleAuthSubmit()">VÀO CỔNG GAME</button>
                 `;
             }
         }
 
         function handleAuthSubmit() {
-            let uInput = document.getElementById('display-name-input').value.trim() || document.getElementById('username-input').value.trim();
-            if(uInput) currentUser = uInput;
+            let uInput = document.getElementById('display-name-input');
+            let uVal = uInput ? uInput.value.trim() : "";
+            if(!uVal) {
+                let unInput = document.getElementById('username-input');
+                uVal = unInput ? unInput.value.trim() : "";
+            }
+            if(uVal) currentUser = uVal;
+            
             document.getElementById('display-username').innerText = currentUser;
             document.getElementById('auth-screen').style.display = 'none';
             document.getElementById('main-lobby').style.display = 'flex';
@@ -479,7 +485,8 @@
         setInterval(() => {
             if(gamePhase === 'betting') {
                 timeLeft--;
-                document.getElementById('timer-display').innerText = timeLeft;
+                let timerEl = document.getElementById('timer-display');
+                if(timerEl) timerEl.innerText = timeLeft;
                 if(timeLeft <= 0) {
                     gamePhase = 'nan';
                     timeLeft = 40;
@@ -489,7 +496,8 @@
                     diceValues = [d1, d2, d3];
                     renderDiceFaces(diceValues);
                     resetBowl();
-                    document.getElementById('bowl-text').innerText = "ĐANG NẶN...";
+                    let bowlText = document.getElementById('bowl-text');
+                    if(bowlText) bowlText.innerText = "ĐANG NẶN...";
                 }
             }
         }, 1000);
@@ -497,7 +505,8 @@
         let chatToggle = false;
         function toggleChatBox() {
             chatToggle = !chatToggle;
-            document.getElementById('tx-chat-box').style.display = chatToggle ? 'flex' : 'none';
+            let chatBox = document.getElementById('tx-chat-box');
+            if(chatBox) chatBox.style.display = chatToggle ? 'flex' : 'none';
         }
 
         const virtualNames = ["hoangyen99", "tuchecnhe", "gajqkat1", "ngaykiem500k", "dungpro88", "minhhung777", "bupbe99", "anhtuan_hp"];
@@ -528,6 +537,7 @@
 
         function sendUserChat() {
             let input = document.getElementById('user-chat-input');
+            if(!input) return;
             let val = input.value.trim();
             if(!val) return;
             let list = document.getElementById('chat-messages-list');
